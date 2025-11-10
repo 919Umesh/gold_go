@@ -1,8 +1,6 @@
 [build]
 builder = "nixpacks"
-
-[build.args]
-GO_VERSION = "1.20"
+buildCommand = "go build -o gold-app ./cmd"
 
 [deploy]
 startCommand = "./gold-app"
