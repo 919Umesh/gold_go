@@ -31,7 +31,6 @@ func NewService(repo Repository) Service {
 func (s *service) GetWallet(userID uint) (*models.Wallet, error) {
 	wallet, err := s.repo.GetByUserID(userID)
 	if err != nil {
-		// Create wallet if not exists
 		wallet = &models.Wallet{UserID: userID}
 		if err := s.repo.Create(wallet); err != nil {
 			return nil, fmt.Errorf("failed to create wallet: %w", err)

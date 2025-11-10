@@ -38,7 +38,6 @@ func NewService(db *gorm.DB, cfg *config.Config) *Service {
 		priceCache: &PriceCache{},
 	}
 
-	// Use mock fetcher for development
 	service.fetcher = &MockPriceFetcher{}
 
 	return service
@@ -62,7 +61,6 @@ func (s *Service) StartPriceUpdater(ctx context.Context) {
 			s.priceCache.time = time.Now()
 			s.priceCache.mu.Unlock()
 
-			// Save to database
 			goldPrice := &models.GoldPrice{
 				PricePerGram: price,
 				Source:       "provider",
@@ -101,17 +99,14 @@ func (s *Service) GetPriceHistory(days int) ([]models.GoldPrice, error) {
 	return prices, err
 }
 
-// MockPriceFetcher for development
 type MockPriceFetcher struct{}
 
 func (m *MockPriceFetcher) FetchPrice(ctx context.Context) (float64, error) {
-	// Simulate API call with random price variation
 	basePrice := 6500.0
 	variation := (float64(time.Now().Unix()%100) - 50) / 100.0
 	return basePrice + (basePrice * variation), nil
 }
 
-// Real price fetcher (commented for now)
 type RealPriceFetcher struct {
 	client *http.Client
 	url    string
