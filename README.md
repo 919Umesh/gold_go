@@ -277,38 +277,38 @@ curl -X POST http://localhost:8080/api/v1/wallet/buy \
 ```
 gold_investment_backend/
 ├── cmd/
-│   └── main.go                 # Application entry point
+│   └── main.go                 
 ├── config/
-│   ├── config.go              # Configuration management
-│   └── database.go            # Database connection and migration
+│   ├── config.go             
+│   └── database.go            
 ├── internal/
-│   ├── auth/                  # Authentication module
+│   ├── auth/                  
 │   │   ├── handler.go
 │   │   ├── repository.go
 │   │   └── service.go
-│   ├── wallet/                # Wallet management module
+│   ├── wallet/                
 │   │   ├── handler.go
 │   │   ├── repository.go
 │   │   └── service.go
-│   ├── gold/                  # Gold price management
+│   ├── gold/                  
 │   │   ├── handler.go
 │   │   └── service.go
-│   └── transaction/           # Transaction processing
+│   └── transaction/           
 ├── pkg/
-│   ├── middleware/            # HTTP middleware
+│   ├── middleware/            
 │   │   └── auth.go
-│   ├── utils/                 # Utility functions
+│   ├── utils/                 
 │   │   ├── hash.go
 │   │   └── jwt.go
-│   └── queue/                 # Worker pool implementation
-├── models/                    # Data models
+│   └── queue/                 
+├── models/                    
 │   ├── user.go
 │   ├── wallet.go
 │   ├── transaction.go
 │   └── gold_price.go
 ├── api/
-│   └── routes.go              # API route definitions
-└── go.mod                     # Go module dependencies
+│   └── routes.go             
+└── go.mod                     
 ```
 
 ## 🔒 Security Features
@@ -349,13 +349,6 @@ Run the test suite:
 go test ./...
 ```
 
-## 📊 Monitoring
-
-The application includes:
-- Health check endpoint (`/health`)
-- Structured logging
-- Error tracking
-- Performance metrics
 
 ## 🤝 Contributing
 
@@ -365,15 +358,6 @@ The application includes:
 4. Push to the branch
 5. Create a Pull Request
 
-## 📄 License
-
-This project is licensed under the MIT License.
-
-## 🆘 Support
-
-For support and questions:
-- Create an issue in the repository
-- Email: thakuriumesh919@gmail.com
 
 ## 🔮 Future Enhancements
 
