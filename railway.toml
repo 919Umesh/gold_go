@@ -1,0 +1,11 @@
+[build]
+builder = "nixpacks"
+
+[build.args]
+GO_VERSION = "1.20"
+
+[deploy]
+startCommand = "./gold-app"
+
+[env]
+PORT = "8080"
