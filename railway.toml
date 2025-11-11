@@ -1,9 +1,0 @@
-[build]
-builder = "nixpacks"
-buildCommand = "go build -o gold-app ./cmd"
-
-[deploy]
-startCommand = "./gold-app"
-
-[env]
-PORT = "8080"
