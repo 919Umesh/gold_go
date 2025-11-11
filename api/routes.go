@@ -63,21 +63,21 @@ func (r *Router) setupRoutes() {
 			authService := auth.NewService(authRepo, r.cfg.JWTSecret)
 			authHandler := auth.NewHandler(authService)
 
-			v1.POST("/auth/register", authHandler.Register)
-			v1.POST("/auth/login", authHandler.Login)
+			public.POST("/auth/register", authHandler.Register)
+			public.POST("/auth/login", authHandler.Login)
 
 			goldService := gold.NewService(r.db, r.cfg)
 			goldHandler := gold.NewHandler(goldService)
 
-			v1.GET("/gold/price",cacheMiddleware.Cache(1*time.Minute), goldHandler.GetCurrentPrice)
-			v1.GET("/gold/history",cacheMiddleware.Cache(5*time.Minute), goldHandler.GetPriceHistory)
+			public.GET("/gold/price", cacheMiddleware.Cache(1*time.Minute), goldHandler.GetCurrentPrice)
+			public.GET("/gold/history", cacheMiddleware.Cache(5*time.Minute), goldHandler.GetPriceHistory)
 		}
 
 		protected := v1.Group("")
 		protected.Use(middleware.JWTAuth(r.cfg))
 		protected.Use(rateLimiter.RateLimit())
 		{
-            authRepo := auth.NewRepository(r.db)
+			authRepo := auth.NewRepository(r.db)
 			authService := auth.NewService(authRepo, r.cfg.JWTSecret)
 			authHandler := auth.NewHandler(authService)
 
