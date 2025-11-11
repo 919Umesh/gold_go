@@ -82,6 +82,8 @@ type DB struct {
 
 func ConnectDatabase(cfg *Config) *gorm.DB {
 	dbOnce.Do(func() {
+		log.Printf("Config - DatabaseURL set: %t", cfg.DatabaseURL != "")
+		log.Printf("Config - DBHost: %s", cfg.DBHost)
 		var dsn string
 
 		// Use DATABASE_URL if available (Railway), otherwise use individual config

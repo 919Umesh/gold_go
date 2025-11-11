@@ -90,15 +90,15 @@ func InitConfig() *Config {
 		configInstance = &Config{
 			DBHost:       getEnv("DB_HOST", "localhost"),
 			DBUser:       getEnv("DB_USER", "postgres"),
-			DBPassword:   getEnv("DB_PASSWORD", "postgres"),
-			DBName:       getEnv("DB_NAME", "gold_investment_db"), // Fixed to match your .env
+			DBPassword:   getEnv("DB_PASSWORD", "password"), // Changed from "postgres"
+			DBName:       getEnv("DB_NAME", "gold_investment_db"),
 			DBPort:       getEnv("DB_PORT", "5432"),
 			ServerPort:   getEnv("PORT", "8080"),
-			JWTSecret:    getEnv("JWT_SECRET", "supersecretjwt"),
-			GoldProvider: getEnv("GOLD_PROVIDER_URL", "http://localhost:9000"),
+			JWTSecret:    getEnv("JWT_SECRET", "dev_jwt_secret_min_32_chars_long_here"), // Better default
+			GoldProvider: getEnv("GOLD_PROVIDER_URL", ""),                               // Empty default
 			WorkerCount:  getEnvAsInt("WORKER_COUNT", 5),
 			QueueSize:    getEnvAsInt("QUEUE_SIZE", 100),
-			DatabaseURL:  getEnv("DATABASE_URL", ""), // Add this line
+			DatabaseURL:  getEnv("DATABASE_URL", ""),
 		}
 	})
 	return configInstance
