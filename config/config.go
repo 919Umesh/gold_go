@@ -7,16 +7,19 @@ import (
 )
 
 type Config struct {
-	DBHost       string
-	DBUser       string
-	DBPassword   string
-	DBName       string
-	DBPort       string
-	ServerPort   string
-	JWTSecret    string
-	GoldProvider string
-	WorkerCount  int
-	QueueSize    int
+	DBHost        string
+	DBUser        string
+	DBPassword    string
+	DBName        string
+	DBPort        string
+	ServerPort    string
+	JWTSecret     string
+	GoldProvider  string
+	WorkerCount   int
+	QueueSize     int
+	RedisAddress  string
+	RedisPassword string
+	RedisDB       int
 }
 
 var (
@@ -27,16 +30,19 @@ var (
 func InitConfig() *Config {
 	configOnce.Do(func() {
 		configInstance = &Config{
-			DBHost:       getEnv("DB_HOST", "localhost"),
-			DBUser:       getEnv("DB_USER", "postgres"),
-			DBPassword:   getEnv("DB_PASSWORD", "postgres"),
-			DBName:       getEnv("DB_NAME", "gold_invest"),
-			DBPort:       getEnv("DB_PORT", "5432"),
-			ServerPort:   getEnv("PORT", "8080"),
-			JWTSecret:    getEnv("JWT_SECRET", "supersecretjwt"),
-			GoldProvider: getEnv("GOLD_PROVIDER_URL", "http://localhost:9000"),
-			WorkerCount:  getEnvAsInt("WORKER_COUNT", 5),
-			QueueSize:    getEnvAsInt("QUEUE_SIZE", 100),
+			DBHost:        getEnv("DB_HOST", "localhost"),
+			DBUser:        getEnv("DB_USER", "postgres"),
+			DBPassword:    getEnv("DB_PASSWORD", "postgres"),
+			DBName:        getEnv("DB_NAME", "gold_invest"),
+			DBPort:        getEnv("DB_PORT", "5432"),
+			ServerPort:    getEnv("PORT", "8080"),
+			JWTSecret:     getEnv("JWT_SECRET", "supersecretjwt"),
+			GoldProvider:  getEnv("GOLD_PROVIDER_URL", "http://localhost:9000"),
+			WorkerCount:   getEnvAsInt("WORKER_COUNT", 5),
+			QueueSize:     getEnvAsInt("QUEUE_SIZE", 100),
+			RedisAddress:  getEnv("REDIS_ADDRESS", "localhost:6379"),
+			RedisPassword: getEnv("REDIS_PASSWORD", ""),
+			RedisDB:       getEnvAsInt("REDIS_DB", 0),
 		}
 	})
 	return configInstance

@@ -24,7 +24,7 @@ type RateLimitConfig struct {
 	Window   int
 }
 
-var endPointLimits = map[string]RateLimitConfig{
+var endpointLimits = map[string]RateLimitConfig{
 	"/api/v1/auth/login":    {Requests: 5, Window: 300},
 	"/api/v1/auth/profile":  {Requests: 60, Window: 60},
 	"/api/v1/auth/register": {Requests: 3, Window: 3600},
@@ -38,18 +38,18 @@ func (rl *RateLimiter) RateLimit() gin.HandlerFunc {
 		var identifier string
 
 		if userID, exists := ctx.Get("user_id"); exists {
-			identifier = "user:" + strconv.FormatUint(uint64(userID.(uint)), 1)
+			identifier = "user:" + strconv.FormatUint(uint64(userID.(uint)), 10)
 		} else {
 			identifier = "ip:" + ctx.ClientIP()
 		}
 
 		path := ctx.FullPath()
-		config, exists := endPointLimits[path]
+		config, exists := endpointLimits[path]
 		if !exists {
 			config = RateLimitConfig{Requests: 100, Window: 3600}
 		}
 
-		key := "rate_limit" + identifier + ":" + path
+		key := "rate_limit:" + identifier + ":" + path
 
 		count, err := rl.redisClient.IncrementWithExpiry(ctx.Request.Context(), key, time.Duration(config.Window)*time.Second)
 		if err != nil {
@@ -61,13 +61,19 @@ func (rl *RateLimiter) RateLimit() gin.HandlerFunc {
 		if count > int64(config.Requests) {
 			ctx.JSON(http.StatusTooManyRequests, gin.H{
 				"error":   "rate limit exceeded",
-				"message": "Too many request,Please try again later",
+				"message": "Too many requests. Please try again later.",
 			})
 			ctx.Abort()
 			return
 		}
+
+		remaining := int64(config.Requests) - count
+		if remaining < 0 {
+			remaining = 0
+		}
+
 		ctx.Header("X-RateLimit-Limit", strconv.Itoa(config.Requests))
-		ctx.Header("X-RateLimit-Remaining", strconv.FormatInt(int64(config.Requests)-count, 10))
+		ctx.Header("X-RateLimit-Remaining", strconv.FormatInt(remaining, 10))
 		ctx.Header("X-RateLimit-Reset", strconv.Itoa(config.Window))
 		ctx.Next()
 	}

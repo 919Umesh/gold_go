@@ -11,19 +11,18 @@ import (
 	"github.com/umesh/gold_investment/pkg/redis"
 )
 
-type CacheMiddleWare struct {
+type CacheMiddleware struct {
 	redisClient *redis.Client
 }
 
-func NewCacheMiddleWare(redisClient *redis.Client) *CacheMiddleWare {
-	return &CacheMiddleWare{
+func NewCacheMiddleware(redisClient *redis.Client) *CacheMiddleware {
+	return &CacheMiddleware{
 		redisClient: redisClient,
 	}
 }
 
-func (cm *CacheMiddleWare) Cache(duration time.Duration) gin.HandlerFunc {
+func (cm *CacheMiddleware) Cache(duration time.Duration) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
-
 		if ctx.Request.Method != "GET" {
 			ctx.Next()
 			return
@@ -32,7 +31,7 @@ func (cm *CacheMiddleWare) Cache(duration time.Duration) gin.HandlerFunc {
 		cacheKey := cm.generateCacheKey(ctx)
 
 		cached, err := cm.redisClient.Get(ctx.Request.Context(), cacheKey)
-		if err != nil && cached != "" {
+		if err == nil && cached != "" {
 			ctx.Header("X-Cache", "HIT")
 			ctx.Data(200, "application/json", []byte(cached))
 			ctx.Abort()
@@ -46,24 +45,28 @@ func (cm *CacheMiddleWare) Cache(duration time.Duration) gin.HandlerFunc {
 		ctx.Next()
 
 		if ctx.Writer.Status() == 200 {
-			go func() {
-				ctx := context.Background()
-				cm.redisClient.Set(ctx, cacheKey, string(blw.body), duration)
-			}()
+			go func(key string, body []byte, dur time.Duration) {
+				cacheCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				defer cancel()
+				cm.redisClient.Set(cacheCtx, key, string(body), dur)
+			}(cacheKey, blw.body, duration)
 		}
-
 	}
 }
 
-func (cm *CacheMiddleWare) generateCacheKey(c *gin.Context) string {
+func (cm *CacheMiddleware) generateCacheKey(c *gin.Context) string {
 	key := c.Request.URL.String()
 
 	if userID, exists := c.Get("user_id"); exists {
-		key += "user:" + strconv.FormatUint(uint64(userID.(uint)), 10)
+		key += ":user:" + strconv.FormatUint(uint64(userID.(uint)), 10)
+	}
+
+	if c.Request.URL.RawQuery != "" {
+		key += "?" + c.Request.URL.RawQuery
 	}
 
 	hash := sha256.Sum256([]byte(key))
-	return "Cache" + hex.EncodeToString(hash[:])
+	return "cache:" + hex.EncodeToString(hash[:])
 }
 
 type bodyLogWriter struct {
