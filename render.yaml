@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: gold-investment
+    env: go
+    buildCommand: go build -o main
+    startCommand: ./main
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: gold_go 
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: GOLD_PROVIDER_URL
+        value: "http://localhost:9000" 
