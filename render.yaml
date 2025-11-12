@@ -2,8 +2,8 @@ services:
   - type: web
     name: gold-investment
     env: go
-    buildCommand: "go build -o main ./cmd"
-    startCommand: "./main"
+    buildCommand: "go build -o app ./cmd"
+    startCommand: "./app"
     envVars:
       - key: DATABASE_URL
         fromDatabase:
