@@ -5,8 +5,8 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/919Umesh/gold_go/pkg/redis"
 	"github.com/gin-gonic/gin"
-	"github.com/umesh/gold_investment/pkg/redis"
 )
 
 type RateLimiter struct {

@@ -4,9 +4,9 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/919Umesh/gold_go/config"
+	"github.com/919Umesh/gold_go/pkg/utils"
 	"github.com/gin-gonic/gin"
-	"github.com/umesh/gold_investment/config"
-	"github.com/umesh/gold_investment/pkg/utils"
 )
 
 func JWTAuth(cfg *config.Config) gin.HandlerFunc {

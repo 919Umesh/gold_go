@@ -8,10 +8,10 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/919Umesh/gold_go/api"
+	"github.com/919Umesh/gold_go/config"
+	"github.com/919Umesh/gold_go/internal/gold"
 	"github.com/joho/godotenv"
-	"github.com/umesh/gold_investment/api"
-	"github.com/umesh/gold_investment/config"
-	"github.com/umesh/gold_investment/internal/gold"
 )
 
 func main() {

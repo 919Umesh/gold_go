@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/umesh/gold_investment/models"
+	"github.com/919Umesh/gold_go/models"
 )
 
 var (

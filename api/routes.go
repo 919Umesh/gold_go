@@ -7,12 +7,12 @@ import (
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 
-	"github.com/umesh/gold_investment/config"
-	"github.com/umesh/gold_investment/internal/auth"
-	"github.com/umesh/gold_investment/internal/gold"
-	"github.com/umesh/gold_investment/internal/wallet"
-	"github.com/umesh/gold_investment/pkg/middleware"
-	"github.com/umesh/gold_investment/pkg/redis"
+	"github.com/919Umesh/gold_go/config"
+	"github.com/919Umesh/gold_go/internal/auth"
+	"github.com/919Umesh/gold_go/internal/gold"
+	"github.com/919Umesh/gold_go/internal/wallet"
+	"github.com/919Umesh/gold_go/pkg/middleware"
+	"github.com/919Umesh/gold_go/pkg/redis"
 )
 
 type Router struct {

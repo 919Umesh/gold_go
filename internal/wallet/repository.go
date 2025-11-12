@@ -1,7 +1,7 @@
 package wallet
 
 import (
-	"github.com/umesh/gold_investment/models"
+	"github.com/919Umesh/gold_go/models"
 	"gorm.io/gorm"
 )
 
