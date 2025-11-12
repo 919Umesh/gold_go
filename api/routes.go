@@ -57,40 +57,38 @@ func (r *Router) setupRoutes() {
 	{
 
 		public := v1.Group("")
-		public.Use(rateLimiter.RateLimit())
 		{
 			authRepo := auth.NewRepository(r.db)
 			authService := auth.NewService(authRepo, r.cfg.JWTSecret)
 			authHandler := auth.NewHandler(authService)
 
-			public.POST("/auth/register", authHandler.Register)
-			public.POST("/auth/login", authHandler.Login)
+			public.POST("/auth/register", rateLimiter.RateLimit(), authHandler.Register)
+			public.POST("/auth/login", rateLimiter.RateLimit(), authHandler.Login)
 
 			goldService := gold.NewService(r.db, r.cfg)
 			goldHandler := gold.NewHandler(goldService)
 
-			public.GET("/gold/price", cacheMiddleware.Cache(1*time.Minute), goldHandler.GetCurrentPrice)
-			public.GET("/gold/history", cacheMiddleware.Cache(5*time.Minute), goldHandler.GetPriceHistory)
+			public.GET("/gold/price", rateLimiter.RateLimit(), cacheMiddleware.Cache(1*time.Minute), goldHandler.GetCurrentPrice)
+			public.GET("/gold/history", rateLimiter.RateLimit(), cacheMiddleware.Cache(5*time.Minute), goldHandler.GetPriceHistory)
 		}
 
 		protected := v1.Group("")
 		protected.Use(middleware.JWTAuth(r.cfg))
-		protected.Use(rateLimiter.RateLimit())
 		{
 			authRepo := auth.NewRepository(r.db)
 			authService := auth.NewService(authRepo, r.cfg.JWTSecret)
 			authHandler := auth.NewHandler(authService)
 
-			protected.GET("/auth/profile", authHandler.GetProfile)
+			protected.GET("/auth/profile", rateLimiter.RateLimit(), authHandler.GetProfile)
 
 			walletRepo := wallet.NewRepository(r.db)
 			walletService := wallet.NewService(walletRepo)
 			walletHandler := wallet.NewHandler(walletService)
 
-			protected.GET("/wallet", walletHandler.GetWallet)
-			protected.POST("/wallet/topup", walletHandler.TopUp)
-			protected.POST("/wallet/buy", walletHandler.BuyGold)
-			protected.POST("/wallet/sell", walletHandler.SellGold)
+			protected.GET("/wallet", rateLimiter.RateLimit(), walletHandler.GetWallet)
+			protected.POST("/wallet/topup", rateLimiter.RateLimit(), walletHandler.TopUp)
+			protected.POST("/wallet/buy", rateLimiter.RateLimit(), walletHandler.BuyGold)
+			protected.POST("/wallet/sell", rateLimiter.RateLimit(), walletHandler.SellGold)
 		}
 	}
 }
