@@ -1,6 +1,8 @@
 package wallet
 
 import (
+	"log"
+
 	"github.com/919Umesh/gold_go/models"
 	"gorm.io/gorm"
 )
@@ -10,6 +12,10 @@ type Repository interface {
 	Create(wallet *models.Wallet) error
 	Update(wallet *models.Wallet) error
 	WithLock(userID uint, fn func(*models.Wallet) error) error
+
+	//Add the transaction data
+	CreateTransaction(transaction *models.Transaction) error
+	UpdateTransaction(transaction *models.Transaction) error
 }
 
 type repository struct {
@@ -37,6 +43,13 @@ func (r *repository) Update(wallet *models.Wallet) error {
 	return r.db.Save(wallet).Error
 }
 
+func (r *repository) CreateTransaction(transaction *models.Transaction) error {
+	return r.db.Create(transaction).Error
+}
+
+func (r *repository) UpdateTransaction(transaction *models.Transaction) error {
+	return r.db.Save(transaction).Error
+}
 func (r *repository) WithLock(userID uint, fn func(*models.Wallet) error) error {
 	return r.db.Transaction(func(tx *gorm.DB) error {
 		var wallet models.Wallet
@@ -48,7 +61,8 @@ func (r *repository) WithLock(userID uint, fn func(*models.Wallet) error) error 
 		if err := fn(&wallet); err != nil {
 			return err
 		}
-
+		log.Print("Before saving the data")
+		log.Print(&wallet)
 		return tx.Save(&wallet).Error
 	})
 }

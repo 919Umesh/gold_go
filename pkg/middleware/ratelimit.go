@@ -29,7 +29,7 @@ var endpointLimits = map[string]RateLimitConfig{
 	"/api/v1/gold/history":  {Requests: 50, Window: 60},
 	"/api/v1/auth/profile":  {Requests: 60, Window: 60},
 	"/api/v1/auth/register": {Requests: 3, Window: 3600},
-	"/api/v1/wallet/topup":  {Requests: 10, Window: 3600},
+	"/api/v1/wallet/topup":  {Requests: 100, Window: 3600},
 	"/api/v1/wallet/buy":    {Requests: 30, Window: 3600},
 	"/api/v1/wallet/sell":   {Requests: 30, Window: 3600},
 	"/auth/profile/update":  {Requests: 30, Window: 3600},

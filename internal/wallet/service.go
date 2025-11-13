@@ -3,6 +3,7 @@ package wallet
 import (
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/919Umesh/gold_go/models"
 )
@@ -15,9 +16,9 @@ var (
 
 type Service interface {
 	GetWallet(userID uint) (*models.Wallet, error)
-	TopUp(userID uint, amount float64) (*models.Wallet, error)
-	BuyGold(userID uint, grams, pricePerGram float64) (*models.Wallet, error)
-	SellGold(userID uint, grams, pricePerGram float64) (*models.Wallet, error)
+	TopUp(userID uint, amount float64, referenceID string) (*models.Wallet, *models.Transaction, error)
+	BuyGold(userID uint, grams, pricePerGram float64, referenceID string) (*models.Wallet, *models.Transaction, error)
+	SellGold(userID uint, grams, pricePerGram float64, referenceID string) (*models.Wallet, *models.Transaction, error)
 }
 
 type service struct {
@@ -39,31 +40,49 @@ func (s *service) GetWallet(userID uint) (*models.Wallet, error) {
 	return wallet, nil
 }
 
-func (s *service) TopUp(userID uint, amount float64) (*models.Wallet, error) {
+func (s *service) TopUp(userID uint, amount float64, referenceID string) (*models.Wallet, *models.Transaction, error) {
 	if amount <= 0 {
-		return nil, ErrInvalidAmount
+		return nil, nil, ErrInvalidAmount
 	}
 
 	var updatedWallet *models.Wallet
+	var transaction *models.Transaction
+
 	err := s.repo.WithLock(userID, func(wallet *models.Wallet) error {
 		if wallet.Locked {
 			return ErrWalletLocked
 		}
 		wallet.FiatBalance += amount
 		updatedWallet = wallet
-		return nil
-	})
 
-	return updatedWallet, err
+		transaction = &models.Transaction{
+			UserID:       userID,
+			Type:         models.TransactionTypeTopUp,
+			Amount:       amount,
+			GoldGrams:    0,
+			PricePerGram: 0,
+			Status:       models.TransactionStatusSuccess,
+			ReferenceID:  referenceID,
+			CreatedAt:    time.Now(),
+			UpdatedAt:    time.Now(),
+		}
+
+		return s.repo.CreateTransaction(transaction)
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+	return updatedWallet, transaction, err
 }
 
-func (s *service) BuyGold(userID uint, grams, pricePerGram float64) (*models.Wallet, error) {
+func (s *service) BuyGold(userID uint, grams, pricePerGram float64, referenceID string) (*models.Wallet, *models.Transaction, error) {
 	if grams <= 0 || pricePerGram <= 0 {
-		return nil, ErrInvalidAmount
+		return nil, nil, ErrInvalidAmount
 	}
 
 	totalCost := grams * pricePerGram
 	var updatedWallet *models.Wallet
+	var transaction *models.Transaction
 
 	err := s.repo.WithLock(userID, func(wallet *models.Wallet) error {
 		if wallet.Locked {
@@ -76,19 +95,36 @@ func (s *service) BuyGold(userID uint, grams, pricePerGram float64) (*models.Wal
 		wallet.FiatBalance -= totalCost
 		wallet.GoldGrams += grams
 		updatedWallet = wallet
-		return nil
-	})
 
-	return updatedWallet, err
+		transaction = &models.Transaction{
+			UserID:       userID,
+			Type:         models.TransactionTypeBuy,
+			Amount:       totalCost,
+			GoldGrams:    grams,
+			PricePerGram: pricePerGram,
+			Status:       models.TransactionStatusSuccess,
+			ReferenceID:  referenceID,
+			CreatedAt:    time.Now(),
+			UpdatedAt:    time.Now(),
+		}
+
+		return s.repo.CreateTransaction(transaction)
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return updatedWallet, transaction, err
 }
 
-func (s *service) SellGold(userID uint, grams, pricePerGram float64) (*models.Wallet, error) {
+func (s *service) SellGold(userID uint, grams, pricePerGram float64, referenceID string) (*models.Wallet, *models.Transaction, error) {
 	if grams <= 0 || pricePerGram <= 0 {
-		return nil, ErrInvalidAmount
+		return nil, nil, ErrInvalidAmount
 	}
 
 	totalValue := grams * pricePerGram
 	var updatedWallet *models.Wallet
+	var transaction *models.Transaction
 
 	err := s.repo.WithLock(userID, func(wallet *models.Wallet) error {
 		if wallet.Locked {
@@ -101,8 +137,23 @@ func (s *service) SellGold(userID uint, grams, pricePerGram float64) (*models.Wa
 		wallet.GoldGrams -= grams
 		wallet.FiatBalance += totalValue
 		updatedWallet = wallet
-		return nil
-	})
 
-	return updatedWallet, err
+		transaction = &models.Transaction{
+			UserID:       userID,
+			Type:         models.TransactionTypeSell,
+			Amount:       totalValue,
+			GoldGrams:    grams,
+			PricePerGram: pricePerGram,
+			Status:       models.TransactionStatusSuccess,
+			ReferenceID:  referenceID,
+			CreatedAt:    time.Now(),
+			UpdatedAt:    time.Now(),
+		}
+		return s.repo.CreateTransaction(transaction)
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return updatedWallet, transaction, err
 }
