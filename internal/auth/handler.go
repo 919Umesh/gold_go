@@ -3,6 +3,7 @@ package auth
 import (
 	"log"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 )
@@ -19,12 +20,18 @@ type RegisterRequest struct {
 	FullName string `json:"full_name" binding:"required,min=2,max=100"`
 	Email    string `json:"email" binding:"required,email"`
 	Phone    string `json:"phone" binding:"required,min=10,max=15"`
+	Role     string `json:"role" binding:"required,min=3,max=10"`
 	Password string `json:"password" binding:"required,min=6"`
 }
 
 type UpdateProfileRequest struct {
 	Fullname string `json:"full_name,omitempty" binding:"omitempty,min=2,max=100"`
 	Phone    string `json:"phone,omitempty" binding:"omitempty,min=10,max=15"`
+}
+
+type UpdateKYCAdmin struct {
+	KYCStatus string `json:"kyc_status" binding:"required,oneof=pending verified rejected under_review"`
+	Role      string `json:"role" binding:"required,oneof=user admin"`
 }
 
 type LoginRequest struct {
@@ -39,7 +46,7 @@ func (h *Handler) Register(c *gin.Context) {
 		return
 	}
 
-	user, err := h.service.Register(req.FullName, req.Email, req.Phone, req.Password)
+	user, err := h.service.Register(req.FullName, req.Email, req.Phone, req.Password, req.Role)
 	if err != nil {
 		if err == ErrUserExists {
 			c.JSON(http.StatusConflict, gin.H{"error": "user already exists"})
@@ -140,6 +147,34 @@ func (h *Handler) UpdateProfile(c *gin.Context) {
 	user.PasswordHash = ""
 	c.JSON(http.StatusOK, gin.H{
 		"message": "profile updated successfully",
+		"user":    user,
+	})
+}
+
+func (h *Handler) UpdateKYC(c *gin.Context) {
+	userIDStr := c.Param("user_id")
+
+	userID, err := strconv.ParseUint(userIDStr, 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user id format"})
+		return
+	}
+
+	var request UpdateKYCAdmin
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	user, err := h.service.UpdateUserKYCStatus(uint(userID), request.KYCStatus, request.Role)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "KYC update failed"})
+		return
+	}
+
+	user.PasswordHash = ""
+	c.JSON(http.StatusOK, gin.H{
+		"message": "KYC status updated successfully",
 		"user":    user,
 	})
 }

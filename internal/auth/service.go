@@ -14,10 +14,11 @@ var (
 )
 
 type Service interface {
-	Register(fullName, email, phone, password string) (*models.User, error)
+	Register(fullName, email, phone, password, role string) (*models.User, error)
 	Login(email, password string) (*models.User, string, error)
 	GetProfile(userID uint) (*models.User, error)
 	UpdateProfile(userID uint, updates map[string]interface{}) (*models.User, error)
+	UpdateUserKYCStatus(userID uint, kycStatus, role string) (*models.User, error)
 }
 
 type service struct {
@@ -32,7 +33,7 @@ func NewService(repo Repository, jwtSecret string) Service {
 	}
 }
 
-func (s *service) Register(fullName, email, phone, password string) (*models.User, error) {
+func (s *service) Register(fullName, email, phone, password, role string) (*models.User, error) {
 	exists, err := s.repo.ExistsByEmail(email)
 	if err != nil {
 		return nil, fmt.Errorf("database error: %w", err)
@@ -51,6 +52,7 @@ func (s *service) Register(fullName, email, phone, password string) (*models.Use
 		Email:        email,
 		Phone:        phone,
 		PasswordHash: hashedPassword,
+		Role:         role,
 	}
 
 	if err := s.repo.Create(user); err != nil {
@@ -94,6 +96,22 @@ func (s *service) UpdateProfile(userID uint, updates map[string]interface{}) (*m
 
 	if err := s.repo.Update(user); err != nil {
 		return nil, fmt.Errorf("profile update error : %w", err)
+	}
+
+	return user, nil
+}
+
+func (s *service) UpdateUserKYCStatus(userID uint, kycStatus, role string) (*models.User, error) {
+	user, err := s.repo.FindByID(userID)
+	if err != nil {
+		return nil, fmt.Errorf("user not found: %w", err)
+	}
+
+	user.KYCStatus = kycStatus
+	user.Role = role
+
+	if err := s.repo.Update(user); err != nil {
+		return nil, fmt.Errorf("KYC status update failed: %w", err)
 	}
 
 	return user, nil

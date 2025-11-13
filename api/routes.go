@@ -92,6 +92,18 @@ func (r *Router) setupRoutes() {
 			protected.POST("/wallet/buy", rateLimiter.RateLimit(), walletHandler.BuyGold)
 			protected.POST("/wallet/sell", rateLimiter.RateLimit(), walletHandler.SellGold)
 		}
+
+		admin := v1.Group("/admin")
+		admin.Use(middleware.JWTAuth(r.cfg))
+		admin.Use(middleware.AdminAuth(r.db))
+		{
+			authRepo := auth.NewRepository(r.db)
+			authService := auth.NewService(authRepo, r.cfg.JWTSecret)
+			authHandler := auth.NewHandler(authService)
+
+			admin.PUT("/users/:user_id/kyc", rateLimiter.RateLimit(), authHandler.UpdateKYC)
+
+		}
 	}
 }
 

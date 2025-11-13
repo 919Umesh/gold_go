@@ -13,6 +13,7 @@ type User struct {
 	Phone        string    `gorm:"uniqueIndex;not null" json:"phone"`
 	PasswordHash string    `gorm:"not null" json:"-"`
 	KYCStatus    string    `gorm:"size:20;default:pending" json:"kyc_status"`
+	Role         string    `gorm:"size:20;default:user" json:"role"`
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
 
