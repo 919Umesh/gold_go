@@ -17,6 +17,7 @@ type Service interface {
 	Register(fullName, email, phone, password string) (*models.User, error)
 	Login(email, password string) (*models.User, string, error)
 	GetProfile(userID uint) (*models.User, error)
+	UpdateProfile(userID uint, updates map[string]interface{}) (*models.User, error)
 }
 
 type service struct {
@@ -75,6 +76,27 @@ func (s *service) Login(email, password string) (*models.User, string, error) {
 	}
 
 	return user, token, nil
+}
+
+func (s *service) UpdateProfile(userID uint, updates map[string]interface{}) (*models.User, error) {
+	user, err := s.repo.FindByID(userID)
+	if err != nil {
+		return nil, fmt.Errorf("user not found: %w", err)
+	}
+
+	if fullname, ok := updates["full_name"].(string); ok {
+		user.FullName = fullname
+	}
+
+	if phone, ok := updates["phone"].(string); ok {
+		user.Phone = phone
+	}
+
+	if err := s.repo.Update(user); err != nil {
+		return nil, fmt.Errorf("profile update error : %w", err)
+	}
+
+	return user, nil
 }
 
 func (s *service) GetProfile(userID uint) (*models.User, error) {

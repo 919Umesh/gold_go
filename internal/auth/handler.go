@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"log"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -19,6 +20,11 @@ type RegisterRequest struct {
 	Email    string `json:"email" binding:"required,email"`
 	Phone    string `json:"phone" binding:"required,min=10,max=15"`
 	Password string `json:"password" binding:"required,min=6"`
+}
+
+type UpdateProfileRequest struct {
+	Fullname string `json:"full_name,omitempty" binding:"omitempty,min=2,max=100"`
+	Phone    string `json:"phone,omitempty" binding:"omitempty,min=10,max=15"`
 }
 
 type LoginRequest struct {
@@ -90,4 +96,50 @@ func (h *Handler) GetProfile(c *gin.Context) {
 
 	user.PasswordHash = ""
 	c.JSON(http.StatusOK, gin.H{"user": user})
+}
+
+func (h *Handler) UpdateProfile(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+
+	log.Print("--------------UserID---------------")
+	log.Print(userID)
+
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "user not authenticated"})
+		return
+	}
+
+	var req UpdateProfileRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	updates := make(map[string]interface{})
+
+	if req.Fullname != "" {
+		updates["full_name"] = req.Fullname
+	}
+
+	if req.Phone != "" {
+		updates["phone"] = req.Phone
+	}
+
+	if len(updates) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "no fields to update"})
+		return
+	}
+
+	user, err := h.service.UpdateProfile(userID.(uint), updates)
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "profile update failed"})
+		return
+	}
+
+	user.PasswordHash = ""
+	c.JSON(http.StatusOK, gin.H{
+		"message": "profile updated successfully",
+		"user":    user,
+	})
 }

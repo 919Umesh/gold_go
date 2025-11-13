@@ -10,6 +10,7 @@ type Repository interface {
 	FindByEmail(email string) (*models.User, error)
 	FindByID(id uint) (*models.User, error)
 	ExistsByEmail(email string) (bool, error)
+	Update(user *models.User) error
 }
 
 type repository struct {
@@ -18,6 +19,10 @@ type repository struct {
 
 func NewRepository(db *gorm.DB) Repository {
 	return &repository{db: db}
+}
+
+func (r *repository) Update(user *models.User) error {
+	return r.db.Save(user).Error
 }
 
 func (r *repository) Create(user *models.User) error {

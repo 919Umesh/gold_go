@@ -69,7 +69,8 @@ func (r *Router) setupRoutes() {
 			goldHandler := gold.NewHandler(goldService)
 
 			public.GET("/gold/price", rateLimiter.RateLimit(), cacheMiddleware.Cache(1*time.Minute), goldHandler.GetCurrentPrice)
-			public.GET("/gold/history", rateLimiter.RateLimit(), cacheMiddleware.Cache(5*time.Minute), goldHandler.GetPriceHistory)
+			public.GET("/gold/history", rateLimiter.RateLimit(), cacheMiddleware.Cache(1*time.Minute), goldHandler.GetPriceHistory)
+
 		}
 
 		protected := v1.Group("")
@@ -79,7 +80,8 @@ func (r *Router) setupRoutes() {
 			authService := auth.NewService(authRepo, r.cfg.JWTSecret)
 			authHandler := auth.NewHandler(authService)
 
-			protected.GET("/auth/profile", rateLimiter.RateLimit(), authHandler.GetProfile)
+			protected.GET("/auth/profile", rateLimiter.RateLimit(), cacheMiddleware.Cache(1*time.Minute), authHandler.GetProfile)
+			protected.PUT("/auth/profile/update", rateLimiter.RateLimit(), authHandler.UpdateProfile)
 
 			walletRepo := wallet.NewRepository(r.db)
 			walletService := wallet.NewService(walletRepo)

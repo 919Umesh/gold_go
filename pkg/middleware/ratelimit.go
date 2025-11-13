@@ -32,6 +32,7 @@ var endpointLimits = map[string]RateLimitConfig{
 	"/api/v1/wallet/topup":  {Requests: 10, Window: 3600},
 	"/api/v1/wallet/buy":    {Requests: 30, Window: 3600},
 	"/api/v1/wallet/sell":   {Requests: 30, Window: 3600},
+	"/auth/profile/update":  {Requests: 30, Window: 3600},
 }
 
 func (rl *RateLimiter) RateLimit() gin.HandlerFunc {
