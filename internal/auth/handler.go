@@ -1,7 +1,6 @@
 package auth
 
 import (
-	"log"
 	"net/http"
 	"strconv"
 
@@ -107,9 +106,6 @@ func (h *Handler) GetProfile(c *gin.Context) {
 
 func (h *Handler) UpdateProfile(c *gin.Context) {
 	userID, exists := c.Get("user_id")
-
-	log.Print("--------------UserID---------------")
-	log.Print(userID)
 
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "user not authenticated"})
