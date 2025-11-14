@@ -1,15 +1,14 @@
 package middleware
 
 import (
+	"database/sql"
 	"log"
 	"net/http"
 
-	"github.com/919Umesh/gold_go/models"
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 )
 
-func AdminAuth(db *gorm.DB) gin.HandlerFunc {
+func AdminAuth(db *sql.DB) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		userId, exists := ctx.Get("user_id")
 
@@ -27,7 +26,7 @@ func AdminAuth(db *gorm.DB) gin.HandlerFunc {
              `
 		var role string
 
-		err := db.Raw(query, userId).Scan(&role).Error
+		err := db.QueryRow(query, userId).Scan(&role).Error
 		if err != nil {
 			ctx.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
 			ctx.Abort()
@@ -36,14 +35,7 @@ func AdminAuth(db *gorm.DB) gin.HandlerFunc {
 		log.Print("----------Raw_Query-------------")
 		log.Print(role)
 
-		var user models.User
-		if err := db.First(&user, userId).Error; err != nil {
-			ctx.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
-			ctx.Abort()
-			return
-		}
-
-		if user.Role != "admin" {
+		if role != "admin" {
 			ctx.JSON(http.StatusForbidden, gin.H{"error": "admin access required"})
 			ctx.Abort()
 			return
