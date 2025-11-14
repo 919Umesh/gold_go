@@ -24,11 +24,16 @@ func AdminAuth(db *sql.DB) gin.HandlerFunc {
                WHERE id = ? 
                AND kyc_status = 'verified'
              `
-		var role string
 
-		err := db.QueryRow(query, userId).Scan(&role).Error
+		var role string
+		err := db.QueryRow(query, userId).Scan(&role)
 		if err != nil {
-			ctx.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
+			if err == sql.ErrNoRows {
+				ctx.JSON(http.StatusNotFound, gin.H{"error": "user not found or KYC not verified"})
+			} else {
+				log.Printf("Database error: %v", err)
+				ctx.JSON(http.StatusInternalServerError, gin.H{"error": "database error"})
+			}
 			ctx.Abort()
 			return
 		}
