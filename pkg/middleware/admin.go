@@ -33,7 +33,7 @@ func AdminAuth(db *gorm.DB) gin.HandlerFunc {
 			ctx.Abort()
 			return
 		}
-		log.Print("----------Raw_Query-------------")
+		log.Print("----------RawQuery-------------")
 		log.Print(role)
 
 		var user models.User
