@@ -50,6 +50,22 @@ func (r *repository) CreateTransaction(transaction *models.Transaction) error {
 func (r *repository) UpdateTransaction(transaction *models.Transaction) error {
 	return r.db.Save(transaction).Error
 }
+
+func (r *repository) GetUserTransaction(userID string) (*models.Transaction, error) {
+	var transaction models.Transaction
+	query := ` 
+               SELECT * 
+               FROM transactions 
+               WHERE user_id = ? 
+			   ORDER BY created_at ASC 
+             `
+	err := r.db.Raw(query, userID).Scan(&transaction).Error
+
+	if err != nil {
+		return nil, err
+	}
+	return &transaction, nil
+}
 func (r *repository) WithLock(userID uint, fn func(*models.Wallet) error) error {
 	return r.db.Transaction(func(tx *gorm.DB) error {
 		var wallet models.Wallet
