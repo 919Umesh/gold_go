@@ -19,7 +19,7 @@ type Service interface {
 	TopUp(userID uint, amount float64, referenceID string) (*models.Wallet, *models.Transaction, error)
 	BuyGold(userID uint, grams, pricePerGram float64, referenceID string) (*models.Wallet, *models.Transaction, error)
 	SellGold(userID uint, grams, pricePerGram float64, referenceID string) (*models.Wallet, *models.Transaction, error)
-	GetUserTransaction(userID uint) (*models.Transaction, error)
+	GetUserTransaction(userID uint) ([]models.Transaction, error)
 }
 
 type service struct {
@@ -159,7 +159,7 @@ func (s *service) SellGold(userID uint, grams, pricePerGram float64, referenceID
 	return updatedWallet, transaction, err
 }
 
-func (s *service) GetUserTransaction(userID uint) (*models.Transaction, error) {
+func (s *service) GetUserTransaction(userID uint) ([]models.Transaction, error) {
 
 	transaction, err := s.repo.GetUserTransaction(userID)
 

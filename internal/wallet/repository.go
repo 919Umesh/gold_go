@@ -16,7 +16,7 @@ type Repository interface {
 	CreateTransaction(transaction *models.Transaction) error
 	UpdateTransaction(transaction *models.Transaction) error
 
-	GetUserTransaction(userID uint) (*models.Transaction, error)
+	GetUserTransaction(userID uint) ([]models.Transaction, error)
 }
 
 type repository struct {
@@ -52,20 +52,19 @@ func (r *repository) UpdateTransaction(transaction *models.Transaction) error {
 	return r.db.Save(transaction).Error
 }
 
-func (r *repository) GetUserTransaction(userID uint) (*models.Transaction, error) {
-	var transaction models.Transaction
+func (r *repository) GetUserTransaction(userID uint) ([]models.Transaction, error) {
+	var transaction []models.Transaction
 	query := ` 
-		SELECT * 
-		FROM transactions 
-		WHERE user_id = ? 
-		ORDER BY created_at DESC 
-		LIMIT 1
-	`
+			SELECT * 
+			FROM transactions 
+			WHERE user_id = ? 
+			ORDER BY created_at DESC 
+		`
 	err := r.db.Raw(query, userID).Scan(&transaction).Error
 	if err != nil {
 		return nil, err
 	}
-	return &transaction, nil
+	return transaction, nil
 }
 
 func (r *repository) WithLock(userID uint, fn func(*models.Wallet) error) error {
