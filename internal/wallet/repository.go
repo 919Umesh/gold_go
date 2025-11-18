@@ -51,14 +51,14 @@ func (r *repository) UpdateTransaction(transaction *models.Transaction) error {
 	return r.db.Save(transaction).Error
 }
 
-func (r *repository) GetUserTransaction(userID string) (*models.Transaction, error) {
+func (r *repository) GetUserTransaction(userID uint) (*models.Transaction, error) {
 	var transaction models.Transaction
 	query := ` 
-               SELECT * 
-               FROM transactions 
-               WHERE user_id = ? 
-			   ORDER BY created_at ASC 
-             `
+				SELECT * 
+				FROM transactions 
+				WHERE user_id = ? 
+				ORDER BY created_at ASC 
+				`
 	err := r.db.Raw(query, userID).Scan(&transaction).Error
 
 	if err != nil {
