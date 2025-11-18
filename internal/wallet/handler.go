@@ -132,3 +132,24 @@ func (h *Handler) SellGold(c *gin.Context) {
 		"transaction": transaction,
 	})
 }
+
+func (h *Handler) GetUserTransaction(c *gin.Context) {
+	userID := c.GetUint("user_id")
+
+	if userID == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user id"})
+		return
+	}
+
+	transaction, err := h.service.GetUserTransaction(userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch transactions"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "user transactions retrieved successfully",
+		"data":    transaction,
+	})
+
+}

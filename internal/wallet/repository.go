@@ -13,9 +13,10 @@ type Repository interface {
 	Update(wallet *models.Wallet) error
 	WithLock(userID uint, fn func(*models.Wallet) error) error
 
-	//Add the transaction data
 	CreateTransaction(transaction *models.Transaction) error
 	UpdateTransaction(transaction *models.Transaction) error
+
+	GetUserTransaction(userID uint) (*models.Transaction, error)
 }
 
 type repository struct {
@@ -54,18 +55,19 @@ func (r *repository) UpdateTransaction(transaction *models.Transaction) error {
 func (r *repository) GetUserTransaction(userID uint) (*models.Transaction, error) {
 	var transaction models.Transaction
 	query := ` 
-				SELECT * 
-				FROM transactions 
-				WHERE user_id = ? 
-				ORDER BY created_at ASC 
-				`
+		SELECT * 
+		FROM transactions 
+		WHERE user_id = ? 
+		ORDER BY created_at DESC 
+		LIMIT 1
+	`
 	err := r.db.Raw(query, userID).Scan(&transaction).Error
-
 	if err != nil {
 		return nil, err
 	}
 	return &transaction, nil
 }
+
 func (r *repository) WithLock(userID uint, fn func(*models.Wallet) error) error {
 	return r.db.Transaction(func(tx *gorm.DB) error {
 		var wallet models.Wallet

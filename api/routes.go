@@ -88,6 +88,7 @@ func (r *Router) setupRoutes() {
 			walletHandler := wallet.NewHandler(walletService)
 
 			protected.GET("/wallet", rateLimiter.RateLimit(), walletHandler.GetWallet)
+			protected.GET("/transaction", rateLimiter.RateLimit(), walletHandler.GetUserTransaction)
 			protected.POST("/wallet/topup", rateLimiter.RateLimit(), walletHandler.TopUp)
 			protected.POST("/wallet/buy", rateLimiter.RateLimit(), walletHandler.BuyGold)
 			protected.POST("/wallet/sell", rateLimiter.RateLimit(), walletHandler.SellGold)
