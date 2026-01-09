@@ -13,6 +13,7 @@ import (
 	"github.com/919Umesh/gold_go/internal/wallet"
 	"github.com/919Umesh/gold_go/pkg/middleware"
 	"github.com/919Umesh/gold_go/pkg/redis"
+	"github.com/gin-contrib/cors"
 )
 
 type Router struct {
@@ -28,6 +29,9 @@ func NewRouter(db *gorm.DB, cfg *config.Config) *Router {
 		cfg:    cfg,
 		engine: gin.Default(),
 	}
+
+	//To allow the all origin for development purpose
+	router.engine.Use(cors.Default())
 
 	router.redisClient = redis.NewRedisClient(
 		cfg.RedisAddress,
