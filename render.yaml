@@ -1,0 +1,60 @@
+services:
+  # The Go Backend Application
+  - type: web
+    name: gold-go-app
+    env: docker
+    plan: free
+    region: singapore # Choose closest region
+    branch: main     # Branch to deploy
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health # Make sure you have this endpoint or change it
+    envVars:
+      - key: SERVER_PORT
+        value: 8080
+      - key: PORT
+        value: 8080
+      - key: DB_HOST
+        fromDatabase:
+          name: gold-db
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: gold-db
+          property: port
+      - key: DB_NAME
+        fromDatabase:
+          name: gold-db
+          property: database
+      - key: DB_USER
+        fromDatabase:
+          name: gold-db
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: gold-db
+          property: password
+      - key: REDIS_ADDRESS
+        fromService:
+          type: redis
+          name: gold-redis
+          property: hostAndPort
+      - key: JWT_SECRET
+        generateValue: true # Generates a secure random secret
+
+databases:
+  # PostgreSQL Database
+  - name: gold-db
+    databaseName: gold_db
+    user: gold_user
+    plan: free # 90-day expiry on free tier, strict limits
+    region: singapore
+
+services:
+  # Redis Cache
+  # Note: Render's free Redis is ephemeral (data lost on restart) and has limits.
+  # For production persistence, you need a paid plan.
+  - type: redis
+    name: gold-redis
+    region: singapore
+    plan: free
+    ipAllowList: [] # Allow internal connections only

@@ -2,7 +2,7 @@ package queue
 
 import (
 	"context"
-	"log"
+	"log/slog"
 	"sync"
 )
 
@@ -42,7 +42,7 @@ func (wp *WorkerPool) worker(id int) {
 		select {
 		case job := <-wp.jobQueue:
 			if err := job.Process(); err != nil {
-				log.Printf("Worker %d: job processing failed: %v", id, err)
+				slog.Error("Worker job processing failed", "worker_id", id, "error", err)
 			}
 		case <-wp.ctx.Done():
 			return
@@ -54,7 +54,7 @@ func (wp *WorkerPool) Submit(job Job) {
 	select {
 	case wp.jobQueue <- job:
 	default:
-		log.Println("Job queue full, dropping job")
+		slog.Warn("Job queue full, dropping job")
 	}
 }
 

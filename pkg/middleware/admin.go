@@ -1,7 +1,6 @@
 package middleware
 
 import (
-	"log"
 	"net/http"
 
 	"github.com/919Umesh/gold_go/models"
@@ -33,11 +32,14 @@ func AdminAuth(db *gorm.DB) gin.HandlerFunc {
 			ctx.Abort()
 			return
 		}
-		log.Print("----------RawQuery-------------")
-		log.Print(role)
-
 		var user models.User
-		if err := db.First(&user, userId).Error; err != nil {
+		userQuery := `SELECT * FROM users WHERE id = ? LIMIT 1`
+		if err := db.Raw(userQuery, userId).Scan(&user).Error; err != nil {
+			ctx.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
+			ctx.Abort()
+			return
+		}
+		if user.ID == 0 {
 			ctx.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
 			ctx.Abort()
 			return

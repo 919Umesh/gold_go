@@ -2,18 +2,12 @@ package config
 
 import (
 	"fmt"
-	"log"
-	"sync"
+	"log/slog"
+	"os"
 	"time"
 
-	"github.com/919Umesh/gold_go/models"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
-)
-
-var (
-	dbInstance *gorm.DB
-	dbOnce     sync.Once
 )
 
 type DB struct {
@@ -21,39 +15,37 @@ type DB struct {
 }
 
 func ConnectDatabase(cfg *Config) *gorm.DB {
-	dbOnce.Do(func() {
-		dsn := fmt.Sprintf(
-			"host=%s user=%s password=%s dbname=%s port=%s sslmode=disable",
-			cfg.DBHost, cfg.DBUser, cfg.DBPassword, cfg.DBName, cfg.DBPort,
-		)
-
-		var err error
-		dbInstance, err = gorm.Open(postgres.Open(dsn), &gorm.Config{
-			PrepareStmt: true,
-		})
-		if err != nil {
-			log.Fatalf("Failed to connect to database: %v", err)
-		}
-
-		sqlDB, err := dbInstance.DB()
-		if err != nil {
-			log.Fatalf("Failed to get database instance: %v", err)
-		}
-
-		sqlDB.SetMaxIdleConns(10)
-		sqlDB.SetMaxOpenConns(100)
-		sqlDB.SetConnMaxLifetime(time.Hour)
-
-		log.Println("Database connected successfully")
-	})
-	return dbInstance
-}
-
-func AutoMigrate(db *gorm.DB) error {
-	return db.AutoMigrate(
-		&models.User{},
-		&models.Wallet{},
-		&models.Transaction{},
-		&models.GoldPrice{},
+	dsn := fmt.Sprintf(
+		"host=%s user=%s password=%s dbname=%s port=%s sslmode=disable",
+		cfg.DBHost, cfg.DBUser, cfg.DBPassword, cfg.DBName, cfg.DBPort,
 	)
+
+	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
+		PrepareStmt: true,
+	})
+	if err != nil {
+		slog.Error("Failed to connect to database", "error", err)
+		// We shouldn't exit here strictly speaking, but for simplicity of migration we panic or let the caller handle nil.
+		// Ideally we return (db, error). But since signature is fixed to *gorm.DB, we log Fatal-like behaviour or return nil?
+		// The original code Fatalf'ed. Let's keep strict behavior but use idiomatic log if possible,
+		// but since we return *gorm.DB, returning nil might crash the app later.
+		// Let's stick to panic/Fatal if we can't change signature, OR change signature.
+		// Changing signature breaks main.go.
+		// Let's use os.Exit(1) to mimic log.Fatalf behavior cleanly.
+		os.Exit(1)
+	}
+
+	sqlDB, err := db.DB()
+	if err != nil {
+		slog.Error("Failed to get database instance", "error", err)
+		os.Exit(1)
+	}
+
+	sqlDB.SetMaxIdleConns(10)
+	sqlDB.SetMaxOpenConns(100)
+	sqlDB.SetConnMaxLifetime(time.Hour)
+
+	slog.Info("Database connected successfully")
+
+	return db
 }

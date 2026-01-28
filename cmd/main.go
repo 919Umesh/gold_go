@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"log"
+	"log/slog"
 	"os"
 	"os/signal"
 	"syscall"
@@ -11,22 +11,21 @@ import (
 	"github.com/919Umesh/gold_go/api"
 	"github.com/919Umesh/gold_go/config"
 	"github.com/919Umesh/gold_go/internal/gold"
+	"github.com/919Umesh/gold_go/pkg/logger"
 	"github.com/joho/godotenv"
 )
 
 func main() {
 
+	logger.InitLogger()
+
 	if err := godotenv.Load(); err != nil {
-		log.Println("No .env file found, using environment variables")
+		slog.Warn("No .env file found, using environment variables")
 	}
 
 	cfg := config.InitConfig()
 
 	db := config.ConnectDatabase(cfg)
-
-	if err := config.AutoMigrate(db); err != nil {
-		log.Fatalf("Failed to run migrations: %v", err)
-	}
 
 	goldService := gold.NewService(db, cfg)
 
@@ -39,9 +38,10 @@ func main() {
 
 	serverAddr := ":" + cfg.ServerPort
 	go func() {
-		log.Printf("Server starting on %s", serverAddr)
+		slog.Info("Server starting", "address", serverAddr)
 		if err := router.Run(serverAddr); err != nil {
-			log.Fatalf("Failed to start server: %v", err)
+			slog.Error("Failed to start server", "error", err)
+			os.Exit(1)
 		}
 	}()
 
@@ -49,10 +49,10 @@ func main() {
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 
-	log.Println("Shutting down server...")
+	slog.Info("Shutting down server...")
 
 	ctx, cancel = context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	log.Println("Server exited")
+	slog.Info("Server exited")
 }

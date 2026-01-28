@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"sync"
 	"time"
@@ -52,7 +52,7 @@ func (s *Service) StartPriceUpdater(ctx context.Context) {
 		case <-ticker.C:
 			price, err := s.fetcher.FetchPrice(ctx)
 			if err != nil {
-				log.Printf("Failed to fetch gold price: %v", err)
+				slog.Error("Failed to fetch gold price", "error", err)
 				continue
 			}
 
@@ -64,12 +64,16 @@ func (s *Service) StartPriceUpdater(ctx context.Context) {
 			goldPrice := &models.GoldPrice{
 				PricePerGram: price,
 				Source:       "provider",
-			}
-			if err := s.db.Create(goldPrice).Error; err != nil {
-				log.Printf("Failed to save gold price: %v", err)
+				UpdatedAt:    time.Now(),
 			}
 
-			log.Printf("Gold price updated: %.2f", price)
+			// Using raw SQL for insertion
+			query := `INSERT INTO gold_prices (price_per_gram, source, updated_at) VALUES (?, ?, ?)`
+			if err := s.db.Exec(query, goldPrice.PricePerGram, goldPrice.Source, goldPrice.UpdatedAt).Error; err != nil {
+				slog.Error("Failed to save gold price", "error", err)
+			}
+
+			slog.Info("Gold price updated", "price", price)
 
 		case <-ctx.Done():
 			return
@@ -92,9 +96,12 @@ func (s *Service) GetPriceHistory(days int) ([]models.GoldPrice, error) {
 	var prices []models.GoldPrice
 	since := time.Now().AddDate(0, 0, -days)
 
-	err := s.db.Where("updated_at >= ?", since).
-		Order("updated_at desc").
-		Find(&prices).Error
+	query := `
+		SELECT * FROM gold_prices 
+		WHERE updated_at >= ? 
+		ORDER BY updated_at desc
+	`
+	err := s.db.Raw(query, since).Scan(&prices).Error
 
 	return prices, err
 }

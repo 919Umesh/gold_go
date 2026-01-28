@@ -5,6 +5,8 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+
+	"github.com/919Umesh/gold_go/pkg/apperr"
 )
 
 type Handler struct {
@@ -41,80 +43,73 @@ type LoginRequest struct {
 func (h *Handler) Register(c *gin.Context) {
 	var req RegisterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		apperr.Respond(c, http.StatusBadRequest, err)
 		return
 	}
 
 	user, err := h.service.Register(req.FullName, req.Email, req.Phone, req.Password, req.Role)
 	if err != nil {
 		if err == ErrUserExists {
-			c.JSON(http.StatusConflict, gin.H{"error": "user already exists"})
+			apperr.RespondWithMessage(c, http.StatusConflict, "user already exists")
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "registration failed"})
+		apperr.RespondWithMessage(c, http.StatusInternalServerError, "registration failed")
 		return
 	}
 
-	// Remove sensitive data
-	user.PasswordHash = ""
-
 	c.JSON(http.StatusCreated, gin.H{
 		"message": "user registered successfully",
-		"user":    user,
+		"user":    ToUserResponse(user),
 	})
 }
 
 func (h *Handler) Login(c *gin.Context) {
 	var req LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		apperr.Respond(c, http.StatusBadRequest, err)
 		return
 	}
 
 	user, token, err := h.service.Login(req.Email, req.Password)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid credentials"})
+		apperr.RespondWithMessage(c, http.StatusUnauthorized, "invalid credentials")
 		return
 	}
 
-	// Remove sensitive data
-	user.PasswordHash = ""
-
-	c.JSON(http.StatusOK, gin.H{
-		"message": "login successful",
-		"token":   token,
-		"user":    user,
+	c.JSON(http.StatusOK, LoginResponse{
+		Message: "login successful",
+		Token:   token,
+		User:    ToUserResponse(user),
 	})
 }
 
 func (h *Handler) GetProfile(c *gin.Context) {
 	userID, exists := c.Get("user_id")
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "user not authenticated"})
+		apperr.RespondWithMessage(c, http.StatusUnauthorized, "user not authenticated")
 		return
 	}
 
 	user, err := h.service.GetProfile(userID.(uint))
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
+		apperr.RespondWithMessage(c, http.StatusNotFound, "user not found")
 		return
 	}
 
-	user.PasswordHash = ""
-	c.JSON(http.StatusOK, gin.H{"user": user})
+	c.JSON(http.StatusOK, gin.H{"user": ToUserResponse(user)})
 }
 
 func (h *Handler) UpdateProfile(c *gin.Context) {
 	userID, exists := c.Get("user_id")
 
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "user not authenticated"})
+		apperr.RespondWithMessage(c, http.StatusUnauthorized, "user not authenticated")
 		return
 	}
 
 	var req UpdateProfileRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		apperr.Respond(c, http.StatusBadRequest, err)
 		return
 	}
 
@@ -129,21 +124,20 @@ func (h *Handler) UpdateProfile(c *gin.Context) {
 	}
 
 	if len(updates) == 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "no fields to update"})
+		apperr.RespondWithMessage(c, http.StatusBadRequest, "no fields to update")
 		return
 	}
 
 	user, err := h.service.UpdateProfile(userID.(uint), updates)
 
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "profile update failed"})
+		apperr.RespondWithMessage(c, http.StatusInternalServerError, "profile update failed")
 		return
 	}
 
-	user.PasswordHash = ""
 	c.JSON(http.StatusOK, gin.H{
 		"message": "profile updated successfully",
-		"user":    user,
+		"user":    ToUserResponse(user),
 	})
 }
 
@@ -152,25 +146,24 @@ func (h *Handler) UpdateKYC(c *gin.Context) {
 
 	userID, err := strconv.ParseUint(userIDStr, 10, 32)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user id format"})
+		apperr.RespondWithMessage(c, http.StatusBadRequest, "invalid user id format")
 		return
 	}
 
 	var request UpdateKYCAdmin
 	if err := c.ShouldBindJSON(&request); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		apperr.Respond(c, http.StatusBadRequest, err)
 		return
 	}
 
 	user, err := h.service.UpdateUserKYCStatus(uint(userID), request.KYCStatus, request.Role)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "KYC update failed"})
+		apperr.RespondWithMessage(c, http.StatusInternalServerError, "KYC update failed")
 		return
 	}
 
-	user.PasswordHash = ""
 	c.JSON(http.StatusOK, gin.H{
 		"message": "KYC status updated successfully",
-		"user":    user,
+		"user":    ToUserResponse(user),
 	})
 }
