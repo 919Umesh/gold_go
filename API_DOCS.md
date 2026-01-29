@@ -10,9 +10,11 @@ Base URL: `https://<your-render-url>/api/v1`
 - **Body**:
   ```json
   {
+    "full_name": "John Doe",
     "email": "user@example.com",
     "password": "securepassword",
-    "full_name": "John Doe"
+    "phone": "9800000000",
+    "role": "user"
   }
   ```
 
