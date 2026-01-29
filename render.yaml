@@ -33,11 +33,16 @@ services:
         fromDatabase:
           name: gold-db
           property: password
-      - key: REDIS_ADDRESS
+      - key: REDIS_HOST
         fromService:
           type: redis
           name: gold-redis
-          property: hostAndPort
+          property: host
+      - key: REDIS_PORT
+        fromService:
+          type: redis
+          name: gold-redis
+          property: port
       - key: JWT_SECRET
         generateValue: true # Generates a secure random secret
 

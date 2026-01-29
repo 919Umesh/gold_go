@@ -40,12 +40,21 @@ func InitConfig() *Config {
 			GoldProvider:  getEnv("GOLD_PROVIDER_URL", "http://localhost:9000"),
 			WorkerCount:   getEnvAsInt("WORKER_COUNT", 5),
 			QueueSize:     getEnvAsInt("QUEUE_SIZE", 100),
-			RedisAddress:  getEnv("REDIS_ADDRESS", "localhost:6379"),
+			RedisAddress:  getRedisAddress(),
 			RedisPassword: getEnv("REDIS_PASSWORD", ""),
 			RedisDB:       getEnvAsInt("REDIS_DB", 0),
 		}
 	})
 	return configInstance
+}
+
+func getRedisAddress() string {
+	host := os.Getenv("REDIS_HOST")
+	port := os.Getenv("REDIS_PORT")
+	if host != "" && port != "" {
+		return host + ":" + port
+	}
+	return getEnv("REDIS_ADDRESS", "localhost:6379")
 }
 
 func getEnv(key, defaultValue string) string {
