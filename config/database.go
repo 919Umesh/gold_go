@@ -47,6 +47,14 @@ func ConnectDatabase(cfg *Config) *gorm.DB {
 		&models.Wallet{},
 		&models.Transaction{},
 		&models.GoldPrice{},
+		// Stock Market Models
+		&models.Company{},
+		&models.StockPrice{},
+		&models.VirtualWallet{},
+		&models.UserPortfolio{},
+		&models.StockTransaction{},
+		&models.MarketEvent{},
+		&models.StockPrediction{},
 	)
 	if err != nil {
 		slog.Error("Failed to run database migrations", "error", err)

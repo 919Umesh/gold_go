@@ -10,6 +10,8 @@ import (
 	"github.com/919Umesh/gold_go/config"
 	"github.com/919Umesh/gold_go/internal/auth"
 	"github.com/919Umesh/gold_go/internal/gold"
+	"github.com/919Umesh/gold_go/internal/stock"
+	"github.com/919Umesh/gold_go/internal/trading"
 	"github.com/919Umesh/gold_go/internal/wallet"
 	"github.com/919Umesh/gold_go/pkg/middleware"
 	"github.com/919Umesh/gold_go/pkg/queue"
@@ -79,6 +81,23 @@ func (r *Router) setupRoutes() {
 			public.GET("/gold/price", rateLimiter.RateLimit(), cacheMiddleware.Cache(1*time.Minute), goldHandler.GetCurrentPrice)
 			public.GET("/gold/history", rateLimiter.RateLimit(), cacheMiddleware.Cache(1*time.Minute), goldHandler.GetPriceHistory)
 
+			// Stock Market Public Routes
+			stockRepo := stock.NewRepository(r.db)
+			stockService := stock.NewService(stockRepo)
+			stockHandler := NewStockHandler(stockService)
+
+			public.GET("/stocks", rateLimiter.RateLimit(), cacheMiddleware.Cache(2*time.Minute), stockHandler.ListCompanies)
+			public.GET("/stocks/search", rateLimiter.RateLimit(), stockHandler.SearchCompanies)
+			public.GET("/stocks/sector/:sector", rateLimiter.RateLimit(), cacheMiddleware.Cache(2*time.Minute), stockHandler.GetCompaniesBySector)
+			public.GET("/stocks/market-overview", rateLimiter.RateLimit(), cacheMiddleware.Cache(1*time.Minute), stockHandler.GetMarketOverview)
+			public.GET("/stocks/top-gainers", rateLimiter.RateLimit(), cacheMiddleware.Cache(1*time.Minute), stockHandler.GetTopGainers)
+			public.GET("/stocks/top-losers", rateLimiter.RateLimit(), cacheMiddleware.Cache(1*time.Minute), stockHandler.GetTopLosers)
+			public.GET("/stocks/most-active", rateLimiter.RateLimit(), cacheMiddleware.Cache(1*time.Minute), stockHandler.GetMostActive)
+			public.GET("/stocks/:symbol", rateLimiter.RateLimit(), cacheMiddleware.Cache(2*time.Minute), stockHandler.GetCompany)
+			public.GET("/stocks/:symbol/price", rateLimiter.RateLimit(), cacheMiddleware.Cache(30*time.Second), stockHandler.GetCurrentPrice)
+			public.GET("/stocks/:symbol/history", rateLimiter.RateLimit(), cacheMiddleware.Cache(5*time.Minute), stockHandler.GetPriceHistory)
+			public.GET("/stocks/:symbol/events", rateLimiter.RateLimit(), cacheMiddleware.Cache(5*time.Minute), stockHandler.GetUpcomingEvents)
+
 		}
 
 		protected := v1.Group("")
@@ -100,6 +119,18 @@ func (r *Router) setupRoutes() {
 			protected.POST("/wallet/topup", rateLimiter.RateLimit(), walletHandler.TopUp)
 			protected.POST("/wallet/buy", rateLimiter.RateLimit(), walletHandler.BuyGold)
 			protected.POST("/wallet/sell", rateLimiter.RateLimit(), walletHandler.SellGold)
+
+			// Stock Trading Protected Routes
+			stockRepo := stock.NewRepository(r.db)
+			tradingRepo := trading.NewRepository(r.db)
+			tradingService := trading.NewService(tradingRepo, stockRepo)
+			tradingHandler := NewTradingHandler(tradingService)
+
+			protected.GET("/trading/wallet", rateLimiter.RateLimit(), tradingHandler.GetWallet)
+			protected.GET("/trading/portfolio", rateLimiter.RateLimit(), tradingHandler.GetPortfolio)
+			protected.POST("/trading/buy", rateLimiter.RateLimit(), tradingHandler.BuyStock)
+			protected.POST("/trading/sell", rateLimiter.RateLimit(), tradingHandler.SellStock)
+			protected.GET("/trading/transactions", rateLimiter.RateLimit(), tradingHandler.GetTransactionHistory)
 		}
 
 		admin := v1.Group("/admin")

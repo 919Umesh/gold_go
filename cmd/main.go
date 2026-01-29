@@ -11,6 +11,8 @@ import (
 	"github.com/919Umesh/gold_go/api"
 	"github.com/919Umesh/gold_go/config"
 	"github.com/919Umesh/gold_go/internal/gold"
+	"github.com/919Umesh/gold_go/internal/market"
+	"github.com/919Umesh/gold_go/internal/stock"
 	"github.com/919Umesh/gold_go/pkg/logger"
 	"github.com/919Umesh/gold_go/pkg/queue"
 	"github.com/joho/godotenv"
@@ -41,6 +43,12 @@ func main() {
 
 	// Start Price Updater (Runs in its own goroutine)
 	go goldService.StartPriceUpdater(ctx)
+
+	// Initialize and start Market Simulator for stock prices
+	stockRepo := stock.NewRepository(db)
+	marketSimulator := market.NewSimulator(db, stockRepo)
+	go marketSimulator.Start(ctx)
+	slog.Info("Market simulator started")
 
 	// Initialize Router with injected dependencies
 	router := api.NewRouter(db, cfg, goldService, workerPool)
