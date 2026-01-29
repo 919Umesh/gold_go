@@ -53,6 +53,7 @@ func (s *service) Register(fullName, email, phone, password, role string) (*mode
 		Phone:        phone,
 		PasswordHash: hashedPassword,
 		Role:         role,
+		KYCStatus:    "pending",
 	}
 
 	if err := s.repo.Create(user); err != nil {

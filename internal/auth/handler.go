@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -53,6 +54,8 @@ func (h *Handler) Register(c *gin.Context) {
 			apperr.RespondWithMessage(c, http.StatusConflict, "user already exists")
 			return
 		}
+		// Log the actual error for debugging
+		fmt.Printf("Registration error: %v\n", err)
 		apperr.RespondWithMessage(c, http.StatusInternalServerError, "registration failed")
 		return
 	}

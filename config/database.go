@@ -6,6 +6,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/919Umesh/gold_go/models"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
@@ -39,6 +40,19 @@ func ConnectDatabase(cfg *Config) *gorm.DB {
 	sqlDB.SetConnMaxLifetime(time.Hour)
 
 	slog.Info("Database connected successfully")
+
+	// Run migrations
+	err = db.AutoMigrate(
+		&models.User{},
+		&models.Wallet{},
+		&models.Transaction{},
+		&models.GoldPrice{},
+	)
+	if err != nil {
+		slog.Error("Failed to run database migrations", "error", err)
+		os.Exit(1)
+	}
+	slog.Info("Database migrations completed")
 
 	return db
 }
