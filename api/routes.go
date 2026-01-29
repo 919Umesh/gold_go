@@ -143,6 +143,10 @@ func (r *Router) setupRoutes() {
 
 			admin.PUT("/users/:user_id/kyc", rateLimiter.RateLimit(), authHandler.UpdateKYC)
 
+			// Admin seed endpoint (use once to populate stock data)
+			adminHandler := NewAdminHandler(r.db)
+			admin.POST("/seed-stocks", adminHandler.SeedStockData)
+
 		}
 	}
 }
