@@ -3,9 +3,11 @@ package wallet
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/919Umesh/gold_go/models"
+	"github.com/919Umesh/gold_go/pkg/queue"
 )
 
 var (
@@ -23,11 +25,35 @@ type Service interface {
 }
 
 type service struct {
-	repo Repository
+	repo       Repository
+	workerPool *queue.WorkerPool
 }
 
-func NewService(repo Repository) Service {
-	return &service{repo: repo}
+// TransactionAnalyticsJob implements queue.Job to simulate post-transaction processing
+type TransactionAnalyticsJob struct {
+	TransactionID uint
+	Type          models.TransactionType
+	Amount        float64
+	UserID        uint
+}
+
+func (j *TransactionAnalyticsJob) Process() error {
+	// Simulate heavy analytics processing
+	time.Sleep(100 * time.Millisecond)
+	slog.Info("Async analytics processed",
+		"transaction_id", j.TransactionID,
+		"type", j.Type,
+		"user_id", j.UserID,
+		"amount", j.Amount,
+	)
+	return nil
+}
+
+func NewService(repo Repository, wp *queue.WorkerPool) Service {
+	return &service{
+		repo:       repo,
+		workerPool: wp,
+	}
 }
 
 func (s *service) GetWallet(userID uint) (*models.Wallet, error) {
@@ -73,6 +99,14 @@ func (s *service) TopUp(userID uint, amount float64, referenceID string) (*model
 	if err != nil {
 		return nil, nil, err
 	}
+
+	s.workerPool.Submit(&TransactionAnalyticsJob{
+		TransactionID: transaction.ID,
+		Type:          transaction.Type,
+		Amount:        transaction.Amount,
+		UserID:        transaction.UserID,
+	})
+
 	return updatedWallet, transaction, err
 }
 
@@ -115,6 +149,13 @@ func (s *service) BuyGold(userID uint, grams, pricePerGram float64, referenceID 
 		return nil, nil, err
 	}
 
+	s.workerPool.Submit(&TransactionAnalyticsJob{
+		TransactionID: transaction.ID,
+		Type:          transaction.Type,
+		Amount:        transaction.Amount,
+		UserID:        transaction.UserID,
+	})
+
 	return updatedWallet, transaction, err
 }
 
@@ -155,6 +196,13 @@ func (s *service) SellGold(userID uint, grams, pricePerGram float64, referenceID
 	if err != nil {
 		return nil, nil, err
 	}
+
+	s.workerPool.Submit(&TransactionAnalyticsJob{
+		TransactionID: transaction.ID,
+		Type:          transaction.Type,
+		Amount:        transaction.Amount,
+		UserID:        transaction.UserID,
+	})
 
 	return updatedWallet, transaction, err
 }

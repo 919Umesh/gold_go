@@ -11,6 +11,7 @@ import (
 
 	"github.com/919Umesh/gold_go/config"
 	"github.com/919Umesh/gold_go/models"
+	"github.com/919Umesh/gold_go/pkg/queue"
 	"gorm.io/gorm"
 )
 
@@ -23,6 +24,8 @@ type Service struct {
 	cfg        *config.Config
 	priceCache *PriceCache
 	fetcher    PriceFetcher
+	workerPool *queue.WorkerPool
+	updateChan chan struct{} // Channel to trigger immediate update
 }
 
 type PriceCache struct {
@@ -31,54 +34,97 @@ type PriceCache struct {
 	time  time.Time
 }
 
-func NewService(db *gorm.DB, cfg *config.Config) *Service {
+// PriceHistoryJob implements queue.Job to save price history asynchronously
+type PriceHistoryJob struct {
+	DB        *gorm.DB
+	GoldPrice *models.GoldPrice
+}
+
+func (j *PriceHistoryJob) Process() error {
+	// Using raw SQL for insertion
+	query := `INSERT INTO gold_prices (price_per_gram, source, updated_at) VALUES (?, ?, ?)`
+	if err := j.DB.Exec(query, j.GoldPrice.PricePerGram, j.GoldPrice.Source, j.GoldPrice.UpdatedAt).Error; err != nil {
+		return fmt.Errorf("failed to save gold price: %w", err)
+	}
+	slog.Info("Async job: Gold price history saved", "price", j.GoldPrice.PricePerGram)
+	return nil
+}
+
+func NewService(db *gorm.DB, cfg *config.Config, wp *queue.WorkerPool) *Service {
 	service := &Service{
 		db:         db,
 		cfg:        cfg,
 		priceCache: &PriceCache{},
+		workerPool: wp,
+		updateChan: make(chan struct{}, 1),
 	}
 
-	service.fetcher = &MockPriceFetcher{}
+	// Use real fetcher if URL is provided, otherwise mock
+	if cfg.GoldProvider != "" {
+		service.fetcher = &RealPriceFetcher{
+			client: &http.Client{Timeout: 10 * time.Second},
+			url:    cfg.GoldProvider,
+		}
+	} else {
+		service.fetcher = &MockPriceFetcher{}
+	}
 
 	return service
 }
 
 func (s *Service) StartPriceUpdater(ctx context.Context) {
-	ticker := time.NewTicker(600 * time.Second)
+	ticker := time.NewTicker(600 * time.Second) // Update every 10 minutes
 	defer ticker.Stop()
+
+	// Initial fetch
+	s.updatePrice(ctx)
 
 	for {
 		select {
 		case <-ticker.C:
-			price, err := s.fetcher.FetchPrice(ctx)
-			if err != nil {
-				slog.Error("Failed to fetch gold price", "error", err)
-				continue
-			}
-
-			s.priceCache.mu.Lock()
-			s.priceCache.price = price
-			s.priceCache.time = time.Now()
-			s.priceCache.mu.Unlock()
-
-			goldPrice := &models.GoldPrice{
-				PricePerGram: price,
-				Source:       "provider",
-				UpdatedAt:    time.Now(),
-			}
-
-			// Using raw SQL for insertion
-			query := `INSERT INTO gold_prices (price_per_gram, source, updated_at) VALUES (?, ?, ?)`
-			if err := s.db.Exec(query, goldPrice.PricePerGram, goldPrice.Source, goldPrice.UpdatedAt).Error; err != nil {
-				slog.Error("Failed to save gold price", "error", err)
-			}
-
-			slog.Info("Gold price updated", "price", price)
-
+			s.updatePrice(ctx)
+		case <-s.updateChan:
+			s.updatePrice(ctx)
 		case <-ctx.Done():
+			slog.Info("Stopping price updater")
 			return
 		}
 	}
+}
+
+func (s *Service) TriggerUpdate() {
+	select {
+	case s.updateChan <- struct{}{}:
+	default:
+		// Channel full, update already pending
+	}
+}
+
+func (s *Service) updatePrice(ctx context.Context) {
+	price, err := s.fetcher.FetchPrice(ctx)
+	if err != nil {
+		slog.Error("Failed to fetch gold price", "error", err)
+		return
+	}
+
+	s.priceCache.mu.Lock()
+	s.priceCache.price = price
+	s.priceCache.time = time.Now()
+	s.priceCache.mu.Unlock()
+
+	goldPrice := &models.GoldPrice{
+		PricePerGram: price,
+		Source:       "provider",
+		UpdatedAt:    time.Now(),
+	}
+
+	// Submit job to worker pool for async DB insertion
+	s.workerPool.Submit(&PriceHistoryJob{
+		DB:        s.db,
+		GoldPrice: goldPrice,
+	})
+
+	slog.Info("Gold price updated in memory", "price", price)
 }
 
 func (s *Service) GetCurrentPrice() (float64, time.Time, error) {
@@ -110,6 +156,7 @@ type MockPriceFetcher struct{}
 
 func (m *MockPriceFetcher) FetchPrice(ctx context.Context) (float64, error) {
 	basePrice := 6500.0
+	// Simple simulation of price fluctuation
 	variation := (float64(time.Now().Unix()%100) - 50) / 100.0
 	return basePrice + (basePrice * variation), nil
 }

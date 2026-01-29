@@ -12,6 +12,7 @@ import (
 	"github.com/919Umesh/gold_go/config"
 	"github.com/919Umesh/gold_go/internal/gold"
 	"github.com/919Umesh/gold_go/pkg/logger"
+	"github.com/919Umesh/gold_go/pkg/queue"
 	"github.com/joho/godotenv"
 )
 
@@ -27,14 +28,22 @@ func main() {
 
 	db := config.ConnectDatabase(cfg)
 
-	goldService := gold.NewService(db, cfg)
+	// Initialize Worker Pool
+	workerPool := queue.NewWorkerPool(cfg.WorkerCount, cfg.QueueSize)
+	workerPool.Start()
+	slog.Info("Worker pool started", "workers", cfg.WorkerCount)
+
+	// Initialize Gold Service with Worker Pool
+	goldService := gold.NewService(db, cfg, workerPool)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	// Start Price Updater (Runs in its own goroutine)
 	go goldService.StartPriceUpdater(ctx)
 
-	router := api.NewRouter(db, cfg)
+	// Initialize Router with injected dependencies
+	router := api.NewRouter(db, cfg, goldService, workerPool)
 
 	serverAddr := ":" + cfg.ServerPort
 	go func() {
@@ -51,8 +60,26 @@ func main() {
 
 	slog.Info("Shutting down server...")
 
-	ctx, cancel = context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
+	// Graceful shutdown
+	ctxShutdown, cancelShutdown := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancelShutdown()
+
+	// Stop cancellation context for services
+	cancel()
+
+	done := make(chan struct{})
+	go func() {
+		// Stop Worker Pool and wait for jobs to finish
+		workerPool.Stop()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		slog.Info("Worker pool stopped")
+	case <-ctxShutdown.Done():
+		slog.Warn("Shutdown timed out")
+	}
 
 	slog.Info("Server exited")
 }

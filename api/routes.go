@@ -12,6 +12,7 @@ import (
 	"github.com/919Umesh/gold_go/internal/gold"
 	"github.com/919Umesh/gold_go/internal/wallet"
 	"github.com/919Umesh/gold_go/pkg/middleware"
+	"github.com/919Umesh/gold_go/pkg/queue"
 	"github.com/919Umesh/gold_go/pkg/redis"
 	"github.com/gin-contrib/cors"
 )
@@ -21,13 +22,17 @@ type Router struct {
 	cfg         *config.Config
 	engine      *gin.Engine
 	redisClient *redis.Client
+	goldService *gold.Service
+	workerPool  *queue.WorkerPool
 }
 
-func NewRouter(db *gorm.DB, cfg *config.Config) *Router {
+func NewRouter(db *gorm.DB, cfg *config.Config, goldService *gold.Service, wp *queue.WorkerPool) *Router {
 	router := &Router{
-		db:     db,
-		cfg:    cfg,
-		engine: gin.Default(),
+		db:          db,
+		cfg:         cfg,
+		engine:      gin.Default(),
+		goldService: goldService,
+		workerPool:  wp,
 	}
 
 	//To allow the all origin for development purpose
@@ -69,8 +74,7 @@ func (r *Router) setupRoutes() {
 			public.POST("/auth/register", rateLimiter.RateLimit(), authHandler.Register)
 			public.POST("/auth/login", rateLimiter.RateLimit(), authHandler.Login)
 
-			goldService := gold.NewService(r.db, r.cfg)
-			goldHandler := gold.NewHandler(goldService)
+			goldHandler := gold.NewHandler(r.goldService)
 
 			public.GET("/gold/price", rateLimiter.RateLimit(), cacheMiddleware.Cache(1*time.Minute), goldHandler.GetCurrentPrice)
 			public.GET("/gold/history", rateLimiter.RateLimit(), cacheMiddleware.Cache(1*time.Minute), goldHandler.GetPriceHistory)
@@ -88,7 +92,7 @@ func (r *Router) setupRoutes() {
 			protected.PUT("/auth/profile/update", rateLimiter.RateLimit(), authHandler.UpdateProfile)
 
 			walletRepo := wallet.NewRepository(r.db)
-			walletService := wallet.NewService(walletRepo)
+			walletService := wallet.NewService(walletRepo, r.workerPool)
 			walletHandler := wallet.NewHandler(walletService)
 
 			protected.GET("/wallet", rateLimiter.RateLimit(), walletHandler.GetWallet)

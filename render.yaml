@@ -41,15 +41,6 @@ services:
       - key: JWT_SECRET
         generateValue: true # Generates a secure random secret
 
-databases:
-  # PostgreSQL Database
-  - name: gold-db
-    databaseName: gold_db
-    user: gold_user
-    plan: free # 90-day expiry on free tier, strict limits
-    region: singapore
-
-services:
   # Redis Cache
   # Note: Render's free Redis is ephemeral (data lost on restart) and has limits.
   # For production persistence, you need a paid plan.
@@ -58,3 +49,11 @@ services:
     region: singapore
     plan: free
     ipAllowList: [] # Allow internal connections only
+
+databases:
+  # PostgreSQL Database
+  - name: gold-db
+    databaseName: gold_db
+    user: gold_user
+    plan: free # 90-day expiry on free tier, strict limits
+    region: singapore

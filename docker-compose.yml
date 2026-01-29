@@ -45,23 +45,6 @@ services:
     networks:
       - gold_network
 
-  nginx:
-    image: nginx:alpine
-    container_name: gold_nginx
-    restart: always
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./nginx/conf.d:/etc/nginx/conf.d
-      - ./nginx/ssl:/etc/nginx/ssl
-      - ./nginx/certbot/conf:/etc/letsencrypt
-      - ./nginx/certbot/www:/var/www/certbot
-    depends_on:
-      - app
-    networks:
-      - gold_network
-
 networks:
   gold_network:
     driver: bridge
