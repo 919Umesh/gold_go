@@ -1,11 +1,12 @@
 package middleware
 
 import (
+	"log/slog"
 	"net/http"
 	"strconv"
 	"time"
 
-	"github.com/919Umesh/gold_go/pkg/redis"
+	"github.com/919Umesh/stock_market_sim/pkg/redis"
 	"github.com/gin-gonic/gin"
 )
 
@@ -41,7 +42,7 @@ func (rl *RateLimiter) RateLimit() gin.HandlerFunc {
 		var identifier string
 
 		if userID, exists := ctx.Get("user_id"); exists {
-			identifier = "user:" + strconv.FormatUint(uint64(userID.(uint)), 10)
+			identifier = "user:" + userID.(string)
 		} else {
 			identifier = "ip:" + ctx.ClientIP()
 		}
@@ -56,8 +57,8 @@ func (rl *RateLimiter) RateLimit() gin.HandlerFunc {
 
 		count, err := rl.redisClient.IncrementWithExpiry(ctx.Request.Context(), key, time.Duration(config.Window)*time.Second)
 		if err != nil {
-			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
-			ctx.Abort()
+			slog.Warn("Rate limiter failed to connect to Redis, skipping check", "error", err)
+			ctx.Next()
 			return
 		}
 

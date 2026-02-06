@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/919Umesh/gold_go/models"
+	"github.com/919Umesh/stock_market_sim/models"
 )
 
 type Service interface {

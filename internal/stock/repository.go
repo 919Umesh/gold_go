@@ -2,16 +2,25 @@ package stock
 
 import (
 	"fmt"
+	"sort"
 	"time"
 
-	"github.com/919Umesh/gold_go/models"
-	"gorm.io/gorm"
+	"github.com/919Umesh/stock_market_sim/internal/appwrite"
+	"github.com/919Umesh/stock_market_sim/models"
+	"github.com/appwrite/sdk-for-go/id"
+	"github.com/appwrite/sdk-for-go/query"
+)
+
+const (
+	CollectionCompanies    = "companies"
+	CollectionStockPrices  = "stock_prices"
+	CollectionMarketEvents = "market_events"
 )
 
 type Repository interface {
 	// Company operations
 	CreateCompany(company *models.Company) error
-	GetCompanyByID(id uint) (*models.Company, error)
+	GetCompanyByID(id string) (*models.Company, error)
 	GetCompanyBySymbol(symbol string) (*models.Company, error)
 	ListCompanies(limit, offset int) ([]models.Company, error)
 	ListCompaniesBySector(sector string, limit, offset int) ([]models.Company, error)
@@ -20,9 +29,9 @@ type Repository interface {
 
 	// Stock price operations
 	CreateStockPrice(price *models.StockPrice) error
-	GetLatestPrice(companyID uint) (*models.StockPrice, error)
-	GetPriceHistory(companyID uint, timeframe string, from, to time.Time, limit int) ([]models.StockPrice, error)
-	GetPriceAtTime(companyID uint, timestamp time.Time) (*models.StockPrice, error)
+	GetLatestPrice(companyID string) (*models.StockPrice, error)
+	GetPriceHistory(companyID string, timeframe string, from, to time.Time, limit int) ([]models.StockPrice, error)
+	GetPriceAtTime(companyID string, timestamp time.Time) (*models.StockPrice, error)
 
 	// Market overview
 	GetTopGainers(limit int) ([]models.Company, error)
@@ -31,245 +40,434 @@ type Repository interface {
 
 	// Market events
 	CreateMarketEvent(event *models.MarketEvent) error
-	GetUpcomingEvents(companyID uint, limit int) ([]models.MarketEvent, error)
+	GetUpcomingEvents(companyID string, limit int) ([]models.MarketEvent, error)
 }
 
 type repository struct {
-	db *gorm.DB
+	client *appwrite.Client
 }
 
-func NewRepository(db *gorm.DB) Repository {
-	return &repository{db: db}
+func NewRepository(client *appwrite.Client) Repository {
+	return &repository{client: client}
 }
 
 // Company operations
 
 func (r *repository) CreateCompany(company *models.Company) error {
-	query := `
-		INSERT INTO companies (symbol, name, sector, market_cap, description, founded_year, employees, is_active, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-		RETURNING id
-	`
-	return r.db.Raw(query, company.Symbol, company.Name, company.Sector, company.MarketCap,
-		company.Description, company.FoundedYear, company.Employees, company.IsActive,
-		time.Now(), time.Now()).Scan(&company.ID).Error
+	data := map[string]interface{}{
+		"symbol":       company.Symbol,
+		"name":         company.Name,
+		"sector":       company.Sector,
+		"market_cap":   company.MarketCap,
+		"description":  company.Description,
+		"founded_year": company.FoundedYear,
+		"employees":    company.Employees,
+		"is_active":    company.IsActive,
+	}
+
+	resp, err := r.client.Databases.CreateDocument(
+		r.client.Config.DatabaseID,
+		CollectionCompanies,
+		id.Unique(),
+		data,
+	)
+	if err != nil {
+		return err
+	}
+	return appwrite.Decode(resp, company)
 }
 
-func (r *repository) GetCompanyByID(id uint) (*models.Company, error) {
-	var company models.Company
-	query := `SELECT * FROM companies WHERE id = ? LIMIT 1`
-	err := r.db.Raw(query, id).Scan(&company).Error
+func (r *repository) GetCompanyByID(id string) (*models.Company, error) {
+	doc, err := r.client.Databases.GetDocument(
+		r.client.Config.DatabaseID,
+		CollectionCompanies,
+		id,
+	)
 	if err != nil {
 		return nil, err
 	}
-	if company.ID == 0 {
-		return nil, gorm.ErrRecordNotFound
+
+	var company models.Company
+	if err := appwrite.Decode(doc, &company); err != nil {
+		return nil, fmt.Errorf("failed to decode company: %w", err)
 	}
 	return &company, nil
 }
 
 func (r *repository) GetCompanyBySymbol(symbol string) (*models.Company, error) {
-	var company models.Company
-	query := `SELECT * FROM companies WHERE symbol = ? LIMIT 1`
-	err := r.db.Raw(query, symbol).Scan(&company).Error
+	resp, err := r.client.Databases.ListDocuments(
+		r.client.Config.DatabaseID,
+		CollectionCompanies,
+		appwrite.WithListDocumentsQueries([]string{
+			query.Equal("symbol", symbol),
+			query.Limit(1),
+		}),
+	)
 	if err != nil {
 		return nil, err
 	}
-	if company.ID == 0 {
-		return nil, gorm.ErrRecordNotFound
+	if len(resp.Documents) == 0 {
+		return nil, fmt.Errorf("company not found")
+	}
+
+	var company models.Company
+	if err := appwrite.DecodeListItem(resp, 0, &company); err != nil {
+		return nil, fmt.Errorf("failed to decode company: %w", err)
 	}
 	return &company, nil
 }
 
 func (r *repository) ListCompanies(limit, offset int) ([]models.Company, error) {
+	resp, err := r.client.Databases.ListDocuments(
+		r.client.Config.DatabaseID,
+		CollectionCompanies,
+		appwrite.WithListDocumentsQueries([]string{
+			query.Equal("is_active", true),
+			query.OrderDesc("market_cap"),
+			query.Limit(limit),
+			query.Offset(offset),
+		}),
+	)
+	if err != nil {
+		return nil, err
+	}
+
 	var companies []models.Company
-	query := `SELECT * FROM companies WHERE is_active = true ORDER BY market_cap DESC LIMIT ? OFFSET ?`
-	err := r.db.Raw(query, limit, offset).Scan(&companies).Error
-	return companies, err
+	for i := range resp.Documents {
+		var c models.Company
+		if err := appwrite.DecodeListItem(resp, i, &c); err == nil {
+			companies = append(companies, c)
+		}
+	}
+	return companies, nil
 }
 
 func (r *repository) ListCompaniesBySector(sector string, limit, offset int) ([]models.Company, error) {
+	resp, err := r.client.Databases.ListDocuments(
+		r.client.Config.DatabaseID,
+		CollectionCompanies,
+		appwrite.WithListDocumentsQueries([]string{
+			query.Equal("sector", sector),
+			query.Equal("is_active", true),
+			query.OrderDesc("market_cap"),
+			query.Limit(limit),
+			query.Offset(offset),
+		}),
+	)
+	if err != nil {
+		return nil, err
+	}
+
 	var companies []models.Company
-	query := `SELECT * FROM companies WHERE sector = ? AND is_active = true ORDER BY market_cap DESC LIMIT ? OFFSET ?`
-	err := r.db.Raw(query, sector, limit, offset).Scan(&companies).Error
-	return companies, err
+	for i := range resp.Documents {
+		var c models.Company
+		if err := appwrite.DecodeListItem(resp, i, &c); err == nil {
+			companies = append(companies, c)
+		}
+	}
+	return companies, nil
 }
 
-func (r *repository) SearchCompanies(query string, limit int) ([]models.Company, error) {
+func (r *repository) SearchCompanies(q string, limit int) ([]models.Company, error) {
+	resp, err := r.client.Databases.ListDocuments(
+		r.client.Config.DatabaseID,
+		CollectionCompanies,
+		appwrite.WithListDocumentsQueries([]string{
+			query.Equal("is_active", true),
+			query.Search("name", q),
+			query.Limit(limit),
+		}),
+	)
+	if err != nil {
+		return nil, err
+	}
+
 	var companies []models.Company
-	searchQuery := `
-		SELECT * FROM companies 
-		WHERE is_active = true AND (
-			LOWER(name) LIKE LOWER(?) OR 
-			LOWER(symbol) LIKE LOWER(?) OR 
-			LOWER(sector) LIKE LOWER(?)
-		)
-		ORDER BY market_cap DESC
-		LIMIT ?
-	`
-	searchPattern := "%" + query + "%"
-	err := r.db.Raw(searchQuery, searchPattern, searchPattern, searchPattern, limit).Scan(&companies).Error
-	return companies, err
+	for i := range resp.Documents {
+		var c models.Company
+		if err := appwrite.DecodeListItem(resp, i, &c); err == nil {
+			companies = append(companies, c)
+		}
+	}
+	return companies, nil
 }
 
 func (r *repository) UpdateCompany(company *models.Company) error {
-	query := `
-		UPDATE companies 
-		SET name = ?, sector = ?, market_cap = ?, description = ?, 
-		    founded_year = ?, employees = ?, is_active = ?, updated_at = ?
-		WHERE id = ?
-	`
-	return r.db.Exec(query, company.Name, company.Sector, company.MarketCap, company.Description,
-		company.FoundedYear, company.Employees, company.IsActive, time.Now(), company.ID).Error
+	data := map[string]interface{}{
+		"name":         company.Name,
+		"sector":       company.Sector,
+		"market_cap":   company.MarketCap,
+		"description":  company.Description,
+		"founded_year": company.FoundedYear,
+		"employees":    company.Employees,
+		"is_active":    company.IsActive,
+	}
+
+	resp, err := r.client.Databases.UpdateDocument(
+		r.client.Config.DatabaseID,
+		CollectionCompanies,
+		company.ID,
+		appwrite.WithUpdateDocumentData(data),
+	)
+	if err != nil {
+		return err
+	}
+	return appwrite.Decode(resp, company)
 }
 
 // Stock price operations
 
 func (r *repository) CreateStockPrice(price *models.StockPrice) error {
-	query := `
-		INSERT INTO stock_prices (company_id, open_price, high_price, low_price, close_price, volume, timestamp, timeframe, created_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`
-	return r.db.Exec(query, price.CompanyID, price.OpenPrice, price.HighPrice, price.LowPrice,
-		price.ClosePrice, price.Volume, price.Timestamp, price.Timeframe, time.Now()).Error
+	data := map[string]interface{}{
+		"company_id":  price.CompanyID,
+		"open_price":  price.OpenPrice,
+		"high_price":  price.HighPrice,
+		"low_price":   price.LowPrice,
+		"close_price": price.ClosePrice,
+		"volume":      price.Volume,
+		"timestamp":   price.Timestamp.Format(time.RFC3339),
+		"timeframe":   price.Timeframe,
+	}
+
+	resp, err := r.client.Databases.CreateDocument(
+		r.client.Config.DatabaseID,
+		CollectionStockPrices,
+		id.Unique(),
+		data,
+	)
+	if err != nil {
+		return err
+	}
+	return appwrite.Decode(resp, price)
 }
 
-func (r *repository) GetLatestPrice(companyID uint) (*models.StockPrice, error) {
-	var price models.StockPrice
-	query := `
-		SELECT * FROM stock_prices 
-		WHERE company_id = ? AND timeframe = '1d'
-		ORDER BY timestamp DESC 
-		LIMIT 1
-	`
-	err := r.db.Raw(query, companyID).Scan(&price).Error
+func (r *repository) GetLatestPrice(companyID string) (*models.StockPrice, error) {
+	resp, err := r.client.Databases.ListDocuments(
+		r.client.Config.DatabaseID,
+		CollectionStockPrices,
+		appwrite.WithListDocumentsQueries([]string{
+			query.Equal("company_id", companyID),
+			query.Equal("timeframe", "1d"),
+			query.OrderDesc("timestamp"),
+			query.Limit(1),
+		}),
+	)
 	if err != nil {
 		return nil, err
 	}
-	if price.ID == 0 {
-		return nil, gorm.ErrRecordNotFound
-	}
-	return &price, nil
-}
-
-func (r *repository) GetPriceHistory(companyID uint, timeframe string, from, to time.Time, limit int) ([]models.StockPrice, error) {
-	var prices []models.StockPrice
-	query := `
-		SELECT * FROM stock_prices 
-		WHERE company_id = ? AND timeframe = ? AND timestamp BETWEEN ? AND ?
-		ORDER BY timestamp DESC
-		LIMIT ?
-	`
-	err := r.db.Raw(query, companyID, timeframe, from, to, limit).Scan(&prices).Error
-	return prices, err
-}
-
-func (r *repository) GetPriceAtTime(companyID uint, timestamp time.Time) (*models.StockPrice, error) {
-	var price models.StockPrice
-	query := `
-		SELECT * FROM stock_prices 
-		WHERE company_id = ? AND timestamp <= ?
-		ORDER BY timestamp DESC
-		LIMIT 1
-	`
-	err := r.db.Raw(query, companyID, timestamp).Scan(&price).Error
-	if err != nil {
-		return nil, err
-	}
-	if price.ID == 0 {
+	if len(resp.Documents) == 0 {
 		return nil, fmt.Errorf("no price data found")
 	}
+
+	var price models.StockPrice
+	if err := appwrite.DecodeListItem(resp, 0, &price); err != nil {
+		return nil, fmt.Errorf("failed to decode price: %w", err)
+	}
 	return &price, nil
 }
 
-// Market overview
+func (r *repository) GetPriceHistory(companyID string, timeframe string, from, to time.Time, limit int) ([]models.StockPrice, error) {
+	resp, err := r.client.Databases.ListDocuments(
+		r.client.Config.DatabaseID,
+		CollectionStockPrices,
+		appwrite.WithListDocumentsQueries([]string{
+			query.Equal("company_id", companyID),
+			query.Equal("timeframe", timeframe),
+			query.Between("timestamp", from.Format(time.RFC3339), to.Format(time.RFC3339)),
+			query.OrderDesc("timestamp"),
+			query.Limit(limit),
+		}),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	var prices []models.StockPrice
+	for i := range resp.Documents {
+		var p models.StockPrice
+		if err := appwrite.DecodeListItem(resp, i, &p); err == nil {
+			prices = append(prices, p)
+		}
+	}
+	return prices, nil
+}
+
+func (r *repository) GetPriceAtTime(companyID string, timestamp time.Time) (*models.StockPrice, error) {
+	resp, err := r.client.Databases.ListDocuments(
+		r.client.Config.DatabaseID,
+		CollectionStockPrices,
+		appwrite.WithListDocumentsQueries([]string{
+			query.Equal("company_id", companyID),
+			query.LessThanEqual("timestamp", timestamp.Format(time.RFC3339)),
+			query.OrderDesc("timestamp"),
+			query.Limit(1),
+		}),
+	)
+	if err != nil {
+		return nil, err
+	}
+	if len(resp.Documents) == 0 {
+		return nil, fmt.Errorf("no price data found")
+	}
+
+	var price models.StockPrice
+	if err := appwrite.DecodeListItem(resp, 0, &price); err != nil {
+		return nil, fmt.Errorf("failed to decode price: %w", err)
+	}
+	return &price, nil
+}
+
+// Market overview helper
+func (r *repository) getCompanyChangePct(companyID string) (float64, error) {
+	latest, err := r.GetLatestPrice(companyID)
+	if err != nil {
+		return 0, nil
+	}
+	return latest.CalculateChange(), nil
+}
 
 func (r *repository) GetTopGainers(limit int) ([]models.Company, error) {
-	var companies []models.Company
-	query := `
-		SELECT c.*, 
-		       (sp_latest.close_price - sp_prev.close_price) / sp_prev.close_price * 100 as change_pct
-		FROM companies c
-		INNER JOIN LATERAL (
-			SELECT close_price FROM stock_prices 
-			WHERE company_id = c.id AND timeframe = '1d'
-			ORDER BY timestamp DESC LIMIT 1
-		) sp_latest ON true
-		INNER JOIN LATERAL (
-			SELECT close_price FROM stock_prices 
-			WHERE company_id = c.id AND timeframe = '1d'
-			ORDER BY timestamp DESC LIMIT 1 OFFSET 1
-		) sp_prev ON true
-		WHERE c.is_active = true
-		ORDER BY change_pct DESC
-		LIMIT ?
-	`
-	err := r.db.Raw(query, limit).Scan(&companies).Error
-	return companies, err
+	companies, err := r.ListCompanies(100, 0)
+	if err != nil {
+		return nil, err
+	}
+
+	type enrichedCompany struct {
+		company models.Company
+		change  float64
+	}
+
+	var enriched []enrichedCompany
+	for _, c := range companies {
+		change, _ := r.getCompanyChangePct(c.ID)
+		enriched = append(enriched, enrichedCompany{c, change})
+	}
+
+	sort.Slice(enriched, func(i, j int) bool {
+		return enriched[i].change > enriched[j].change
+	})
+
+	result := make([]models.Company, 0, len(companies))
+	for i, ec := range enriched {
+		if i >= limit {
+			break
+		}
+		result = append(result, ec.company)
+	}
+	return result, nil
 }
 
 func (r *repository) GetTopLosers(limit int) ([]models.Company, error) {
-	var companies []models.Company
-	query := `
-		SELECT c.*, 
-		       (sp_latest.close_price - sp_prev.close_price) / sp_prev.close_price * 100 as change_pct
-		FROM companies c
-		INNER JOIN LATERAL (
-			SELECT close_price FROM stock_prices 
-			WHERE company_id = c.id AND timeframe = '1d'
-			ORDER BY timestamp DESC LIMIT 1
-		) sp_latest ON true
-		INNER JOIN LATERAL (
-			SELECT close_price FROM stock_prices 
-			WHERE company_id = c.id AND timeframe = '1d'
-			ORDER BY timestamp DESC LIMIT 1 OFFSET 1
-		) sp_prev ON true
-		WHERE c.is_active = true
-		ORDER BY change_pct ASC
-		LIMIT ?
-	`
-	err := r.db.Raw(query, limit).Scan(&companies).Error
-	return companies, err
+	companies, err := r.ListCompanies(100, 0)
+	if err != nil {
+		return nil, err
+	}
+
+	type enrichedCompany struct {
+		company models.Company
+		change  float64
+	}
+
+	var enriched []enrichedCompany
+	for _, c := range companies {
+		change, _ := r.getCompanyChangePct(c.ID)
+		enriched = append(enriched, enrichedCompany{c, change})
+	}
+
+	sort.Slice(enriched, func(i, j int) bool {
+		return enriched[i].change < enriched[j].change
+	})
+
+	result := make([]models.Company, 0, len(companies))
+	for i, ec := range enriched {
+		if i >= limit {
+			break
+		}
+		result = append(result, ec.company)
+	}
+	return result, nil
 }
 
 func (r *repository) GetMostActive(limit int) ([]models.Company, error) {
-	var companies []models.Company
-	query := `
-		SELECT c.*, sp.volume
-		FROM companies c
-		INNER JOIN LATERAL (
-			SELECT volume FROM stock_prices 
-			WHERE company_id = c.id AND timeframe = '1d'
-			ORDER BY timestamp DESC LIMIT 1
-		) sp ON true
-		WHERE c.is_active = true
-		ORDER BY sp.volume DESC
-		LIMIT ?
-	`
-	err := r.db.Raw(query, limit).Scan(&companies).Error
-	return companies, err
+	companies, err := r.ListCompanies(100, 0)
+	if err != nil {
+		return nil, err
+	}
+
+	type enrichedCompany struct {
+		company models.Company
+		volume  int64
+	}
+
+	var enriched []enrichedCompany
+	for _, c := range companies {
+		latest, err := r.GetLatestPrice(c.ID)
+		vol := int64(0)
+		if err == nil {
+			vol = latest.Volume
+		}
+		enriched = append(enriched, enrichedCompany{c, vol})
+	}
+
+	sort.Slice(enriched, func(i, j int) bool {
+		return enriched[i].volume > enriched[j].volume
+	})
+
+	result := make([]models.Company, 0, len(companies))
+	for i, ec := range enriched {
+		if i >= limit {
+			break
+		}
+		result = append(result, ec.company)
+	}
+	return result, nil
 }
 
 // Market events
 
 func (r *repository) CreateMarketEvent(event *models.MarketEvent) error {
-	query := `
-		INSERT INTO market_events (company_id, event_type, title, description, impact_percentage, event_date, created_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?)
-		RETURNING id
-	`
-	return r.db.Raw(query, event.CompanyID, event.EventType, event.Title, event.Description,
-		event.ImpactPercentage, event.EventDate, time.Now()).Scan(&event.ID).Error
+	data := map[string]interface{}{
+		"company_id":        event.CompanyID,
+		"event_type":        event.EventType,
+		"title":             event.Title,
+		"description":       event.Description,
+		"impact_percentage": event.ImpactPercentage,
+		"event_date":        event.EventDate.Format(time.RFC3339),
+	}
+
+	resp, err := r.client.Databases.CreateDocument(
+		r.client.Config.DatabaseID,
+		CollectionMarketEvents,
+		id.Unique(),
+		data,
+	)
+	if err != nil {
+		return err
+	}
+	return appwrite.Decode(resp, event)
 }
 
-func (r *repository) GetUpcomingEvents(companyID uint, limit int) ([]models.MarketEvent, error) {
+func (r *repository) GetUpcomingEvents(companyID string, limit int) ([]models.MarketEvent, error) {
+	resp, err := r.client.Databases.ListDocuments(
+		r.client.Config.DatabaseID,
+		CollectionMarketEvents,
+		appwrite.WithListDocumentsQueries([]string{
+			query.Equal("company_id", companyID),
+			query.GreaterThanEqual("event_date", time.Now().Format(time.RFC3339)),
+			query.OrderAsc("event_date"),
+			query.Limit(limit),
+		}),
+	)
+	if err != nil {
+		return nil, err
+	}
+
 	var events []models.MarketEvent
-	query := `
-		SELECT * FROM market_events 
-		WHERE company_id = ? AND event_date >= NOW()
-		ORDER BY event_date ASC
-		LIMIT ?
-	`
-	err := r.db.Raw(query, companyID, limit).Scan(&events).Error
-	return events, err
+	for i := range resp.Documents {
+		var e models.MarketEvent
+		if err := appwrite.DecodeListItem(resp, i, &e); err == nil {
+			events = append(events, e)
+		}
+	}
+	return events, nil
 }

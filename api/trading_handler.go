@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/919Umesh/gold_go/internal/trading"
-	"github.com/919Umesh/gold_go/pkg/apperr"
+	"github.com/919Umesh/stock_market_sim/internal/trading"
+	"github.com/919Umesh/stock_market_sim/pkg/apperr"
 	"github.com/gin-gonic/gin"
 )
 
@@ -34,13 +34,13 @@ type SellRequest struct {
 // @Success 200 {object} models.VirtualWallet
 // @Router /api/v1/trading/wallet [get]
 func (h *TradingHandler) GetWallet(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
+	userID := c.GetString("user_id")
+	if userID == "" {
 		apperr.RespondWithMessage(c, http.StatusUnauthorized, "User not authenticated")
 		return
 	}
 
-	wallet, err := h.service.GetOrCreateWallet(userID.(uint))
+	wallet, err := h.service.GetOrCreateWallet(userID)
 	if err != nil {
 		apperr.RespondWithMessage(c, http.StatusInternalServerError, "Failed to get wallet")
 		return
@@ -56,13 +56,13 @@ func (h *TradingHandler) GetWallet(c *gin.Context) {
 // @Success 200 {object} trading.PortfolioSummary
 // @Router /api/v1/trading/portfolio [get]
 func (h *TradingHandler) GetPortfolio(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
+	userID := c.GetString("user_id")
+	if userID == "" {
 		apperr.RespondWithMessage(c, http.StatusUnauthorized, "User not authenticated")
 		return
 	}
 
-	portfolio, err := h.service.GetPortfolio(userID.(uint))
+	portfolio, err := h.service.GetPortfolio(userID)
 	if err != nil {
 		apperr.RespondWithMessage(c, http.StatusInternalServerError, "Failed to get portfolio")
 		return
@@ -79,8 +79,8 @@ func (h *TradingHandler) GetPortfolio(c *gin.Context) {
 // @Success 200 {object} trading.TradeResult
 // @Router /api/v1/trading/buy [post]
 func (h *TradingHandler) BuyStock(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
+	userID := c.GetString("user_id")
+	if userID == "" {
 		apperr.RespondWithMessage(c, http.StatusUnauthorized, "User not authenticated")
 		return
 	}
@@ -91,9 +91,9 @@ func (h *TradingHandler) BuyStock(c *gin.Context) {
 		return
 	}
 
-	result, err := h.service.BuyStock(userID.(uint), req.Symbol, req.Quantity)
+	result, err := h.service.BuyStock(userID, req.Symbol, req.Quantity)
 	if err != nil {
-		apperr.RespondWithMessage(c, http.StatusInternalServerError, "Transaction failed")
+		apperr.RespondWithMessage(c, http.StatusInternalServerError, err.Error())
 		return
 	}
 
@@ -113,8 +113,8 @@ func (h *TradingHandler) BuyStock(c *gin.Context) {
 // @Success 200 {object} trading.TradeResult
 // @Router /api/v1/trading/sell [post]
 func (h *TradingHandler) SellStock(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
+	userID := c.GetString("user_id")
+	if userID == "" {
 		apperr.RespondWithMessage(c, http.StatusUnauthorized, "User not authenticated")
 		return
 	}
@@ -125,9 +125,9 @@ func (h *TradingHandler) SellStock(c *gin.Context) {
 		return
 	}
 
-	result, err := h.service.SellStock(userID.(uint), req.Symbol, req.Quantity)
+	result, err := h.service.SellStock(userID, req.Symbol, req.Quantity)
 	if err != nil {
-		apperr.RespondWithMessage(c, http.StatusInternalServerError, "Transaction failed")
+		apperr.RespondWithMessage(c, http.StatusInternalServerError, err.Error())
 		return
 	}
 
@@ -148,8 +148,8 @@ func (h *TradingHandler) SellStock(c *gin.Context) {
 // @Success 200 {array} models.StockTransaction
 // @Router /api/v1/trading/transactions [get]
 func (h *TradingHandler) GetTransactionHistory(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
+	userID := c.GetString("user_id")
+	if userID == "" {
 		apperr.RespondWithMessage(c, http.StatusUnauthorized, "User not authenticated")
 		return
 	}
@@ -157,7 +157,7 @@ func (h *TradingHandler) GetTransactionHistory(c *gin.Context) {
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "50"))
 	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
 
-	transactions, err := h.service.GetTransactionHistory(userID.(uint), limit, offset)
+	transactions, err := h.service.GetTransactionHistory(userID, limit, offset)
 	if err != nil {
 		apperr.RespondWithMessage(c, http.StatusInternalServerError, "Failed to get transactions")
 		return

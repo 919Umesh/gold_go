@@ -3,11 +3,10 @@ package auth
 import (
 	"fmt"
 	"net/http"
-	"strconv"
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/919Umesh/gold_go/pkg/apperr"
+	"github.com/919Umesh/stock_market_sim/pkg/apperr"
 )
 
 type Handler struct {
@@ -93,7 +92,14 @@ func (h *Handler) GetProfile(c *gin.Context) {
 		return
 	}
 
-	user, err := h.service.GetProfile(userID.(uint))
+	// userID is now string from middleware
+	uid, ok := userID.(string)
+	if !ok {
+		apperr.RespondWithMessage(c, http.StatusInternalServerError, "invalid user id type")
+		return
+	}
+
+	user, err := h.service.GetProfile(uid)
 	if err != nil {
 		apperr.RespondWithMessage(c, http.StatusNotFound, "user not found")
 		return
@@ -107,6 +113,12 @@ func (h *Handler) UpdateProfile(c *gin.Context) {
 
 	if !exists {
 		apperr.RespondWithMessage(c, http.StatusUnauthorized, "user not authenticated")
+		return
+	}
+
+	uid, ok := userID.(string)
+	if !ok {
+		apperr.RespondWithMessage(c, http.StatusInternalServerError, "invalid user id type")
 		return
 	}
 
@@ -131,7 +143,7 @@ func (h *Handler) UpdateProfile(c *gin.Context) {
 		return
 	}
 
-	user, err := h.service.UpdateProfile(userID.(uint), updates)
+	user, err := h.service.UpdateProfile(uid, updates)
 
 	if err != nil {
 		apperr.RespondWithMessage(c, http.StatusInternalServerError, "profile update failed")
@@ -147,11 +159,8 @@ func (h *Handler) UpdateProfile(c *gin.Context) {
 func (h *Handler) UpdateKYC(c *gin.Context) {
 	userIDStr := c.Param("user_id")
 
-	userID, err := strconv.ParseUint(userIDStr, 10, 32)
-	if err != nil {
-		apperr.RespondWithMessage(c, http.StatusBadRequest, "invalid user id format")
-		return
-	}
+	// userIDStr is explicitly string
+	// No parsing needed for Appwrite IDs
 
 	var request UpdateKYCAdmin
 	if err := c.ShouldBindJSON(&request); err != nil {
@@ -159,7 +168,7 @@ func (h *Handler) UpdateKYC(c *gin.Context) {
 		return
 	}
 
-	user, err := h.service.UpdateUserKYCStatus(uint(userID), request.KYCStatus, request.Role)
+	user, err := h.service.UpdateUserKYCStatus(userIDStr, request.KYCStatus, request.Role)
 	if err != nil {
 		apperr.RespondWithMessage(c, http.StatusInternalServerError, "KYC update failed")
 		return

@@ -1,120 +1,174 @@
 package wallet
 
 import (
-	"time"
+	"fmt"
 
-	"github.com/919Umesh/gold_go/models"
-	"gorm.io/gorm"
+	"github.com/919Umesh/stock_market_sim/internal/appwrite"
+	"github.com/919Umesh/stock_market_sim/models"
+	"github.com/appwrite/sdk-for-go/id"
+	"github.com/appwrite/sdk-for-go/query"
+)
+
+const (
+	CollectionWallets      = "wallets"
+	CollectionTransactions = "transactions"
 )
 
 type Repository interface {
-	GetByUserID(userID uint) (*models.Wallet, error)
+	GetByUserID(userID string) (*models.Wallet, error)
 	Create(wallet *models.Wallet) error
 	Update(wallet *models.Wallet) error
-	WithLock(userID uint, fn func(*models.Wallet) error) error
+	WithLock(userID string, fn func(*models.Wallet) error) error
 
 	CreateTransaction(transaction *models.Transaction) error
 	UpdateTransaction(transaction *models.Transaction) error
 
-	GetUserTransaction(userID uint) ([]models.Transaction, error)
+	GetUserTransaction(userID string) ([]models.Transaction, error)
 }
 
 type repository struct {
-	db *gorm.DB
+	client *appwrite.Client
 }
 
-func NewRepository(db *gorm.DB) Repository {
-	return &repository{db: db}
+func NewRepository(client *appwrite.Client) Repository {
+	return &repository{client: client}
 }
 
-func (r *repository) GetByUserID(userID uint) (*models.Wallet, error) {
-	var wallet models.Wallet
-	query := `SELECT * FROM wallets WHERE user_id = ? LIMIT 1`
-	err := r.db.Raw(query, userID).Scan(&wallet).Error
+func (r *repository) GetByUserID(userID string) (*models.Wallet, error) {
+	resp, err := r.client.Databases.ListDocuments(
+		r.client.Config.DatabaseID,
+		CollectionWallets,
+		appwrite.WithListDocumentsQueries([]string{
+			query.Equal("user_id", userID),
+			query.Limit(1),
+		}),
+	)
 	if err != nil {
 		return nil, err
 	}
-	if wallet.ID == 0 {
-		return nil, gorm.ErrRecordNotFound
+
+	if len(resp.Documents) == 0 {
+		return nil, fmt.Errorf("wallet not found")
+	}
+
+	var wallet models.Wallet
+	if err := appwrite.DecodeListItem(resp, 0, &wallet); err != nil {
+		return nil, fmt.Errorf("failed to decode wallet: %w", err)
 	}
 	return &wallet, nil
 }
 
 func (r *repository) Create(wallet *models.Wallet) error {
-	query := `INSERT INTO wallets (user_id, fiat_balance, gold_grams, locked, version) VALUES (?, ?, ?, ?, ?)`
-	return r.db.Exec(query, wallet.UserID, wallet.FiatBalance, wallet.GoldGrams, wallet.Locked, wallet.Version).Error
+	data := map[string]interface{}{
+		"user_id":      wallet.UserID,
+		"fiat_balance": wallet.FiatBalance,
+		"locked":       wallet.Locked,
+		"version":      wallet.Version,
+	}
+
+	resp, err := r.client.Databases.CreateDocument(
+		r.client.Config.DatabaseID,
+		CollectionWallets,
+		id.Unique(),
+		data,
+	)
+	if err != nil {
+		return err
+	}
+	return appwrite.Decode(resp, wallet)
 }
 
 func (r *repository) Update(wallet *models.Wallet) error {
-	query := `
-		UPDATE wallets 
-		SET fiat_balance = ?, gold_grams = ?, locked = ?, version = ? 
-		WHERE id = ?
-	`
-	return r.db.Exec(query, wallet.FiatBalance, wallet.GoldGrams, wallet.Locked, wallet.Version, wallet.ID).Error
+	data := map[string]interface{}{
+		"fiat_balance": wallet.FiatBalance,
+		"locked":       wallet.Locked,
+		"version":      wallet.Version,
+	}
+
+	resp, err := r.client.Databases.UpdateDocument(
+		r.client.Config.DatabaseID,
+		CollectionWallets,
+		wallet.ID,
+		appwrite.WithUpdateDocumentData(data),
+	)
+	if err != nil {
+		return err
+	}
+	return appwrite.Decode(resp, wallet)
 }
 
 func (r *repository) CreateTransaction(transaction *models.Transaction) error {
-	transaction.CreatedAt = time.Now()
-	transaction.UpdatedAt = time.Now()
+	data := map[string]interface{}{
+		"user_id":      transaction.UserID,
+		"type":         transaction.Type,
+		"amount":       transaction.Amount,
+		"status":       transaction.Status,
+		"reference_id": transaction.ReferenceID,
+	}
 
-	query := `
-		INSERT INTO transactions 
-		(user_id, type, amount, gold_grams, price_per_gram, status, reference_id, created_at, updated_at) 
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-		RETURNING id
-	`
-	// returning id to populate transaction.ID
-	return r.db.Raw(query, transaction.UserID, transaction.Type, transaction.Amount, transaction.GoldGrams, transaction.PricePerGram, transaction.Status, transaction.ReferenceID, transaction.CreatedAt, transaction.UpdatedAt).Scan(&transaction.ID).Error
+	resp, err := r.client.Databases.CreateDocument(
+		r.client.Config.DatabaseID,
+		CollectionTransactions,
+		id.Unique(),
+		data,
+	)
+	if err != nil {
+		return err
+	}
+	return appwrite.Decode(resp, transaction)
 }
 
 func (r *repository) UpdateTransaction(transaction *models.Transaction) error {
-	transaction.UpdatedAt = time.Now()
-	query := `
-		UPDATE transactions 
-		SET user_id=?, type=?, amount=?, gold_grams=?, price_per_gram=?, status=?, reference_id=?, updated_at=? 
-		WHERE id = ?
-	`
-	return r.db.Exec(query, transaction.UserID, transaction.Type, transaction.Amount, transaction.GoldGrams, transaction.PricePerGram, transaction.Status, transaction.ReferenceID, transaction.UpdatedAt, transaction.ID).Error
+	data := map[string]interface{}{
+		"status": transaction.Status,
+	}
+
+	resp, err := r.client.Databases.UpdateDocument(
+		r.client.Config.DatabaseID,
+		CollectionTransactions,
+		transaction.ID,
+		appwrite.WithUpdateDocumentData(data),
+	)
+	if err != nil {
+		return err
+	}
+	return appwrite.Decode(resp, transaction)
 }
 
-func (r *repository) GetUserTransaction(userID uint) ([]models.Transaction, error) {
-	var transaction []models.Transaction
-	query := ` 
-			SELECT * 
-			FROM transactions 
-			WHERE user_id = ? 
-			ORDER BY created_at DESC 
-		`
-	err := r.db.Raw(query, userID).Scan(&transaction).Error
+func (r *repository) GetUserTransaction(userID string) ([]models.Transaction, error) {
+	resp, err := r.client.Databases.ListDocuments(
+		r.client.Config.DatabaseID,
+		CollectionTransactions,
+		appwrite.WithListDocumentsQueries([]string{
+			query.Equal("user_id", userID),
+			query.OrderDesc("$createdAt"),
+		}),
+	)
 	if err != nil {
 		return nil, err
 	}
-	return transaction, nil
+
+	transactions := make([]models.Transaction, 0, len(resp.Documents))
+	for i := range resp.Documents {
+		var t models.Transaction
+		if err := appwrite.DecodeListItem(resp, i, &t); err == nil {
+			transactions = append(transactions, t)
+		}
+	}
+
+	return transactions, nil
 }
 
-func (r *repository) WithLock(userID uint, fn func(*models.Wallet) error) error {
-	return r.db.Transaction(func(tx *gorm.DB) error {
-		var wallet models.Wallet
-		query := `SELECT * FROM wallets WHERE user_id = ? FOR UPDATE`
-		if err := tx.Raw(query, userID).Scan(&wallet).Error; err != nil {
-			return err
-		}
+func (r *repository) WithLock(userID string, fn func(*models.Wallet) error) error {
+	wallet, err := r.GetByUserID(userID)
+	if err != nil {
+		return err
+	}
 
-		// If using raw SQL, we must verify a record was actually found
-		if wallet.ID == 0 {
-			return gorm.ErrRecordNotFound
-		}
+	if err := fn(wallet); err != nil {
+		return err
+	}
 
-		if err := fn(&wallet); err != nil {
-			return err
-		}
-
-		updateQuery := `
-			UPDATE wallets 
-			SET fiat_balance = ?, gold_grams = ?, locked = ?, version = ? 
-			WHERE id = ?
-		`
-		return tx.Exec(updateQuery, wallet.FiatBalance, wallet.GoldGrams, wallet.Locked, wallet.Version, wallet.ID).Error
-	})
+	wallet.Version++
+	return r.Update(wallet)
 }

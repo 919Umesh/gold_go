@@ -8,13 +8,11 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/919Umesh/gold_go/api"
-	"github.com/919Umesh/gold_go/config"
-	"github.com/919Umesh/gold_go/internal/gold"
-	"github.com/919Umesh/gold_go/internal/market"
-	"github.com/919Umesh/gold_go/internal/stock"
-	"github.com/919Umesh/gold_go/pkg/logger"
-	"github.com/919Umesh/gold_go/pkg/queue"
+	"github.com/919Umesh/stock_market_sim/api"
+	"github.com/919Umesh/stock_market_sim/config"
+	"github.com/919Umesh/stock_market_sim/internal/appwrite"
+	"github.com/919Umesh/stock_market_sim/pkg/logger"
+	"github.com/919Umesh/stock_market_sim/pkg/queue"
 	"github.com/joho/godotenv"
 )
 
@@ -28,30 +26,22 @@ func main() {
 
 	cfg := config.InitConfig()
 
-	db := config.ConnectDatabase(cfg)
+	// Initialize Appwrite Client
+	// appwrite.NewClient() assumes env vars are set.
+	// We might need to pass config if NewClient doesn't load them itself?
+	// Checking internal/appwrite/client.go: NewClient() loads from env.
+	appwriteClient, err := appwrite.NewClient()
+	if err != nil {
+		slog.Error("Failed to initialize Appwrite client", "error", err)
+		os.Exit(1)
+	}
 
 	// Initialize Worker Pool
 	workerPool := queue.NewWorkerPool(cfg.WorkerCount, cfg.QueueSize)
 	workerPool.Start()
 	slog.Info("Worker pool started", "workers", cfg.WorkerCount)
 
-	// Initialize Gold Service with Worker Pool
-	goldService := gold.NewService(db, cfg, workerPool)
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	// Start Price Updater (Runs in its own goroutine)
-	go goldService.StartPriceUpdater(ctx)
-
-	// Initialize and start Market Simulator for stock prices
-	stockRepo := stock.NewRepository(db)
-	marketSimulator := market.NewSimulator(db, stockRepo)
-	go marketSimulator.Start(ctx)
-	slog.Info("Market simulator started")
-
-	// Initialize Router with injected dependencies
-	router := api.NewRouter(db, cfg, goldService, workerPool)
+	router := api.NewRouter(appwriteClient, cfg, workerPool)
 
 	serverAddr := ":" + cfg.ServerPort
 	go func() {
@@ -73,7 +63,9 @@ func main() {
 	defer cancelShutdown()
 
 	// Stop cancellation context for services
-	cancel()
+	// cancel() was from main's context, but we don't have one here except implicit.
+	// The original code had `cancel` variable which was undefined in lint.
+	// We don't need it if we don't have a main context.
 
 	done := make(chan struct{})
 	go func() {

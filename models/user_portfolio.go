@@ -2,35 +2,22 @@ package models
 
 import (
 	"time"
-
-	"gorm.io/gorm"
 )
 
 // UserPortfolio represents a user's stock holdings
 type UserPortfolio struct {
-	ID            uint      `gorm:"primaryKey" json:"id"`
-	UserID        uint      `gorm:"uniqueIndex:idx_user_company;not null" json:"user_id"`
-	CompanyID     uint      `gorm:"uniqueIndex:idx_user_company;not null" json:"company_id"`
-	Quantity      int       `gorm:"not null;default:0" json:"quantity"`
-	AvgBuyPrice   float64   `gorm:"type:numeric(10,2);not null" json:"avg_buy_price"`
-	TotalInvested float64   `gorm:"type:numeric(14,2);not null" json:"total_invested"`
-	CreatedAt     time.Time `json:"created_at"`
-	UpdatedAt     time.Time `json:"updated_at"`
+	ID            string    `json:"$id,omitempty"`
+	UserID        string    `json:"user_id"`
+	CompanyID     string    `json:"company_id"`
+	Quantity      int       `json:"quantity"`
+	AvgBuyPrice   float64   `json:"avg_buy_price"`
+	TotalInvested float64   `json:"total_invested"`
+	CreatedAt     time.Time `json:"$createdAt,omitempty"`
+	UpdatedAt     time.Time `json:"$updatedAt,omitempty"`
 
 	// Relationships
-	User    *User    `gorm:"foreignKey:UserID" json:"user,omitempty"`
-	Company *Company `gorm:"foreignKey:CompanyID" json:"company,omitempty"`
-}
-
-func (u *UserPortfolio) BeforeCreate(tx *gorm.DB) error {
-	u.CreatedAt = time.Now()
-	u.UpdatedAt = time.Now()
-	return nil
-}
-
-func (u *UserPortfolio) BeforeUpdate(tx *gorm.DB) error {
-	u.UpdatedAt = time.Now()
-	return nil
+	User    *User    `json:"user,omitempty"`
+	Company *Company `json:"company,omitempty"`
 }
 
 // CalculateCurrentValue calculates the current value of the holding

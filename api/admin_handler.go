@@ -8,18 +8,18 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/919Umesh/gold_go/models"
-	"github.com/919Umesh/gold_go/pkg/apperr"
+	"github.com/919Umesh/stock_market_sim/internal/stock"
+	"github.com/919Umesh/stock_market_sim/models"
+	"github.com/919Umesh/stock_market_sim/pkg/apperr"
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 )
 
 type AdminHandler struct {
-	db *gorm.DB
+	stockRepo stock.Repository
 }
 
-func NewAdminHandler(db *gorm.DB) *AdminHandler {
-	return &AdminHandler{db: db}
+func NewAdminHandler(stockRepo stock.Repository) *AdminHandler {
+	return &AdminHandler{stockRepo: stockRepo}
 }
 
 type NepaliCompany struct {
@@ -72,21 +72,30 @@ var nepaliCompanies = []NepaliCompany{
 // This endpoint should be called ONCE after deployment to populate the database
 func (h *AdminHandler) SeedStockData(c *gin.Context) {
 	// Check if data already exists
-	var count int64
-	h.db.Model(&models.Company{}).Count(&count)
-	if count > 0 {
-		apperr.RespondWithMessage(c, http.StatusBadRequest, "Database already seeded. Delete existing data first if you want to re-seed.")
+	companies, err := h.stockRepo.ListCompanies(1, 0)
+	if err == nil && len(companies) > 0 {
+		apperr.RespondWithMessage(c, http.StatusBadRequest, "Database already seeded. Delete existing data via Appwrite console if re-seeding needed.")
 		return
 	}
 
 	slog.Info("Starting database seeding via API...")
 
-	companyIDs := make(map[string]uint)
 	companiesCreated := 0
 	pricesCreated := 0
+	eventsCreated := 0
+
+	// Keep track of company IDs for price seeding
+	companyMap := make(map[string]string) // Symbol -> ID
 
 	// Seed companies
 	for _, nc := range nepaliCompanies {
+		// Check if exists first to be safe, though ListCompanies check kind of covers it
+		existing, err := h.stockRepo.GetCompanyBySymbol(nc.Symbol)
+		if err == nil && existing != nil {
+			companyMap[nc.Symbol] = existing.ID
+			continue
+		}
+
 		company := &models.Company{
 			Symbol:      nc.Symbol,
 			Name:        nc.Name,
@@ -98,27 +107,34 @@ func (h *AdminHandler) SeedStockData(c *gin.Context) {
 			IsActive:    true,
 		}
 
-		if err := h.db.Create(company).Error; err != nil {
+		if err := h.stockRepo.CreateCompany(company); err != nil {
 			slog.Error("Failed to create company", "symbol", nc.Symbol, "error", err)
 			continue
 		}
 
-		companyIDs[nc.Symbol] = company.ID
+		companyMap[nc.Symbol] = company.ID
 		companiesCreated++
 	}
 
 	// Generate historical price data (1 year)
 	for _, nc := range nepaliCompanies {
-		companyID, exists := companyIDs[nc.Symbol]
+		companyID, exists := companyMap[nc.Symbol]
 		if !exists {
 			continue
 		}
 
-		startDate := time.Now().AddDate(-1, 0, 0)
+		// Check if any prices exist for this company to avoid deep re-seeding if partially done
+		// Skipping detailed check for simplicity, assume clean seed if ListCompanies was empty
 		currentPrice := nc.BasePrice
 
-		for days := 0; days < 365; days++ {
-			timestamp := startDate.AddDate(0, 0, days)
+		// We will only create data for every 10th day to avoid request timeout/high volume during seed
+		// Or creating just 30 days of history
+		// Let's create last 30 days history to keep it light for initial seed
+		seedDays := 30
+		startTime := time.Now().AddDate(0, 0, -seedDays)
+
+		for days := 0; days < seedDays; days++ {
+			timestamp := startTime.AddDate(0, 0, days)
 
 			// Skip weekends
 			if timestamp.Weekday() == time.Friday || timestamp.Weekday() == time.Saturday {
@@ -150,7 +166,7 @@ func (h *AdminHandler) SeedStockData(c *gin.Context) {
 				Timeframe:  "1d",
 			}
 
-			if err := h.db.Create(stockPrice).Error; err != nil {
+			if err := h.stockRepo.CreateStockPrice(stockPrice); err != nil {
 				slog.Error("Failed to create price", "error", err)
 				continue
 			}
@@ -165,10 +181,12 @@ func (h *AdminHandler) SeedStockData(c *gin.Context) {
 		models.MarketEventDividend,
 	}
 
-	eventsCreated := 0
-	for i := 0; i < 20; i++ {
+	for i := 0; i < 10; i++ { // Reduce to 10 events
 		nc := nepaliCompanies[rand.Intn(len(nepaliCompanies))]
-		companyID := companyIDs[nc.Symbol]
+		companyID, exists := companyMap[nc.Symbol]
+		if !exists {
+			continue
+		}
 
 		event := &models.MarketEvent{
 			CompanyID:        companyID,
@@ -179,7 +197,7 @@ func (h *AdminHandler) SeedStockData(c *gin.Context) {
 			EventDate:        time.Now().Add(time.Duration(rand.Intn(60)) * 24 * time.Hour),
 		}
 
-		if err := h.db.Create(event).Error; err == nil {
+		if err := h.stockRepo.CreateMarketEvent(event); err == nil {
 			eventsCreated++
 		}
 	}

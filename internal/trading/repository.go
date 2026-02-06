@@ -1,307 +1,401 @@
 package trading
 
 import (
-	"time"
+	"fmt"
 
-	"github.com/919Umesh/gold_go/models"
-	"gorm.io/gorm"
+	"github.com/919Umesh/stock_market_sim/internal/appwrite"
+	"github.com/919Umesh/stock_market_sim/models"
+	"github.com/appwrite/sdk-for-go/id"
+	"github.com/appwrite/sdk-for-go/query"
+)
+
+const (
+	CollectionVirtualWallets    = "virtual_wallets"
+	CollectionUserPortfolios    = "user_portfolios"
+	CollectionStockTransactions = "stock_transactions"
 )
 
 type Repository interface {
 	// Virtual wallet operations
 	CreateVirtualWallet(wallet *models.VirtualWallet) error
-	GetVirtualWallet(userID uint) (*models.VirtualWallet, error)
+	GetVirtualWallet(userID string) (*models.VirtualWallet, error)
 	UpdateVirtualWallet(wallet *models.VirtualWallet) error
 
 	// Portfolio operations
-	GetPortfolio(userID uint) ([]models.UserPortfolio, error)
-	GetPortfolioItem(userID, companyID uint) (*models.UserPortfolio, error)
+	GetPortfolio(userID string) ([]models.UserPortfolio, error)
+	GetPortfolioItem(userID, companyID string) (*models.UserPortfolio, error)
 	CreatePortfolioItem(item *models.UserPortfolio) error
 	UpdatePortfolioItem(item *models.UserPortfolio) error
-	DeletePortfolioItem(userID, companyID uint) error
+	DeletePortfolioItem(userID, companyID string) error
 
 	// Transaction operations
 	CreateTransaction(tx *models.StockTransaction) error
-	GetUserTransactions(userID uint, limit, offset int) ([]models.StockTransaction, error)
-	GetTransactionsByCompany(userID, companyID uint, limit int) ([]models.StockTransaction, error)
+	GetUserTransactions(userID string, limit, offset int) ([]models.StockTransaction, error)
+	GetTransactionsByCompany(userID, companyID string, limit int) ([]models.StockTransaction, error)
 
 	// Atomic trading operations
-	ExecuteBuy(userID, companyID uint, quantity int, pricePerShare float64) error
-	ExecuteSell(userID, companyID uint, quantity int, pricePerShare float64) error
+	ExecuteBuy(userID, companyID string, quantity int, pricePerShare float64) error
+	ExecuteSell(userID, companyID string, quantity int, pricePerShare float64) error
 }
 
 type repository struct {
-	db *gorm.DB
+	client *appwrite.Client
 }
 
-func NewRepository(db *gorm.DB) Repository {
-	return &repository{db: db}
+func NewRepository(client *appwrite.Client) Repository {
+	return &repository{client: client}
 }
 
 // Virtual wallet operations
 
 func (r *repository) CreateVirtualWallet(wallet *models.VirtualWallet) error {
-	query := `
-		INSERT INTO virtual_wallets (user_id, balance, total_invested, total_profit_loss, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?)
-		RETURNING id
-	`
-	return r.db.Raw(query, wallet.UserID, wallet.Balance, wallet.TotalInvested,
-		wallet.TotalProfitLoss, time.Now(), time.Now()).Scan(&wallet.ID).Error
+	data := map[string]interface{}{
+		"user_id":           wallet.UserID,
+		"balance":           wallet.Balance,
+		"total_invested":    wallet.TotalInvested,
+		"total_profit_loss": wallet.TotalProfitLoss,
+	}
+
+	resp, err := r.client.Databases.CreateDocument(
+		r.client.Config.DatabaseID,
+		CollectionVirtualWallets,
+		id.Unique(),
+		data,
+	)
+	if err != nil {
+		return err
+	}
+	return appwrite.Decode(resp, wallet)
 }
 
-func (r *repository) GetVirtualWallet(userID uint) (*models.VirtualWallet, error) {
-	var wallet models.VirtualWallet
-	query := `SELECT * FROM virtual_wallets WHERE user_id = ? LIMIT 1`
-	err := r.db.Raw(query, userID).Scan(&wallet).Error
+func (r *repository) GetVirtualWallet(userID string) (*models.VirtualWallet, error) {
+	resp, err := r.client.Databases.ListDocuments(
+		r.client.Config.DatabaseID,
+		CollectionVirtualWallets,
+		appwrite.WithListDocumentsQueries([]string{
+			query.Equal("user_id", userID),
+			query.Limit(1),
+		}),
+	)
 	if err != nil {
 		return nil, err
 	}
-	if wallet.ID == 0 {
-		return nil, gorm.ErrRecordNotFound
+	if len(resp.Documents) == 0 {
+		return nil, fmt.Errorf("virtual wallet not found")
+	}
+
+	var wallet models.VirtualWallet
+	if err := appwrite.DecodeListItem(resp, 0, &wallet); err != nil {
+		return nil, fmt.Errorf("failed to decode wallet: %w", err)
 	}
 	return &wallet, nil
 }
 
 func (r *repository) UpdateVirtualWallet(wallet *models.VirtualWallet) error {
-	query := `
-		UPDATE virtual_wallets 
-		SET balance = ?, total_invested = ?, total_profit_loss = ?, updated_at = ?
-		WHERE id = ?
-	`
-	return r.db.Exec(query, wallet.Balance, wallet.TotalInvested, wallet.TotalProfitLoss,
-		time.Now(), wallet.ID).Error
+	data := map[string]interface{}{
+		"balance":           wallet.Balance,
+		"total_invested":    wallet.TotalInvested,
+		"total_profit_loss": wallet.TotalProfitLoss,
+	}
+
+	resp, err := r.client.Databases.UpdateDocument(
+		r.client.Config.DatabaseID,
+		CollectionVirtualWallets,
+		wallet.ID,
+		appwrite.WithUpdateDocumentData(data),
+	)
+	if err != nil {
+		return err
+	}
+	return appwrite.Decode(resp, wallet)
 }
 
 // Portfolio operations
 
-func (r *repository) GetPortfolio(userID uint) ([]models.UserPortfolio, error) {
-	var portfolio []models.UserPortfolio
-	query := `
-		SELECT up.*, c.symbol, c.name, c.sector
-		FROM user_portfolios up
-		INNER JOIN companies c ON up.company_id = c.id
-		WHERE up.user_id = ? AND up.quantity > 0
-		ORDER BY up.total_invested DESC
-	`
-	err := r.db.Raw(query, userID).Scan(&portfolio).Error
-	return portfolio, err
-}
-
-func (r *repository) GetPortfolioItem(userID, companyID uint) (*models.UserPortfolio, error) {
-	var item models.UserPortfolio
-	query := `SELECT * FROM user_portfolios WHERE user_id = ? AND company_id = ? LIMIT 1`
-	err := r.db.Raw(query, userID, companyID).Scan(&item).Error
+func (r *repository) GetPortfolio(userID string) ([]models.UserPortfolio, error) {
+	resp, err := r.client.Databases.ListDocuments(
+		r.client.Config.DatabaseID,
+		CollectionUserPortfolios,
+		appwrite.WithListDocumentsQueries([]string{
+			query.Equal("user_id", userID),
+			query.GreaterThan("quantity", 0),
+			query.OrderDesc("total_invested"),
+		}),
+	)
 	if err != nil {
 		return nil, err
 	}
-	if item.ID == 0 {
-		return nil, gorm.ErrRecordNotFound
+
+	var portfolio []models.UserPortfolio
+	for i := range resp.Documents {
+		var item models.UserPortfolio
+		if err := appwrite.DecodeListItem(resp, i, &item); err == nil {
+			portfolio = append(portfolio, item)
+		}
+	}
+	return portfolio, nil
+}
+
+func (r *repository) GetPortfolioItem(userID, companyID string) (*models.UserPortfolio, error) {
+	resp, err := r.client.Databases.ListDocuments(
+		r.client.Config.DatabaseID,
+		CollectionUserPortfolios,
+		appwrite.WithListDocumentsQueries([]string{
+			query.Equal("user_id", userID),
+			query.Equal("company_id", companyID),
+			query.Limit(1),
+		}),
+	)
+	if err != nil {
+		return nil, err
+	}
+	if len(resp.Documents) == 0 {
+		return nil, fmt.Errorf("portfolio item not found")
+	}
+
+	var item models.UserPortfolio
+	if err := appwrite.DecodeListItem(resp, 0, &item); err != nil {
+		return nil, fmt.Errorf("failed to decode portfolio item: %w", err)
 	}
 	return &item, nil
 }
 
 func (r *repository) CreatePortfolioItem(item *models.UserPortfolio) error {
-	query := `
-		INSERT INTO user_portfolios (user_id, company_id, quantity, avg_buy_price, total_invested, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?)
-		RETURNING id
-	`
-	return r.db.Raw(query, item.UserID, item.CompanyID, item.Quantity, item.AvgBuyPrice,
-		item.TotalInvested, time.Now(), time.Now()).Scan(&item.ID).Error
+	data := map[string]interface{}{
+		"user_id":        item.UserID,
+		"company_id":     item.CompanyID,
+		"quantity":       item.Quantity,
+		"avg_buy_price":  item.AvgBuyPrice,
+		"total_invested": item.TotalInvested,
+	}
+
+	resp, err := r.client.Databases.CreateDocument(
+		r.client.Config.DatabaseID,
+		CollectionUserPortfolios,
+		id.Unique(),
+		data,
+	)
+	if err != nil {
+		return err
+	}
+	return appwrite.Decode(resp, item)
 }
 
 func (r *repository) UpdatePortfolioItem(item *models.UserPortfolio) error {
-	query := `
-		UPDATE user_portfolios 
-		SET quantity = ?, avg_buy_price = ?, total_invested = ?, updated_at = ?
-		WHERE id = ?
-	`
-	return r.db.Exec(query, item.Quantity, item.AvgBuyPrice, item.TotalInvested,
-		time.Now(), item.ID).Error
+	data := map[string]interface{}{
+		"quantity":       item.Quantity,
+		"avg_buy_price":  item.AvgBuyPrice,
+		"total_invested": item.TotalInvested,
+	}
+
+	resp, err := r.client.Databases.UpdateDocument(
+		r.client.Config.DatabaseID,
+		CollectionUserPortfolios,
+		item.ID,
+		appwrite.WithUpdateDocumentData(data),
+	)
+	if err != nil {
+		return err
+	}
+	return appwrite.Decode(resp, item)
 }
 
-func (r *repository) DeletePortfolioItem(userID, companyID uint) error {
-	query := `DELETE FROM user_portfolios WHERE user_id = ? AND company_id = ?`
-	return r.db.Exec(query, userID, companyID).Error
+func (r *repository) DeletePortfolioItem(userID, companyID string) error {
+	item, err := r.GetPortfolioItem(userID, companyID)
+	if err != nil {
+		return err
+	}
+	_, err = r.client.Databases.DeleteDocument(
+		r.client.Config.DatabaseID,
+		CollectionUserPortfolios,
+		item.ID,
+	)
+	return err
 }
 
 // Transaction operations
 
 func (r *repository) CreateTransaction(tx *models.StockTransaction) error {
-	query := `
-		INSERT INTO stock_transactions (user_id, company_id, type, quantity, price_per_share, total_amount, status, reference_id, created_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-		RETURNING id
-	`
-	return r.db.Raw(query, tx.UserID, tx.CompanyID, tx.Type, tx.Quantity, tx.PricePerShare,
-		tx.TotalAmount, tx.Status, tx.ReferenceID, time.Now()).Scan(&tx.ID).Error
+	data := map[string]interface{}{
+		"user_id":         tx.UserID,
+		"company_id":      tx.CompanyID,
+		"type":            tx.Type,
+		"quantity":        tx.Quantity,
+		"price_per_share": tx.PricePerShare,
+		"total_amount":    tx.TotalAmount,
+		"status":          tx.Status,
+		"reference_id":    tx.ReferenceID,
+	}
+
+	resp, err := r.client.Databases.CreateDocument(
+		r.client.Config.DatabaseID,
+		CollectionStockTransactions,
+		id.Unique(),
+		data,
+	)
+	if err != nil {
+		return err
+	}
+	return appwrite.Decode(resp, tx)
 }
 
-func (r *repository) GetUserTransactions(userID uint, limit, offset int) ([]models.StockTransaction, error) {
+func (r *repository) GetUserTransactions(userID string, limit, offset int) ([]models.StockTransaction, error) {
+	resp, err := r.client.Databases.ListDocuments(
+		r.client.Config.DatabaseID,
+		CollectionStockTransactions,
+		appwrite.WithListDocumentsQueries([]string{
+			query.Equal("user_id", userID),
+			query.OrderDesc("$createdAt"),
+			query.Limit(limit),
+			query.Offset(offset),
+		}),
+	)
+	if err != nil {
+		return nil, err
+	}
+
 	var transactions []models.StockTransaction
-	query := `
-		SELECT st.*, c.symbol, c.name
-		FROM stock_transactions st
-		INNER JOIN companies c ON st.company_id = c.id
-		WHERE st.user_id = ?
-		ORDER BY st.created_at DESC
-		LIMIT ? OFFSET ?
-	`
-	err := r.db.Raw(query, userID, limit, offset).Scan(&transactions).Error
-	return transactions, err
+	for i := range resp.Documents {
+		var tx models.StockTransaction
+		if err := appwrite.DecodeListItem(resp, i, &tx); err == nil {
+			transactions = append(transactions, tx)
+		}
+	}
+	return transactions, nil
 }
 
-func (r *repository) GetTransactionsByCompany(userID, companyID uint, limit int) ([]models.StockTransaction, error) {
+func (r *repository) GetTransactionsByCompany(userID, companyID string, limit int) ([]models.StockTransaction, error) {
+	resp, err := r.client.Databases.ListDocuments(
+		r.client.Config.DatabaseID,
+		CollectionStockTransactions,
+		appwrite.WithListDocumentsQueries([]string{
+			query.Equal("user_id", userID),
+			query.Equal("company_id", companyID),
+			query.OrderDesc("$createdAt"),
+			query.Limit(limit),
+		}),
+	)
+	if err != nil {
+		return nil, err
+	}
+
 	var transactions []models.StockTransaction
-	query := `
-		SELECT * FROM stock_transactions 
-		WHERE user_id = ? AND company_id = ?
-		ORDER BY created_at DESC
-		LIMIT ?
-	`
-	err := r.db.Raw(query, userID, companyID, limit).Scan(&transactions).Error
-	return transactions, err
+	for i := range resp.Documents {
+		var tx models.StockTransaction
+		if err := appwrite.DecodeListItem(resp, i, &tx); err == nil {
+			transactions = append(transactions, tx)
+		}
+	}
+	return transactions, nil
 }
 
-// Atomic trading operations
+// Atomic trading operations - Simulated with sequential calls
 
-func (r *repository) ExecuteBuy(userID, companyID uint, quantity int, pricePerShare float64) error {
-	return r.db.Transaction(func(tx *gorm.DB) error {
-		totalAmount := float64(quantity) * pricePerShare
+func (r *repository) ExecuteBuy(userID, companyID string, quantity int, pricePerShare float64) error {
+	totalAmount := float64(quantity) * pricePerShare
 
-		// 1. Lock and check virtual wallet balance
-		var wallet models.VirtualWallet
-		walletQuery := `SELECT * FROM virtual_wallets WHERE user_id = ? FOR UPDATE`
-		if err := tx.Raw(walletQuery, userID).Scan(&wallet).Error; err != nil {
-			return err
+	wallet, err := r.GetVirtualWallet(userID)
+	if err != nil {
+		return err
+	}
+	if wallet.Balance < totalAmount {
+		return fmt.Errorf("insufficient balance")
+	}
+
+	wallet.Balance -= totalAmount
+	wallet.TotalInvested += totalAmount
+	if err := r.UpdateVirtualWallet(wallet); err != nil {
+		return fmt.Errorf("failed to update wallet: %w", err)
+	}
+
+	item, err := r.GetPortfolioItem(userID, companyID)
+	if err != nil {
+		newItem := &models.UserPortfolio{
+			UserID:        userID,
+			CompanyID:     companyID,
+			Quantity:      quantity,
+			AvgBuyPrice:   pricePerShare,
+			TotalInvested: totalAmount,
 		}
-
-		if wallet.ID == 0 {
-			return gorm.ErrRecordNotFound
+		if err := r.CreatePortfolioItem(newItem); err != nil {
+			return fmt.Errorf("failed to create portfolio item: %w", err)
 		}
+	} else {
+		newQuantity := item.Quantity + quantity
+		newTotalInvested := item.TotalInvested + totalAmount
+		newAvgPrice := newTotalInvested / float64(newQuantity)
 
-		if wallet.Balance < totalAmount {
-			return gorm.ErrInvalidData // Insufficient balance
+		item.Quantity = newQuantity
+		item.TotalInvested = newTotalInvested
+		item.AvgBuyPrice = newAvgPrice
+
+		if err := r.UpdatePortfolioItem(item); err != nil {
+			return fmt.Errorf("failed to update portfolio item: %w", err)
 		}
+	}
 
-		// 2. Deduct from wallet
-		updateWalletQuery := `
-			UPDATE virtual_wallets 
-			SET balance = balance - ?, total_invested = total_invested + ?, updated_at = ?
-			WHERE id = ?
-		`
-		if err := tx.Exec(updateWalletQuery, totalAmount, totalAmount, time.Now(), wallet.ID).Error; err != nil {
-			return err
-		}
-
-		// 3. Update or create portfolio item
-		var portfolio models.UserPortfolio
-		portfolioQuery := `SELECT * FROM user_portfolios WHERE user_id = ? AND company_id = ? FOR UPDATE`
-		err := tx.Raw(portfolioQuery, userID, companyID).Scan(&portfolio).Error
-
-		if err != nil && err != gorm.ErrRecordNotFound {
-			return err
-		}
-
-		if portfolio.ID == 0 {
-			// Create new portfolio item
-			createPortfolioQuery := `
-				INSERT INTO user_portfolios (user_id, company_id, quantity, avg_buy_price, total_invested, created_at, updated_at)
-				VALUES (?, ?, ?, ?, ?, ?, ?)
-			`
-			if err := tx.Exec(createPortfolioQuery, userID, companyID, quantity, pricePerShare,
-				totalAmount, time.Now(), time.Now()).Error; err != nil {
-				return err
-			}
-		} else {
-			// Update existing portfolio item
-			newQuantity := portfolio.Quantity + quantity
-			newTotalInvested := portfolio.TotalInvested + totalAmount
-			newAvgPrice := newTotalInvested / float64(newQuantity)
-
-			updatePortfolioQuery := `
-				UPDATE user_portfolios 
-				SET quantity = ?, avg_buy_price = ?, total_invested = ?, updated_at = ?
-				WHERE id = ?
-			`
-			if err := tx.Exec(updatePortfolioQuery, newQuantity, newAvgPrice, newTotalInvested,
-				time.Now(), portfolio.ID).Error; err != nil {
-				return err
-			}
-		}
-
-		// 4. Record transaction
-		createTxQuery := `
-			INSERT INTO stock_transactions (user_id, company_id, type, quantity, price_per_share, total_amount, status, created_at)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-		`
-		return tx.Exec(createTxQuery, userID, companyID, models.StockTransactionBuy, quantity,
-			pricePerShare, totalAmount, models.StockTransactionCompleted, time.Now()).Error
-	})
+	tx := &models.StockTransaction{
+		UserID:        userID,
+		CompanyID:     companyID,
+		Type:          models.StockTransactionBuy,
+		Quantity:      quantity,
+		PricePerShare: pricePerShare,
+		TotalAmount:   totalAmount,
+		Status:        models.StockTransactionCompleted,
+	}
+	return r.CreateTransaction(tx)
 }
 
-func (r *repository) ExecuteSell(userID, companyID uint, quantity int, pricePerShare float64) error {
-	return r.db.Transaction(func(tx *gorm.DB) error {
-		totalAmount := float64(quantity) * pricePerShare
+func (r *repository) ExecuteSell(userID, companyID string, quantity int, pricePerShare float64) error {
+	totalAmount := float64(quantity) * pricePerShare
 
-		// 1. Lock and check portfolio
-		var portfolio models.UserPortfolio
-		portfolioQuery := `SELECT * FROM user_portfolios WHERE user_id = ? AND company_id = ? FOR UPDATE`
-		if err := tx.Raw(portfolioQuery, userID, companyID).Scan(&portfolio).Error; err != nil {
-			return err
+	item, err := r.GetPortfolioItem(userID, companyID)
+	if err != nil {
+		return fmt.Errorf("portfolio item not found: %w", err)
+	}
+	if item.Quantity < quantity {
+		return fmt.Errorf("insufficient shares")
+	}
+
+	newQuantity := item.Quantity - quantity
+	soldInvestment := (item.TotalInvested / float64(item.Quantity)) * float64(quantity)
+	newTotalInvested := item.TotalInvested - soldInvestment
+
+	item.Quantity = newQuantity
+	item.TotalInvested = newTotalInvested
+
+	if newQuantity == 0 {
+		if err := r.DeletePortfolioItem(userID, companyID); err != nil {
+			return fmt.Errorf("failed to delete portfolio item: %w", err)
 		}
-
-		if portfolio.ID == 0 {
-			return gorm.ErrRecordNotFound
+	} else {
+		if err := r.UpdatePortfolioItem(item); err != nil {
+			return fmt.Errorf("failed to update portfolio item: %w", err)
 		}
+	}
 
-		if portfolio.Quantity < quantity {
-			return gorm.ErrInvalidData // Insufficient shares
-		}
+	wallet, err := r.GetVirtualWallet(userID)
+	if err != nil {
+		return err
+	}
 
-		// 2. Update portfolio
-		newQuantity := portfolio.Quantity - quantity
-		soldInvestment := (portfolio.TotalInvested / float64(portfolio.Quantity)) * float64(quantity)
-		newTotalInvested := portfolio.TotalInvested - soldInvestment
+	profitLoss := totalAmount - soldInvestment
+	wallet.Balance += totalAmount
+	wallet.TotalInvested -= soldInvestment
+	wallet.TotalProfitLoss += profitLoss
 
-		if newQuantity == 0 {
-			// Delete portfolio item if all shares sold
-			deleteQuery := `DELETE FROM user_portfolios WHERE id = ?`
-			if err := tx.Exec(deleteQuery, portfolio.ID).Error; err != nil {
-				return err
-			}
-		} else {
-			// Update portfolio item
-			updatePortfolioQuery := `
-				UPDATE user_portfolios 
-				SET quantity = ?, total_invested = ?, updated_at = ?
-				WHERE id = ?
-			`
-			if err := tx.Exec(updatePortfolioQuery, newQuantity, newTotalInvested,
-				time.Now(), portfolio.ID).Error; err != nil {
-				return err
-			}
-		}
+	if err := r.UpdateVirtualWallet(wallet); err != nil {
+		return fmt.Errorf("failed to update wallet: %w", err)
+	}
 
-		// 3. Add to wallet
-		profitLoss := totalAmount - soldInvestment
-		updateWalletQuery := `
-			UPDATE virtual_wallets 
-			SET balance = balance + ?, total_invested = total_invested - ?, total_profit_loss = total_profit_loss + ?, updated_at = ?
-			WHERE user_id = ?
-		`
-		if err := tx.Exec(updateWalletQuery, totalAmount, soldInvestment, profitLoss,
-			time.Now(), userID).Error; err != nil {
-			return err
-		}
-
-		// 4. Record transaction
-		createTxQuery := `
-			INSERT INTO stock_transactions (user_id, company_id, type, quantity, price_per_share, total_amount, status, created_at)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-		`
-		return tx.Exec(createTxQuery, userID, companyID, models.StockTransactionSell, quantity,
-			pricePerShare, totalAmount, models.StockTransactionCompleted, time.Now()).Error
-	})
+	tx := &models.StockTransaction{
+		UserID:        userID,
+		CompanyID:     companyID,
+		Type:          models.StockTransactionSell,
+		Quantity:      quantity,
+		PricePerShare: pricePerShare,
+		TotalAmount:   totalAmount,
+		Status:        models.StockTransactionCompleted,
+	}
+	return r.CreateTransaction(tx)
 }

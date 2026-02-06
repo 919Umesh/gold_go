@@ -4,10 +4,9 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"strconv"
 	"time"
 
-	"github.com/919Umesh/gold_go/pkg/redis"
+	"github.com/919Umesh/stock_market_sim/pkg/redis"
 	"github.com/gin-gonic/gin"
 )
 
@@ -58,7 +57,7 @@ func (cm *CacheMiddleware) generateCacheKey(c *gin.Context) string {
 	key := c.Request.URL.String()
 
 	if userID, exists := c.Get("user_id"); exists {
-		key += ":user:" + strconv.FormatUint(uint64(userID.(uint)), 10)
+		key += ":user:" + userID.(string)
 	}
 
 	if c.Request.URL.RawQuery != "" {

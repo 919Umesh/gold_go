@@ -3,11 +3,11 @@ package auth
 import (
 	"time"
 
-	"github.com/919Umesh/gold_go/models"
+	"github.com/919Umesh/stock_market_sim/models"
 )
 
 type UserResponse struct {
-	ID        uint      `json:"id"`
+	ID        string    `json:"id"`
 	FullName  string    `json:"full_name"`
 	Email     string    `json:"email"`
 	Phone     string    `json:"phone"`

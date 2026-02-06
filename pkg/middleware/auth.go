@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/919Umesh/gold_go/config"
-	"github.com/919Umesh/gold_go/pkg/utils"
+	"github.com/919Umesh/stock_market_sim/config"
+	"github.com/919Umesh/stock_market_sim/pkg/utils"
 	"github.com/gin-gonic/gin"
 )
 

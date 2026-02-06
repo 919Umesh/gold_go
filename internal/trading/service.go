@@ -1,51 +1,51 @@
 package trading
 
 import (
+	"errors"
 	"fmt"
 
-	"github.com/919Umesh/gold_go/internal/stock"
-	"github.com/919Umesh/gold_go/models"
+	"github.com/919Umesh/stock_market_sim/internal/stock"
+	"github.com/919Umesh/stock_market_sim/models"
 )
 
 type Service interface {
-	// Wallet operations
-	GetOrCreateWallet(userID uint) (*models.VirtualWallet, error)
-	GetWalletBalance(userID uint) (float64, error)
+	// Wallet
+	CreateWallet(userID string) (*models.VirtualWallet, error)
+	GetWallet(userID string) (*models.VirtualWallet, error)
+	GetOrCreateWallet(userID string) (*models.VirtualWallet, error)
 
-	// Portfolio operations
-	GetPortfolio(userID uint) (*PortfolioSummary, error)
-	GetPortfolioValue(userID uint) (float64, error)
+	// Portfolio
+	GetPortfolio(userID string) (*PortfolioSummary, error)
 
-	// Trading operations
-	BuyStock(userID uint, symbol string, quantity int) (*TradeResult, error)
-	SellStock(userID uint, symbol string, quantity int) (*TradeResult, error)
-
-	// Transaction history
-	GetTransactionHistory(userID uint, limit, offset int) ([]models.StockTransaction, error)
+	// Trading
+	BuyStock(userID, symbol string, quantity int) (*TradeResult, error)
+	SellStock(userID, symbol string, quantity int) (*TradeResult, error)
+	GetTransactionHistory(userID string, limit, offset int) ([]models.StockTransaction, error)
 }
 
 type PortfolioSummary struct {
-	TotalValue        float64            `json:"total_value"`
-	TotalInvested     float64            `json:"total_invested"`
-	TotalProfitLoss   float64            `json:"total_profit_loss"`
-	ProfitLossPercent float64            `json:"profit_loss_percent"`
-	Holdings          []PortfolioHolding `json:"holdings"`
+	TotalValue      float64                `json:"total_value"`
+	TotalInvested   float64                `json:"total_invested"`
+	TotalProfitLoss float64                `json:"total_profit_loss"`
+	ProfitLossPct   float64                `json:"profit_loss_pct"`
+	Items           []PortfolioItemSummary `json:"items"`
 }
 
-type PortfolioHolding struct {
+type PortfolioItemSummary struct {
 	models.UserPortfolio
-	CompanySymbol     string  `json:"company_symbol"`
-	CompanyName       string  `json:"company_name"`
-	CurrentPrice      float64 `json:"current_price"`
-	CurrentValue      float64 `json:"current_value"`
-	ProfitLoss        float64 `json:"profit_loss"`
-	ProfitLossPercent float64 `json:"profit_loss_percent"`
+	CurrentPrice  float64 `json:"current_price"`
+	CurrentValue  float64 `json:"current_value"`
+	ProfitLoss    float64 `json:"profit_loss"`
+	ProfitLossPct float64 `json:"profit_loss_pct"`
+	CompanyName   string  `json:"company_name"`
+	CompanySymbol string  `json:"company_symbol"`
+	CompanySector string  `json:"company_sector"`
 }
 
 type TradeResult struct {
 	Success       bool    `json:"success"`
 	Message       string  `json:"message"`
-	TransactionID uint    `json:"transaction_id,omitempty"`
+	TransactionID string  `json:"transaction_id,omitempty"`
 	Quantity      int     `json:"quantity"`
 	PricePerShare float64 `json:"price_per_share"`
 	TotalAmount   float64 `json:"total_amount"`
@@ -64,231 +64,180 @@ func NewService(repo Repository, stockRepo stock.Repository) Service {
 	}
 }
 
-func (s *service) GetOrCreateWallet(userID uint) (*models.VirtualWallet, error) {
-	wallet, err := s.repo.GetVirtualWallet(userID)
+func (s *service) CreateWallet(userID string) (*models.VirtualWallet, error) {
+	// Check if wallet exists
+	_, err := s.repo.GetVirtualWallet(userID)
 	if err == nil {
-		return wallet, nil
+		return nil, errors.New("wallet already exists")
 	}
 
-	// Create new wallet with initial balance
-	newWallet := &models.VirtualWallet{
+	wallet := &models.VirtualWallet{
 		UserID:          userID,
-		Balance:         1000000.00, // NPR 10 lakh
+		Balance:         1000000.00, // Initial balance
 		TotalInvested:   0,
 		TotalProfitLoss: 0,
 	}
 
-	if err := s.repo.CreateVirtualWallet(newWallet); err != nil {
-		return nil, fmt.Errorf("failed to create wallet: %w", err)
+	if err := s.repo.CreateVirtualWallet(wallet); err != nil {
+		return nil, err
 	}
 
-	return newWallet, nil
+	return wallet, nil
 }
 
-func (s *service) GetWalletBalance(userID uint) (float64, error) {
-	wallet, err := s.GetOrCreateWallet(userID)
-	if err != nil {
-		return 0, err
+func (s *service) GetWallet(userID string) (*models.VirtualWallet, error) {
+	return s.repo.GetVirtualWallet(userID)
+}
+
+func (s *service) GetOrCreateWallet(userID string) (*models.VirtualWallet, error) {
+	wallet, err := s.repo.GetVirtualWallet(userID)
+	if err == nil {
+		return wallet, nil
 	}
-	return wallet.Balance, nil
+	return s.CreateWallet(userID)
 }
 
-func (s *service) GetPortfolio(userID uint) (*PortfolioSummary, error) {
+func (s *service) GetPortfolio(userID string) (*PortfolioSummary, error) {
 	portfolio, err := s.repo.GetPortfolio(userID)
 	if err != nil {
 		return nil, err
 	}
 
-	holdings := make([]PortfolioHolding, 0, len(portfolio))
-	totalValue := 0.0
-	totalInvested := 0.0
+	summary := &PortfolioSummary{
+		Items: make([]PortfolioItemSummary, 0, len(portfolio)),
+	}
 
 	for _, item := range portfolio {
-		// Get current price
-		currentPrice, err := s.stockRepo.GetLatestPrice(item.CompanyID)
-		if err != nil {
-			continue
+		// Fetch current price
+		price, err := s.stockRepo.GetLatestPrice(item.CompanyID)
+		currentPrice := 0.0
+		if err == nil {
+			currentPrice = price.ClosePrice
 		}
 
-		currentValue := item.CalculateCurrentValue(currentPrice.ClosePrice)
-		profitLoss := item.CalculateProfitLoss(currentPrice.ClosePrice)
-		profitLossPercent := item.CalculateProfitLossPercentage(currentPrice.ClosePrice)
+		// Fetch company details for name/symbol
+		company, err := s.stockRepo.GetCompanyByID(item.CompanyID)
+		companyName := ""
+		companySymbol := ""
+		companySector := ""
+		if err == nil {
+			companyName = company.Name
+			companySymbol = company.Symbol
+			companySector = company.Sector
+		}
 
-		// Get company info
-		company, _ := s.stockRepo.GetCompanyByID(item.CompanyID)
+		currentValue := float64(item.Quantity) * currentPrice
+		profitLoss := currentValue - item.TotalInvested
+		profitLossPct := 0.0
+		if item.TotalInvested > 0 {
+			profitLossPct = (profitLoss / item.TotalInvested) * 100
+		}
 
-		holdings = append(holdings, PortfolioHolding{
-			UserPortfolio:     item,
-			CompanySymbol:     company.Symbol,
-			CompanyName:       company.Name,
-			CurrentPrice:      currentPrice.ClosePrice,
-			CurrentValue:      currentValue,
-			ProfitLoss:        profitLoss,
-			ProfitLossPercent: profitLossPercent,
+		summary.TotalValue += currentValue
+		summary.TotalInvested += item.TotalInvested
+
+		summary.Items = append(summary.Items, PortfolioItemSummary{
+			UserPortfolio: item,
+			CurrentPrice:  currentPrice,
+			CurrentValue:  currentValue,
+			ProfitLoss:    profitLoss,
+			ProfitLossPct: profitLossPct,
+			CompanyName:   companyName,
+			CompanySymbol: companySymbol,
+			CompanySector: companySector,
 		})
-
-		totalValue += currentValue
-		totalInvested += item.TotalInvested
 	}
 
-	totalProfitLoss := totalValue - totalInvested
-	profitLossPercent := 0.0
-	if totalInvested > 0 {
-		profitLossPercent = (totalProfitLoss / totalInvested) * 100
+	summary.TotalProfitLoss = summary.TotalValue - summary.TotalInvested
+	if summary.TotalInvested > 0 {
+		summary.ProfitLossPct = (summary.TotalProfitLoss / summary.TotalInvested) * 100
 	}
 
-	return &PortfolioSummary{
-		TotalValue:        totalValue,
-		TotalInvested:     totalInvested,
-		TotalProfitLoss:   totalProfitLoss,
-		ProfitLossPercent: profitLossPercent,
-		Holdings:          holdings,
-	}, nil
+	return summary, nil
 }
 
-func (s *service) GetPortfolioValue(userID uint) (float64, error) {
-	summary, err := s.GetPortfolio(userID)
-	if err != nil {
-		return 0, err
-	}
-	return summary.TotalValue, nil
-}
-
-func (s *service) BuyStock(userID uint, symbol string, quantity int) (*TradeResult, error) {
+func (s *service) BuyStock(userID, symbol string, quantity int) (*TradeResult, error) {
 	if quantity <= 0 {
-		return &TradeResult{
-			Success: false,
-			Message: "Quantity must be greater than 0",
-		}, nil
+		return &TradeResult{Success: false, Message: "Quantity must be positive"}, nil
 	}
 
-	// Get company
+	// Resolve Symbol to CompanyID
 	company, err := s.stockRepo.GetCompanyBySymbol(symbol)
 	if err != nil {
-		return &TradeResult{
-			Success: false,
-			Message: "Company not found",
-		}, nil
+		return &TradeResult{Success: false, Message: "Company not found"}, nil
 	}
 
-	// Get current price
-	currentPrice, err := s.stockRepo.GetLatestPrice(company.ID)
+	// 1. Get latest price
+	price, err := s.stockRepo.GetLatestPrice(company.ID)
 	if err != nil {
-		return &TradeResult{
-			Success: false,
-			Message: "Price not available",
-		}, nil
+		return nil, fmt.Errorf("failed to get stock price: %w", err)
 	}
 
-	pricePerShare := currentPrice.ClosePrice
-	totalAmount := float64(quantity) * pricePerShare
+	totalAmount := float64(quantity) * price.ClosePrice
 
-	// Check wallet balance
-	wallet, err := s.GetOrCreateWallet(userID)
+	// 2. Execute buy
+	err = s.repo.ExecuteBuy(userID, company.ID, quantity, price.ClosePrice)
 	if err != nil {
-		return &TradeResult{
-			Success: false,
-			Message: "Failed to get wallet",
-		}, nil
+		return &TradeResult{Success: false, Message: err.Error()}, nil
 	}
 
-	if wallet.Balance < totalAmount {
-		return &TradeResult{
-			Success: false,
-			Message: fmt.Sprintf("Insufficient balance. Required: NPR %.2f, Available: NPR %.2f", totalAmount, wallet.Balance),
-		}, nil
-	}
-
-	// Execute buy transaction
-	if err := s.repo.ExecuteBuy(userID, company.ID, quantity, pricePerShare); err != nil {
-		return &TradeResult{
-			Success: false,
-			Message: "Transaction failed",
-		}, fmt.Errorf("buy transaction failed: %w", err)
-	}
-
-	// Get updated wallet balance
-	updatedWallet, _ := s.repo.GetVirtualWallet(userID)
+	// 3. Get updated balance
+	wallet, _ := s.repo.GetVirtualWallet(userID)
 
 	return &TradeResult{
 		Success:       true,
 		Message:       "Stock purchased successfully",
 		Quantity:      quantity,
-		PricePerShare: pricePerShare,
+		PricePerShare: price.ClosePrice,
 		TotalAmount:   totalAmount,
-		NewBalance:    updatedWallet.Balance,
+		NewBalance:    wallet.Balance,
+		// TransactionID: ??? // ExecuteBuy creates a transaction but doesn't return ID.
+		// For now, omitting ID or we could fetch the last transaction.
 	}, nil
 }
 
-func (s *service) SellStock(userID uint, symbol string, quantity int) (*TradeResult, error) {
+func (s *service) SellStock(userID, symbol string, quantity int) (*TradeResult, error) {
 	if quantity <= 0 {
-		return &TradeResult{
-			Success: false,
-			Message: "Quantity must be greater than 0",
-		}, nil
+		return &TradeResult{Success: false, Message: "Quantity must be positive"}, nil
 	}
 
-	// Get company
+	// Resolve Symbol to CompanyID
 	company, err := s.stockRepo.GetCompanyBySymbol(symbol)
 	if err != nil {
-		return &TradeResult{
-			Success: false,
-			Message: "Company not found",
-		}, nil
+		return &TradeResult{Success: false, Message: "Company not found"}, nil
 	}
 
-	// Check if user owns the stock
-	portfolio, err := s.repo.GetPortfolioItem(userID, company.ID)
+	// 1. Get latest price
+	price, err := s.stockRepo.GetLatestPrice(company.ID)
 	if err != nil {
-		return &TradeResult{
-			Success: false,
-			Message: "You don't own this stock",
-		}, nil
+		return nil, fmt.Errorf("failed to get stock price: %w", err)
 	}
 
-	if portfolio.Quantity < quantity {
-		return &TradeResult{
-			Success: false,
-			Message: fmt.Sprintf("Insufficient shares. You own %d shares", portfolio.Quantity),
-		}, nil
-	}
+	totalAmount := float64(quantity) * price.ClosePrice
 
-	// Get current price
-	currentPrice, err := s.stockRepo.GetLatestPrice(company.ID)
+	// 2. Execute sell
+	err = s.repo.ExecuteSell(userID, company.ID, quantity, price.ClosePrice)
 	if err != nil {
-		return &TradeResult{
-			Success: false,
-			Message: "Price not available",
-		}, nil
+		return &TradeResult{Success: false, Message: err.Error()}, nil
 	}
 
-	pricePerShare := currentPrice.ClosePrice
-	totalAmount := float64(quantity) * pricePerShare
-
-	// Execute sell transaction
-	if err := s.repo.ExecuteSell(userID, company.ID, quantity, pricePerShare); err != nil {
-		return &TradeResult{
-			Success: false,
-			Message: "Transaction failed",
-		}, fmt.Errorf("sell transaction failed: %w", err)
-	}
-
-	// Get updated wallet balance
-	updatedWallet, _ := s.repo.GetVirtualWallet(userID)
+	// 3. Get updated balance
+	wallet, _ := s.repo.GetVirtualWallet(userID)
 
 	return &TradeResult{
 		Success:       true,
 		Message:       "Stock sold successfully",
 		Quantity:      quantity,
-		PricePerShare: pricePerShare,
+		PricePerShare: price.ClosePrice,
 		TotalAmount:   totalAmount,
-		NewBalance:    updatedWallet.Balance,
+		NewBalance:    wallet.Balance,
 	}, nil
 }
 
-func (s *service) GetTransactionHistory(userID uint, limit, offset int) ([]models.StockTransaction, error) {
-	if limit <= 0 || limit > 100 {
-		limit = 50
+func (s *service) GetTransactionHistory(userID string, limit, offset int) ([]models.StockTransaction, error) {
+	if limit <= 0 {
+		limit = 20
 	}
+	// Renaming in service implies calling repository method which is GetUserTransactions
 	return s.repo.GetUserTransactions(userID, limit, offset)
 }

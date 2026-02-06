@@ -1,81 +1,140 @@
 package auth
 
 import (
-	"time"
+	"fmt"
 
-	"github.com/919Umesh/gold_go/models"
-	"gorm.io/gorm"
+	"github.com/919Umesh/stock_market_sim/internal/appwrite"
+	"github.com/919Umesh/stock_market_sim/models"
+
+	"github.com/appwrite/sdk-for-go/id"
+	"github.com/appwrite/sdk-for-go/query"
+)
+
+const (
+	CollectionUsers = "users"
 )
 
 type Repository interface {
 	Create(user *models.User) error
 	FindByEmail(email string) (*models.User, error)
-	FindByID(id uint) (*models.User, error)
+	FindByID(id string) (*models.User, error)
 	ExistsByEmail(email string) (bool, error)
 	Update(user *models.User) error
 }
 
 type repository struct {
-	db *gorm.DB
+	client *appwrite.Client
 }
 
-func NewRepository(db *gorm.DB) Repository {
-	return &repository{db: db}
-}
-
-func (r *repository) Update(user *models.User) error {
-	user.UpdatedAt = time.Now()
-	query := `
-		UPDATE users 
-		SET full_name = ?, email = ?, phone = ?, password_hash = ?, kyc_status = ?, role = ?, updated_at = ?
-		WHERE id = ?
-	`
-	return r.db.Exec(query, user.FullName, user.Email, user.Phone, user.PasswordHash, user.KYCStatus, user.Role, user.UpdatedAt, user.ID).Error
+func NewRepository(client *appwrite.Client) Repository {
+	return &repository{client: client}
 }
 
 func (r *repository) Create(user *models.User) error {
-	user.CreatedAt = time.Now()
-	user.UpdatedAt = time.Now()
+	data := map[string]interface{}{
+		"full_name":     user.FullName,
+		"email":         user.Email,
+		"phone":         user.Phone,
+		"password_hash": user.PasswordHash,
+		"kyc_status":    user.KYCStatus,
+		"role":          user.Role,
+	}
 
-	query := `
-		INSERT INTO users (full_name, email, phone, password_hash, kyc_status, role, created_at, updated_at) 
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?) 
-		RETURNING id
-	`
-	// returning ID since GORM model usually expects it to be populated
-	err := r.db.Raw(query, user.FullName, user.Email, user.Phone, user.PasswordHash, user.KYCStatus, user.Role, user.CreatedAt, user.UpdatedAt).Scan(&user.ID).Error
-	return err
+	docID := id.Unique()
+
+	resp, err := r.client.Databases.CreateDocument(
+		r.client.Config.DatabaseID,
+		CollectionUsers,
+		docID,
+		data,
+	)
+	if err != nil {
+		return err
+	}
+
+	// Use Decode to populate CreatedAt/UpdatedAt
+	return appwrite.Decode(resp, user)
 }
 
 func (r *repository) FindByEmail(email string) (*models.User, error) {
-	var user models.User
-	query := `SELECT * FROM users WHERE email = ? LIMIT 1`
-	err := r.db.Raw(query, email).Scan(&user).Error
+	resp, err := r.client.Databases.ListDocuments(
+		r.client.Config.DatabaseID,
+		CollectionUsers,
+		appwrite.WithListDocumentsQueries([]string{
+			query.Equal("email", email),
+			query.Limit(1),
+		}),
+	)
+
 	if err != nil {
 		return nil, err
 	}
-	if user.ID == 0 {
-		return nil, gorm.ErrRecordNotFound
+
+	if len(resp.Documents) == 0 {
+		return nil, fmt.Errorf("user not found")
 	}
+
+	// Use DecodeListItem since the individual Documents in ListDocuments response
+	// don't have their own 'data' fields populated.
+	var user models.User
+	if err := appwrite.DecodeListItem(resp, 0, &user); err != nil {
+		return nil, fmt.Errorf("failed to decode user: %w", err)
+	}
+
 	return &user, nil
 }
 
-func (r *repository) FindByID(id uint) (*models.User, error) {
-	var user models.User
-	query := `SELECT * FROM users WHERE id = ? LIMIT 1`
-	err := r.db.Raw(query, id).Scan(&user).Error
+func (r *repository) FindByID(id string) (*models.User, error) {
+	doc, err := r.client.Databases.GetDocument(
+		r.client.Config.DatabaseID,
+		CollectionUsers,
+		id,
+	)
+
 	if err != nil {
 		return nil, err
 	}
-	if user.ID == 0 {
-		return nil, gorm.ErrRecordNotFound
+
+	// GetDocument DOES populate the individual document's 'data' field.
+	var user models.User
+	if err := appwrite.Decode(doc, &user); err != nil {
+		return nil, fmt.Errorf("failed to decode user: %w", err)
 	}
+
 	return &user, nil
 }
 
 func (r *repository) ExistsByEmail(email string) (bool, error) {
-	var count int64
-	query := `SELECT count(*) FROM users WHERE email = ?`
-	err := r.db.Raw(query, email).Scan(&count).Error
-	return count > 0, err
+	resp, err := r.client.Databases.ListDocuments(
+		r.client.Config.DatabaseID,
+		CollectionUsers,
+		appwrite.WithListDocumentsQueries([]string{
+			query.Equal("email", email),
+			query.Limit(1),
+		}),
+	)
+	if err != nil {
+		return false, err
+	}
+	return len(resp.Documents) > 0, nil
+}
+
+func (r *repository) Update(user *models.User) error {
+	data := map[string]interface{}{
+		"full_name":  user.FullName,
+		"phone":      user.Phone,
+		"kyc_status": user.KYCStatus,
+		"role":       user.Role,
+	}
+
+	resp, err := r.client.Databases.UpdateDocument(
+		r.client.Config.DatabaseID,
+		CollectionUsers,
+		user.ID,
+		appwrite.WithUpdateDocumentData(data),
+	)
+	if err != nil {
+		return err
+	}
+	return appwrite.Decode(resp, user)
 }

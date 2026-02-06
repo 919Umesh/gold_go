@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/919Umesh/gold_go/internal/stock"
-	"github.com/919Umesh/gold_go/pkg/apperr"
+	"github.com/919Umesh/stock_market_sim/internal/stock"
+	"github.com/919Umesh/stock_market_sim/pkg/apperr"
 	"github.com/gin-gonic/gin"
 )
 

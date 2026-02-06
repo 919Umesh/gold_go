@@ -12,11 +12,11 @@ var (
 )
 
 type JWTClaims struct {
-	UserID uint `json:"user_id"`
+	UserID string `json:"user_id"`
 	jwt.RegisteredClaims
 }
 
-func GenerateToken(userID uint, secret string) (string, error) {
+func GenerateToken(userID string, secret string) (string, error) {
 	claims := JWTClaims{
 		UserID: userID,
 		RegisteredClaims: jwt.RegisteredClaims{

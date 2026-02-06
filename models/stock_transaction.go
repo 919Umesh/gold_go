@@ -2,8 +2,6 @@ package models
 
 import (
 	"time"
-
-	"gorm.io/gorm"
 )
 
 // StockTransactionType represents the type of stock transaction
@@ -26,23 +24,18 @@ const (
 
 // StockTransaction represents a buy or sell transaction
 type StockTransaction struct {
-	ID            uint                   `gorm:"primaryKey" json:"id"`
-	UserID        uint                   `gorm:"index;not null" json:"user_id"`
-	CompanyID     uint                   `gorm:"index;not null" json:"company_id"`
-	Type          StockTransactionType   `gorm:"size:10;not null" json:"type"`
-	Quantity      int                    `gorm:"not null" json:"quantity"`
-	PricePerShare float64                `gorm:"type:numeric(10,2);not null" json:"price_per_share"`
-	TotalAmount   float64                `gorm:"type:numeric(14,2);not null" json:"total_amount"`
-	Status        StockTransactionStatus `gorm:"size:20;default:'completed'" json:"status"`
-	ReferenceID   string                 `gorm:"size:100" json:"reference_id"`
-	CreatedAt     time.Time              `json:"created_at"`
+	ID            string                 `json:"$id,omitempty"`
+	UserID        string                 `json:"user_id"`
+	CompanyID     string                 `json:"company_id"`
+	Type          StockTransactionType   `json:"type"`
+	Quantity      int                    `json:"quantity"`
+	PricePerShare float64                `json:"price_per_share"`
+	TotalAmount   float64                `json:"total_amount"`
+	Status        StockTransactionStatus `json:"status"`
+	ReferenceID   string                 `json:"reference_id"`
+	CreatedAt     time.Time              `json:"$createdAt,omitempty"`
 
 	// Relationships
-	User    *User    `gorm:"foreignKey:UserID" json:"user,omitempty"`
-	Company *Company `gorm:"foreignKey:CompanyID" json:"company,omitempty"`
-}
-
-func (s *StockTransaction) BeforeCreate(tx *gorm.DB) error {
-	s.CreatedAt = time.Now()
-	return nil
+	User    *User    `json:"user,omitempty"`
+	Company *Company `json:"company,omitempty"`
 }
