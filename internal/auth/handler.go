@@ -53,7 +53,6 @@ func (h *Handler) Register(c *gin.Context) {
 			apperr.RespondWithMessage(c, http.StatusConflict, "user already exists")
 			return
 		}
-		// Log the actual error for debugging
 		fmt.Printf("Registration error: %v\n", err)
 		apperr.RespondWithMessage(c, http.StatusInternalServerError, "registration failed")
 		return
@@ -91,8 +90,6 @@ func (h *Handler) GetProfile(c *gin.Context) {
 		apperr.RespondWithMessage(c, http.StatusUnauthorized, "user not authenticated")
 		return
 	}
-
-	// userID is now string from middleware
 	uid, ok := userID.(string)
 	if !ok {
 		apperr.RespondWithMessage(c, http.StatusInternalServerError, "invalid user id type")
@@ -159,8 +156,6 @@ func (h *Handler) UpdateProfile(c *gin.Context) {
 func (h *Handler) UpdateKYC(c *gin.Context) {
 	userIDStr := c.Param("user_id")
 
-	// userIDStr is explicitly string
-	// No parsing needed for Appwrite IDs
 
 	var request UpdateKYCAdmin
 	if err := c.ShouldBindJSON(&request); err != nil {

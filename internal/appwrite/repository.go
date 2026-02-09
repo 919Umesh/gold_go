@@ -31,7 +31,6 @@ func NewRepository(c *Client) Repository {
 	}
 }
 
-// CreateCompany creates a new company document
 func (r *repository) CreateCompany(company *models.Company) error {
 	data := map[string]interface{}{
 		"symbol":       company.Symbol,
@@ -54,11 +53,9 @@ func (r *repository) CreateCompany(company *models.Company) error {
 		return err
 	}
 
-	// Use Decode to populate system fields
 	return Decode(doc, company)
 }
 
-// GetCompanyBySymbol fetches a company by its symbol
 func (r *repository) GetCompanyBySymbol(symbol string) (*models.Company, error) {
 	resp, err := r.client.Databases.ListDocuments(
 		r.client.Config.DatabaseID,
@@ -84,7 +81,6 @@ func (r *repository) GetCompanyBySymbol(symbol string) (*models.Company, error) 
 	return &company, nil
 }
 
-// CreateStockPrice adds a new price record
 func (r *repository) CreateStockPrice(price *models.StockPrice) error {
 	data := map[string]interface{}{
 		"company_id": price.CompanyID,

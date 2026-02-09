@@ -22,7 +22,6 @@ type Config struct {
 }
 
 func NewClient() (*Client, error) {
-	// Read from environment variables with fallback defaults
 	endpoint := getEnv("APPWRITE_ENDPOINT", "https://fra.cloud.appwrite.io/v1")
 	projectID := getEnv("APPWRITE_PROJECT_ID", "698599a4000fcd54a56a")
 	apiKey := getEnv("APPWRITE_API_KEY", "")

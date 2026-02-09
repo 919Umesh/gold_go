@@ -65,7 +65,6 @@ func NewService(repo Repository, stockRepo stock.Repository) Service {
 }
 
 func (s *service) CreateWallet(userID string) (*models.VirtualWallet, error) {
-	// Check if wallet exists
 	_, err := s.repo.GetVirtualWallet(userID)
 	if err == nil {
 		return nil, errors.New("wallet already exists")
@@ -73,7 +72,7 @@ func (s *service) CreateWallet(userID string) (*models.VirtualWallet, error) {
 
 	wallet := &models.VirtualWallet{
 		UserID:          userID,
-		Balance:         1000000.00, // Initial balance
+		Balance:         1000000.00, 
 		TotalInvested:   0,
 		TotalProfitLoss: 0,
 	}
@@ -108,14 +107,13 @@ func (s *service) GetPortfolio(userID string) (*PortfolioSummary, error) {
 	}
 
 	for _, item := range portfolio {
-		// Fetch current price
+	
 		price, err := s.stockRepo.GetLatestPrice(item.CompanyID)
 		currentPrice := 0.0
 		if err == nil {
 			currentPrice = price.ClosePrice
 		}
 
-		// Fetch company details for name/symbol
 		company, err := s.stockRepo.GetCompanyByID(item.CompanyID)
 		companyName := ""
 		companySymbol := ""
@@ -161,13 +159,11 @@ func (s *service) BuyStock(userID, symbol string, quantity int) (*TradeResult, e
 		return &TradeResult{Success: false, Message: "Quantity must be positive"}, nil
 	}
 
-	// Resolve Symbol to CompanyID
 	company, err := s.stockRepo.GetCompanyBySymbol(symbol)
 	if err != nil {
 		return &TradeResult{Success: false, Message: "Company not found"}, nil
 	}
 
-	// 1. Get latest price
 	price, err := s.stockRepo.GetLatestPrice(company.ID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get stock price: %w", err)
@@ -175,13 +171,11 @@ func (s *service) BuyStock(userID, symbol string, quantity int) (*TradeResult, e
 
 	totalAmount := float64(quantity) * price.ClosePrice
 
-	// 2. Execute buy
 	err = s.repo.ExecuteBuy(userID, company.ID, quantity, price.ClosePrice)
 	if err != nil {
 		return &TradeResult{Success: false, Message: err.Error()}, nil
 	}
 
-	// 3. Get updated balance
 	wallet, _ := s.repo.GetVirtualWallet(userID)
 
 	return &TradeResult{
@@ -191,8 +185,6 @@ func (s *service) BuyStock(userID, symbol string, quantity int) (*TradeResult, e
 		PricePerShare: price.ClosePrice,
 		TotalAmount:   totalAmount,
 		NewBalance:    wallet.Balance,
-		// TransactionID: ??? // ExecuteBuy creates a transaction but doesn't return ID.
-		// For now, omitting ID or we could fetch the last transaction.
 	}, nil
 }
 
@@ -201,13 +193,11 @@ func (s *service) SellStock(userID, symbol string, quantity int) (*TradeResult, 
 		return &TradeResult{Success: false, Message: "Quantity must be positive"}, nil
 	}
 
-	// Resolve Symbol to CompanyID
 	company, err := s.stockRepo.GetCompanyBySymbol(symbol)
 	if err != nil {
 		return &TradeResult{Success: false, Message: "Company not found"}, nil
 	}
 
-	// 1. Get latest price
 	price, err := s.stockRepo.GetLatestPrice(company.ID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get stock price: %w", err)
@@ -215,13 +205,11 @@ func (s *service) SellStock(userID, symbol string, quantity int) (*TradeResult, 
 
 	totalAmount := float64(quantity) * price.ClosePrice
 
-	// 2. Execute sell
 	err = s.repo.ExecuteSell(userID, company.ID, quantity, price.ClosePrice)
 	if err != nil {
 		return &TradeResult{Success: false, Message: err.Error()}, nil
 	}
 
-	// 3. Get updated balance
 	wallet, _ := s.repo.GetVirtualWallet(userID)
 
 	return &TradeResult{
@@ -238,6 +226,5 @@ func (s *service) GetTransactionHistory(userID string, limit, offset int) ([]mod
 	if limit <= 0 {
 		limit = 20
 	}
-	// Renaming in service implies calling repository method which is GetUserTransactions
 	return s.repo.GetUserTransactions(userID, limit, offset)
 }

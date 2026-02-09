@@ -74,8 +74,6 @@ func (r *repository) FindByEmail(email string) (*models.User, error) {
 		return nil, fmt.Errorf("user not found")
 	}
 
-	// Use DecodeListItem since the individual Documents in ListDocuments response
-	// don't have their own 'data' fields populated.
 	var user models.User
 	if err := appwrite.DecodeListItem(resp, 0, &user); err != nil {
 		return nil, fmt.Errorf("failed to decode user: %w", err)
@@ -95,7 +93,6 @@ func (r *repository) FindByID(id string) (*models.User, error) {
 		return nil, err
 	}
 
-	// GetDocument DOES populate the individual document's 'data' field.
 	var user models.User
 	if err := appwrite.Decode(doc, &user); err != nil {
 		return nil, fmt.Errorf("failed to decode user: %w", err)

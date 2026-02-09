@@ -17,12 +17,7 @@ func NewStockHandler(service stock.Service) *StockHandler {
 	return &StockHandler{service: service}
 }
 
-// GetCompany godoc
-// @Summary Get company details
-// @Tags stocks
-// @Param symbol path string true "Company Symbol"
-// @Success 200 {object} models.Company
-// @Router /api/v1/stocks/{symbol} [get]
+
 func (h *StockHandler) GetCompany(c *gin.Context) {
 	symbol := c.Param("symbol")
 
@@ -35,13 +30,6 @@ func (h *StockHandler) GetCompany(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"company": company})
 }
 
-// ListCompanies godoc
-// @Summary List all companies
-// @Tags stocks
-// @Param limit query int false "Limit" default(50)
-// @Param offset query int false "Offset" default(0)
-// @Success 200 {array} models.Company
-// @Router /api/v1/stocks [get]
 func (h *StockHandler) ListCompanies(c *gin.Context) {
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "50"))
 	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
@@ -59,12 +47,6 @@ func (h *StockHandler) ListCompanies(c *gin.Context) {
 	})
 }
 
-// SearchCompanies godoc
-// @Summary Search companies
-// @Tags stocks
-// @Param q query string true "Search query"
-// @Success 200 {array} models.Company
-// @Router /api/v1/stocks/search [get]
 func (h *StockHandler) SearchCompanies(c *gin.Context) {
 	query := c.Query("q")
 
@@ -82,14 +64,7 @@ func (h *StockHandler) SearchCompanies(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"companies": companies})
 }
 
-// GetCompaniesBySector godoc
-// @Summary Get companies by sector
-// @Tags stocks
-// @Param sector path string true "Sector name"
-// @Param limit query int false "Limit" default(50)
-// @Param offset query int false "Offset" default(0)
-// @Success 200 {array} models.Company
-// @Router /api/v1/stocks/sector/{sector} [get]
+
 func (h *StockHandler) GetCompaniesBySector(c *gin.Context) {
 	sector := c.Param("sector")
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "50"))
@@ -109,12 +84,7 @@ func (h *StockHandler) GetCompaniesBySector(c *gin.Context) {
 	})
 }
 
-// GetCurrentPrice godoc
-// @Summary Get current stock price
-// @Tags stocks
-// @Param symbol path string true "Company Symbol"
-// @Success 200 {object} models.StockPrice
-// @Router /api/v1/stocks/{symbol}/price [get]
+
 func (h *StockHandler) GetCurrentPrice(c *gin.Context) {
 	symbol := c.Param("symbol")
 
@@ -127,14 +97,7 @@ func (h *StockHandler) GetCurrentPrice(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"price": price})
 }
 
-// GetPriceHistory godoc
-// @Summary Get price history
-// @Tags stocks
-// @Param symbol path string true "Company Symbol"
-// @Param timeframe query string false "Timeframe (1m, 5m, 15m, 1h, 1d, 1w, 1M)" default("1d")
-// @Param days query int false "Number of days" default(30)
-// @Success 200 {array} models.StockPrice
-// @Router /api/v1/stocks/{symbol}/history [get]
+
 func (h *StockHandler) GetPriceHistory(c *gin.Context) {
 	symbol := c.Param("symbol")
 	timeframe := c.DefaultQuery("timeframe", "1d")
@@ -153,11 +116,6 @@ func (h *StockHandler) GetPriceHistory(c *gin.Context) {
 	})
 }
 
-// GetMarketOverview godoc
-// @Summary Get market overview
-// @Tags stocks
-// @Success 200 {object} stock.MarketOverview
-// @Router /api/v1/stocks/market-overview [get]
 func (h *StockHandler) GetMarketOverview(c *gin.Context) {
 	overview, err := h.service.GetMarketOverview()
 	if err != nil {
@@ -168,12 +126,7 @@ func (h *StockHandler) GetMarketOverview(c *gin.Context) {
 	c.JSON(http.StatusOK, overview)
 }
 
-// GetTopGainers godoc
-// @Summary Get top gaining stocks
-// @Tags stocks
-// @Param limit query int false "Limit" default(10)
-// @Success 200 {array} stock.CompanyWithChange
-// @Router /api/v1/stocks/top-gainers [get]
+
 func (h *StockHandler) GetTopGainers(c *gin.Context) {
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
 
@@ -186,12 +139,7 @@ func (h *StockHandler) GetTopGainers(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"gainers": gainers})
 }
 
-// GetTopLosers godoc
-// @Summary Get top losing stocks
-// @Tags stocks
-// @Param limit query int false "Limit" default(10)
-// @Success 200 {array} stock.CompanyWithChange
-// @Router /api/v1/stocks/top-losers [get]
+
 func (h *StockHandler) GetTopLosers(c *gin.Context) {
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
 
@@ -204,12 +152,7 @@ func (h *StockHandler) GetTopLosers(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"losers": losers})
 }
 
-// GetMostActive godoc
-// @Summary Get most active stocks
-// @Tags stocks
-// @Param limit query int false "Limit" default(10)
-// @Success 200 {array} models.Company
-// @Router /api/v1/stocks/most-active [get]
+
 func (h *StockHandler) GetMostActive(c *gin.Context) {
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
 
@@ -222,12 +165,7 @@ func (h *StockHandler) GetMostActive(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"active": active})
 }
 
-// GetUpcomingEvents godoc
-// @Summary Get upcoming events for a company
-// @Tags stocks
-// @Param symbol path string true "Company Symbol"
-// @Success 200 {array} models.MarketEvent
-// @Router /api/v1/stocks/{symbol}/events [get]
+
 func (h *StockHandler) GetUpcomingEvents(c *gin.Context) {
 	symbol := c.Param("symbol")
 

@@ -27,12 +27,7 @@ type SellRequest struct {
 	Quantity int    `json:"quantity" binding:"required,min=1"`
 }
 
-// GetWallet godoc
-// @Summary Get virtual wallet
-// @Tags trading
-// @Security BearerAuth
-// @Success 200 {object} models.VirtualWallet
-// @Router /api/v1/trading/wallet [get]
+
 func (h *TradingHandler) GetWallet(c *gin.Context) {
 	userID := c.GetString("user_id")
 	if userID == "" {
@@ -71,13 +66,7 @@ func (h *TradingHandler) GetPortfolio(c *gin.Context) {
 	c.JSON(http.StatusOK, portfolio)
 }
 
-// BuyStock godoc
-// @Summary Buy stocks
-// @Tags trading
-// @Security BearerAuth
-// @Param request body BuyRequest true "Buy request"
-// @Success 200 {object} trading.TradeResult
-// @Router /api/v1/trading/buy [post]
+
 func (h *TradingHandler) BuyStock(c *gin.Context) {
 	userID := c.GetString("user_id")
 	if userID == "" {
@@ -105,13 +94,6 @@ func (h *TradingHandler) BuyStock(c *gin.Context) {
 	c.JSON(http.StatusOK, result)
 }
 
-// SellStock godoc
-// @Summary Sell stocks
-// @Tags trading
-// @Security BearerAuth
-// @Param request body SellRequest true "Sell request"
-// @Success 200 {object} trading.TradeResult
-// @Router /api/v1/trading/sell [post]
 func (h *TradingHandler) SellStock(c *gin.Context) {
 	userID := c.GetString("user_id")
 	if userID == "" {
@@ -139,14 +121,7 @@ func (h *TradingHandler) SellStock(c *gin.Context) {
 	c.JSON(http.StatusOK, result)
 }
 
-// GetTransactionHistory godoc
-// @Summary Get transaction history
-// @Tags trading
-// @Security BearerAuth
-// @Param limit query int false "Limit" default(50)
-// @Param offset query int false "Offset" default(0)
-// @Success 200 {array} models.StockTransaction
-// @Router /api/v1/trading/transactions [get]
+
 func (h *TradingHandler) GetTransactionHistory(c *gin.Context) {
 	userID := c.GetString("user_id")
 	if userID == "" {

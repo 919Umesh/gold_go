@@ -26,17 +26,13 @@ func main() {
 
 	cfg := config.InitConfig()
 
-	// Initialize Appwrite Client
-	// appwrite.NewClient() assumes env vars are set.
-	// We might need to pass config if NewClient doesn't load them itself?
-	// Checking internal/appwrite/client.go: NewClient() loads from env.
+
 	appwriteClient, err := appwrite.NewClient()
 	if err != nil {
 		slog.Error("Failed to initialize Appwrite client", "error", err)
 		os.Exit(1)
 	}
 
-	// Initialize Worker Pool
 	workerPool := queue.NewWorkerPool(cfg.WorkerCount, cfg.QueueSize)
 	workerPool.Start()
 	slog.Info("Worker pool started", "workers", cfg.WorkerCount)
@@ -58,18 +54,12 @@ func main() {
 
 	slog.Info("Shutting down server...")
 
-	// Graceful shutdown
 	ctxShutdown, cancelShutdown := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancelShutdown()
 
-	// Stop cancellation context for services
-	// cancel() was from main's context, but we don't have one here except implicit.
-	// The original code had `cancel` variable which was undefined in lint.
-	// We don't need it if we don't have a main context.
 
 	done := make(chan struct{})
 	go func() {
-		// Stop Worker Pool and wait for jobs to finish
 		workerPool.Stop()
 		close(done)
 	}()

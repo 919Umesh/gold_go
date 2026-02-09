@@ -68,10 +68,7 @@ var nepaliCompanies = []NepaliCompany{
 	{Symbol: "CFCL", Name: "Central Finance Company", Sector: "Finance", MarketCap: 2500000000, Description: "Lending and investment", FoundedYear: 2005, Employees: 180, BasePrice: 520},
 }
 
-// SeedStockData seeds the database with demo companies and historical data
-// This endpoint should be called ONCE after deployment to populate the database
 func (h *AdminHandler) SeedStockData(c *gin.Context) {
-	// Check if data already exists
 	companies, err := h.stockRepo.ListCompanies(1, 0)
 	if err == nil && len(companies) > 0 {
 		apperr.RespondWithMessage(c, http.StatusBadRequest, "Database already seeded. Delete existing data via Appwrite console if re-seeding needed.")
@@ -84,12 +81,10 @@ func (h *AdminHandler) SeedStockData(c *gin.Context) {
 	pricesCreated := 0
 	eventsCreated := 0
 
-	// Keep track of company IDs for price seeding
-	companyMap := make(map[string]string) // Symbol -> ID
 
-	// Seed companies
+	companyMap := make(map[string]string) 
+
 	for _, nc := range nepaliCompanies {
-		// Check if exists first to be safe, though ListCompanies check kind of covers it
 		existing, err := h.stockRepo.GetCompanyBySymbol(nc.Symbol)
 		if err == nil && existing != nil {
 			companyMap[nc.Symbol] = existing.ID
@@ -123,25 +118,18 @@ func (h *AdminHandler) SeedStockData(c *gin.Context) {
 			continue
 		}
 
-		// Check if any prices exist for this company to avoid deep re-seeding if partially done
-		// Skipping detailed check for simplicity, assume clean seed if ListCompanies was empty
 		currentPrice := nc.BasePrice
 
-		// We will only create data for every 10th day to avoid request timeout/high volume during seed
-		// Or creating just 30 days of history
-		// Let's create last 30 days history to keep it light for initial seed
 		seedDays := 30
 		startTime := time.Now().AddDate(0, 0, -seedDays)
 
 		for days := 0; days < seedDays; days++ {
 			timestamp := startTime.AddDate(0, 0, days)
 
-			// Skip weekends
 			if timestamp.Weekday() == time.Friday || timestamp.Weekday() == time.Saturday {
 				continue
 			}
 
-			// Simulate price movement
 			change := (rand.Float64() - 0.5) * 0.05
 			currentPrice = currentPrice * (1 + change)
 
@@ -174,7 +162,6 @@ func (h *AdminHandler) SeedStockData(c *gin.Context) {
 		}
 	}
 
-	// Generate market events
 	eventTypes := []models.MarketEventType{
 		models.MarketEventEarnings,
 		models.MarketEventNews,

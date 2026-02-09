@@ -57,23 +57,7 @@ func NewService(repo Repository, wp *queue.WorkerPool) Service {
 func (s *service) GetWallet(userID string) (*models.Wallet, error) {
 	wallet, err := s.repo.GetByUserID(userID)
 	if err != nil {
-		// If using Appwrite, we check specific error or return nil if not found
-		// Assuming repo returns error if not found or nil wallet?
-		// Usually repo returns (nil, error) or (nil, ErrNotFound)
-		// Let's assume ErrNotFound or simply err.
-		// If err, we create.
-		// Wait, if database error, we shouldn't create.
-		// logic: if err is Not Found, create.
-		// Appwrite returns error on Get/List if failed? List returns empty docs if not found?
-		// Let's rely on Repo implementation quirks.
-
-		// If generic error, return error.
-		// If "not found", create.
-		// For now simple logic: catch error and try create? risky.
-		// Let's assume repo handles check-then-create or returns specific error.
-		// Current logic: if err != nil, try create.
-
-		// Create a new wallet
+		
 		wallet = &models.Wallet{UserID: userID}
 		if err := s.repo.Create(wallet); err != nil {
 			return nil, fmt.Errorf("failed to create wallet: %w", err)
@@ -87,9 +71,6 @@ func (s *service) TopUp(userID string, amount float64, referenceID string) (*mod
 		return nil, nil, ErrInvalidAmount
 	}
 
-	// Ensure wallet exists before attempting to lock/update it.
-	// Previously WithLock called GetByUserID and returned an error if wallet was missing,
-	// causing a generic 500 in handlers. Create the wallet if needed.
 	if _, err := s.GetWallet(userID); err != nil {
 		return nil, nil, fmt.Errorf("failed to ensure wallet: %w", err)
 	}
@@ -97,10 +78,6 @@ func (s *service) TopUp(userID string, amount float64, referenceID string) (*mod
 	var updatedWallet *models.Wallet
 	var transaction *models.Transaction
 
-	// WithLock might be problematic in Appwrite (No transaction support in standard SDK yet?)
-	// We might need to remove lock/transaction or implement optimistic locking via version match.
-	// For now, removing WithLock and doing sequential operations (Unsafe but compiles)
-	// Or implementation of WithLock in Appwrite repo using simple callback?
 
 	err := s.repo.WithLock(userID, func(wallet *models.Wallet) error {
 		if wallet.Locked {

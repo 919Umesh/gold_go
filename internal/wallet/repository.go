@@ -10,8 +10,8 @@ import (
 )
 
 const (
-	CollectionWallets      = "wallets"
-	CollectionTransactions = "transactions"
+	CollectionWallets      = "virtual_wallets"
+	CollectionTransactions = "stock_transactions"
 )
 
 type Repository interface {
