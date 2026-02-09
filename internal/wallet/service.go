@@ -87,6 +87,13 @@ func (s *service) TopUp(userID string, amount float64, referenceID string) (*mod
 		return nil, nil, ErrInvalidAmount
 	}
 
+	// Ensure wallet exists before attempting to lock/update it.
+	// Previously WithLock called GetByUserID and returned an error if wallet was missing,
+	// causing a generic 500 in handlers. Create the wallet if needed.
+	if _, err := s.GetWallet(userID); err != nil {
+		return nil, nil, fmt.Errorf("failed to ensure wallet: %w", err)
+	}
+
 	var updatedWallet *models.Wallet
 	var transaction *models.Transaction
 
