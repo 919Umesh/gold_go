@@ -7,11 +7,6 @@ import (
 )
 
 type Config struct {
-	DBHost        string
-	DBUser        string
-	DBPassword    string
-	DBName        string
-	DBPort        string
 	ServerPort    string
 	JWTSecret     string
 	GoldProvider  string
@@ -30,11 +25,6 @@ var (
 func InitConfig() *Config {
 	configOnce.Do(func() {
 		configInstance = &Config{
-			DBHost:        getEnv("DB_HOST", "localhost"),
-			DBUser:        getEnv("DB_USER", "postgres"),
-			DBPassword:    getEnv("DB_PASSWORD", "postgres"),
-			DBName:        getEnv("DB_NAME", "gold_invest"),
-			DBPort:        getEnv("DB_PORT", "5432"),
 			ServerPort:    getEnv("PORT", "8080"),
 			JWTSecret:     getEnv("JWT_SECRET", "supersecretjwt"),
 			GoldProvider:  getEnv("GOLD_PROVIDER_URL", "http://localhost:9000"),
