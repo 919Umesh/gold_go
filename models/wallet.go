@@ -5,5 +5,5 @@ type Wallet struct {
 	UserID      string  `json:"user_id"`
 	FiatBalance float64 `json:"fiat_balance"`
 	Locked      bool    `json:"locked"`
-	Version     int     `json:"version"` // For optimistic locking
+	Version     int     `json:"version"`
 }
