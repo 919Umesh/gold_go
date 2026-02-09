@@ -1,28 +1,37 @@
-# Build stage
+# Multi-stage build for optimized Go backend
 FROM golang:1.24-alpine AS builder
 
+# Install build dependencies
+RUN apk add --no-cache git ca-certificates tzdata
+
+# Set working directory
 WORKDIR /app
 
-# Install git and ssl certificates for build
-RUN apk add --no-cache git ca-certificates
-
+# Copy go mod files
 COPY go.mod go.sum ./
+
+# Download dependencies
 RUN go mod download
 
+# Copy source code
 COPY . .
-RUN CGO_ENABLED=0 GOOS=linux go build -o main ./cmd/main.go
 
-# Run stage
+# Build the application
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-w -s" -o /app/server ./cmd/main.go
+
+# Final stage - minimal runtime image
 FROM alpine:latest
+
+# Install ca-certificates for HTTPS requests
+RUN apk --no-cache add ca-certificates tzdata
 
 WORKDIR /root/
 
-# Install CA certificates for external API calls/DB connections
-RUN apk --no-cache add ca-certificates tzdata
+# Copy the binary from builder
+COPY --from=builder /app/server .
 
-COPY --from=builder /app/main .
-
-# Expose port
+# Expose port (Render will override with PORT env var)
 EXPOSE 8080
 
-CMD ["./main"]
+# Run the binary
+CMD ["./server"]

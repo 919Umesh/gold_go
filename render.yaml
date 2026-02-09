@@ -1,0 +1,73 @@
+services:
+  # Go Backend Service
+  - type: web
+    name: gold-go-backend
+    runtime: docker
+    region: frankfurt  # Change to your preferred region: oregon, frankfurt, singapore, etc.
+    plan: free  # Change to 'starter' or higher for production
+    branch: main
+    dockerfilePath: ./Dockerfile
+    envVars:
+      # Server Configuration
+      - key: PORT
+        value: 8080
+      
+      # Appwrite Configuration (Cloud)
+      - key: APPWRITE_ENDPOINT
+        value: https://fra.cloud.appwrite.io/v1
+      
+      - key: APPWRITE_PROJECT_ID
+        value: 698599a4000fcd54a56a
+      
+      - key: APPWRITE_API_KEY
+        sync: false  # Set this in Render dashboard for security
+      
+      - key: APPWRITE_DATABASE_ID
+        value: 6985bccb00216e0a7171
+      
+      # Redis Configuration (Internal reference to Redis service)
+      - key: REDIS_HOST
+        fromService:
+          type: redis
+          name: gold-go-redis
+          property: host
+      
+      - key: REDIS_PORT
+        fromService:
+          type: redis
+          name: gold-go-redis
+          property: port
+      
+      - key: REDIS_PASSWORD
+        fromService:
+          type: redis
+          name: gold-go-redis
+          property: connectionString
+          envVarKey: REDIS_PASSWORD
+      
+      # Worker Configuration
+      - key: WORKER_COUNT
+        value: 5
+      
+      - key: QUEUE_SIZE
+        value: 100
+      
+      # JWT Secret (Set in Render dashboard)
+      - key: JWT_SECRET
+        generateValue: true  # Render will auto-generate a secure value
+      
+      # Gold Provider URL (if applicable)
+      - key: GOLD_PROVIDER_URL
+        value: https://api.goldprovider.com  # Update with your actual provider
+    
+    healthCheckPath: /health  # Add a health endpoint to your API
+    
+    autoDeploy: true  # Auto-deploy on push to main branch
+
+  # Redis Service
+  - type: redis
+    name: gold-go-redis
+    region: frankfurt  # Same region as backend for low latency
+    plan: free  # Change to 'starter' or higher for production
+    maxmemoryPolicy: allkeys-lru  # Eviction policy when memory is full
+    ipAllowList: []  # Empty means only internal services can access

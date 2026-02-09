@@ -1,54 +1,68 @@
 version: '3.8'
 
 services:
-  app:
-    build: .
-    container_name: gold_app
-    restart: always
+  # Go Backend Service
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
     environment:
-      - SERVER_PORT=${SERVER_PORT}
-      - DB_HOST=postgres
-      - DB_USER=${DB_USER}
-      - DB_PASSWORD=${DB_PASSWORD}
-      - DB_NAME=${DB_NAME}
-      - DB_PORT=5432
-      - REDIS_ADDRESS=redis:6379
-      - REDIS_PASSWORD=${REDIS_PASSWORD}
-      - REDIS_DB=0
-      - JWT_SECRET=${JWT_SECRET}
+      # Server
+      PORT: 8080
+
+      # Appwrite Cloud (using cloud service)
+      APPWRITE_ENDPOINT: https://fra.cloud.appwrite.io/v1
+      APPWRITE_PROJECT_ID: 698599a4000fcd54a56a
+      APPWRITE_API_KEY: standard_54423236d4faade3f231047beafa66688bd930cc2c63de086bb76cf3939f564d993019d5da21b7e29a3b5f49e39d1010e9065777540b31616b304a4f1357580e1902891d2b83191ae092e23c80498fe432d821fe7e4ad38256890df1f716dec2340e2712dcb1eee93e979f59dc920ba58193b7cf3f29eff9ba46e8128f42dd96
+      APPWRITE_DATABASE_ID: 6985bccb00216e0a7171
+
+      # Redis (local container)
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ""
+      REDIS_DB: 0
+
+      # Workers
+      WORKER_COUNT: 5
+      QUEUE_SIZE: 100
+
+      # JWT
+      JWT_SECRET: ${JWT_SECRET:-dev_secret_key_change_in_production}
+
+      # Gold Provider
+      GOLD_PROVIDER_URL: ${GOLD_PROVIDER_URL:-http://localhost:9000}
+
     depends_on:
-      - postgres
       - redis
-    networks:
-      - gold_network
 
-  postgres:
-    image: postgres:15-alpine
-    container_name: gold_db
-    restart: always
-    environment:
-      - POSTGRES_USER=${DB_USER}
-      - POSTGRES_PASSWORD=${DB_PASSWORD}
-      - POSTGRES_DB=${DB_NAME}
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    networks:
-      - gold_network
+    restart: unless-stopped
 
+    networks:
+      - gold-network
+
+  # Redis Service (for local development)
   redis:
     image: redis:7-alpine
-    container_name: gold_redis
-    restart: always
-    command: redis-server --requirepass ${REDIS_PASSWORD}
+    ports:
+      - "6379:6379"
     volumes:
-      - redis_data:/data
+      - redis-data:/data
+    command: redis-server --appendonly yes
+    restart: unless-stopped
     networks:
-      - gold_network
-
-networks:
-  gold_network:
-    driver: bridge
+      - gold-network
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 3s
+      retries: 3
 
 volumes:
-  postgres_data:
-  redis_data:
+  redis-data:
+    driver: local
+
+networks:
+  gold-network:
+    driver: bridge

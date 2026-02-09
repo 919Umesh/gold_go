@@ -330,16 +330,81 @@ gold_investment_backend/
 
 ## 🚀 Deployment
 
-### Using Docker (Recommended)
+### Production Deployment on Render (Recommended)
+
+This project is configured for automatic deployment to Render with Redis support.
+
+#### Quick Deploy
+
+1. **Push to GitHub**
+   ```bash
+   git add .
+   git commit -m "Deploy to Render"
+   git push origin main
+   ```
+
+2. **Connect to Render**
+   - Go to [Render Dashboard](https://dashboard.render.com)
+   - Click "New +" → "Blueprint"
+   - Select your repository
+   - Render will auto-detect `render.yaml`
+
+3. **Set Environment Variables**
+   - In Render dashboard, set `APPWRITE_API_KEY` securely
+   - All other variables are pre-configured
+
+4. **Deploy**
+   - Click "Apply" to create services
+   - Your API will be live at: `https://your-service.onrender.com`
+
+#### Architecture
+
+- **Backend**: Go service on Render (auto-scaling)
+- **Database**: Appwrite Cloud (managed)
+- **Cache**: Redis on Render (managed)
+- **CI/CD**: GitHub Actions + Render auto-deploy
+
+#### Deployment Files
+
+- `Dockerfile` - Multi-stage Docker build
+- `render.yaml` - Infrastructure as Code
+- `docker-compose.yml` - Local development
+- `.github/workflows/ci-cd.yml` - CI/CD pipeline
+- `Makefile` - Development commands
+
+For detailed deployment instructions, see [DEPLOYMENT.md](./DEPLOYMENT.md)
+
+### Local Development with Docker
+
 ```bash
-docker build -t gold-investment-backend .
-docker run -p 8080:8080 --env-file .env gold-investment-backend
+# Build and run with Docker Compose
+make docker-run
+
+# Or manually
+docker-compose up --build
+
+# Stop services
+make docker-stop
 ```
 
 ### Manual Deployment
+
 ```bash
-go build -o server ./cmd
-./server
+# Build binary
+make build
+
+# Run binary
+./bin/server
+```
+
+### Development Commands
+
+```bash
+make help           # Show all available commands
+make test           # Run tests
+make lint           # Run linter
+make deploy-check   # Validate deployment config
+make pre-push       # Run all checks before pushing
 ```
 
 ## 🧪 Testing
