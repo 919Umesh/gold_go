@@ -12,12 +12,21 @@ type Client struct {
 }
 
 func NewRedisClient(addr, password string, db int) *Client {
-	rdb := redis.NewClient(&redis.Options{
-		Addr:     addr,
-		Password: password,
-		DB:       db,
-	})
+	var opts *redis.Options
+	var err error
 
+	// Try to parse addr as a URL (e.g., redis:// or rediss://)
+	opts, err = redis.ParseURL(addr)
+	if err != nil {
+		// If not a valid URL, use the provided parameters
+		opts = &redis.Options{
+			Addr:     addr,
+			Password: password,
+			DB:       db,
+		}
+	}
+
+	rdb := redis.NewClient(opts)
 	return &Client{client: rdb}
 }
 

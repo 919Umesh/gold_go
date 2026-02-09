@@ -49,6 +49,9 @@ func InitConfig() *Config {
 }
 
 func getRedisAddress() string {
+	if url := os.Getenv("REDIS_URL"); url != "" {
+		return url
+	}
 	host := os.Getenv("REDIS_HOST")
 	port := os.Getenv("REDIS_PORT")
 	if host != "" && port != "" {

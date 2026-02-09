@@ -38,12 +38,14 @@ services:
           name: gold-go-redis
           property: port
       
-      - key: REDIS_PASSWORD
+      - key: REDIS_URL
         fromService:
           type: redis
           name: gold-go-redis
           property: connectionString
-          envVarKey: REDIS_PASSWORD
+      
+      - key: REDIS_PASSWORD
+        sync: false  # Set this in Render dashboard if not using REDIS_URL
       
       # Worker Configuration
       - key: WORKER_COUNT
