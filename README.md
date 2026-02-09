@@ -8,14 +8,14 @@ Inspired by digital gold investment successes, this platform brings accessible g
 *   **User Authentication**: Secure JWT-based auth with Appwrite Cloud integration.
 *   **Virtual Wallet**: NPR-based virtual balance for risk-free trading practice.
 *   **Real-time Simulation**: Automated gold price updates and stock market events.
-*   **Performance**: Redis-based rate limiting and caching for high-speed API responses.
+*   **High Performance**: Direct Appwrite integration for fast API responses.
 *   **Worker Pool**: Asynchronous background processing for concurrent safety.
 
 ## 🛠️ Technology Stack
 
 *   **Backend**: Go 1.24+ (Gin Framework)
 *   **Database**: Appwrite Cloud (NoSQL)
-*   **Cache/Speed**: Redis (Managed)
+*   **Authentication**: JWT-based with bcrypt password hashing
 *   **Deployment**: Render (Dockerized)
 *   **DevOps**: GitHub Actions (CI/CD)
 
@@ -30,7 +30,8 @@ Inspired by digital gold investment successes, this platform brings accessible g
     APPWRITE_PROJECT_ID=your_project_id
     APPWRITE_API_KEY=your_api_key
     APPWRITE_DATABASE_ID=your_db_id
-    REDIS_URL=redis://localhost:6379
+    WORKER_COUNT=5
+    QUEUE_SIZE=100
     ```
 
 2.  **Run with Docker**:
@@ -60,8 +61,16 @@ This project is configured for **Render Blueprint**.
 
 1.  Push your changes to GitHub.
 2.  In [Render Dashboard](https://dashboard.render.com), create a **New Blueprint**.
-3.  Connect this repository. Render will auto-detect `render.yaml` and set up the Backend + Redis.
+3.  Connect this repository. Render will auto-detect `render.yaml` and set up the Backend.
 4.  Manually add `APPWRITE_API_KEY` in the Render environment settings.
+
+## 📝 Recent Changes
+
+### Redis Removed (February 2026)
+- Removed Redis dependency to simplify infrastructure
+- All data now managed through Appwrite
+- No impact on API functionality
+- See [REDIS_REMOVAL_SUMMARY.md](./REDIS_REMOVAL_SUMMARY.md) for details
 
 ---
 **Maintained by Umesh Shahi**

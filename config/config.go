@@ -7,14 +7,11 @@ import (
 )
 
 type Config struct {
-	ServerPort    string
-	JWTSecret     string
-	GoldProvider  string
-	WorkerCount   int
-	QueueSize     int
-	RedisAddress  string
-	RedisPassword string
-	RedisDB       int
+	ServerPort   string
+	JWTSecret    string
+	GoldProvider string
+	WorkerCount  int
+	QueueSize    int
 }
 
 var (
@@ -25,29 +22,14 @@ var (
 func InitConfig() *Config {
 	configOnce.Do(func() {
 		configInstance = &Config{
-			ServerPort:    getEnv("PORT", "8080"),
-			JWTSecret:     getEnv("JWT_SECRET", "supersecretjwt"),
-			GoldProvider:  getEnv("GOLD_PROVIDER_URL", "http://localhost:9000"),
-			WorkerCount:   getEnvAsInt("WORKER_COUNT", 5),
-			QueueSize:     getEnvAsInt("QUEUE_SIZE", 100),
-			RedisAddress:  getRedisAddress(),
-			RedisPassword: getEnv("REDIS_PASSWORD", ""),
-			RedisDB:       getEnvAsInt("REDIS_DB", 0),
+			ServerPort:   getEnv("PORT", "8080"),
+			JWTSecret:    getEnv("JWT_SECRET", "supersecretjwt"),
+			GoldProvider: getEnv("GOLD_PROVIDER_URL", "http://localhost:9000"),
+			WorkerCount:  getEnvAsInt("WORKER_COUNT", 5),
+			QueueSize:    getEnvAsInt("QUEUE_SIZE", 100),
 		}
 	})
 	return configInstance
-}
-
-func getRedisAddress() string {
-	if url := os.Getenv("REDIS_URL"); url != "" {
-		return url
-	}
-	host := os.Getenv("REDIS_HOST")
-	port := os.Getenv("REDIS_PORT")
-	if host != "" && port != "" {
-		return host + ":" + port
-	}
-	return getEnv("REDIS_ADDRESS", "localhost:6379")
 }
 
 func getEnv(key, defaultValue string) string {

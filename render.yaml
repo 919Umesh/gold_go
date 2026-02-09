@@ -25,28 +25,6 @@ services:
       - key: APPWRITE_DATABASE_ID
         value: 6985bccb00216e0a7171
       
-      # Redis Configuration (Internal reference to Redis service)
-      - key: REDIS_HOST
-        fromService:
-          type: redis
-          name: gold-go-redis
-          property: host
-      
-      - key: REDIS_PORT
-        fromService:
-          type: redis
-          name: gold-go-redis
-          property: port
-      
-      - key: REDIS_URL
-        fromService:
-          type: redis
-          name: gold-go-redis
-          property: connectionString
-      
-      - key: REDIS_PASSWORD
-        sync: false  # Set this in Render dashboard if not using REDIS_URL
-      
       # Worker Configuration
       - key: WORKER_COUNT
         value: 5
@@ -66,10 +44,3 @@ services:
     
     autoDeploy: true  # Auto-deploy on push to main branch
 
-  # Redis Service
-  - type: redis
-    name: gold-go-redis
-    region: frankfurt  # Same region as backend for low latency
-    plan: free  # Change to 'starter' or higher for production
-    maxmemoryPolicy: allkeys-lru  # Eviction policy when memory is full
-    ipAllowList: []  # Empty means only internal services can access

@@ -18,12 +18,6 @@ services:
       APPWRITE_API_KEY: standard_54423236d4faade3f231047beafa66688bd930cc2c63de086bb76cf3939f564d993019d5da21b7e29a3b5f49e39d1010e9065777540b31616b304a4f1357580e1902891d2b83191ae092e23c80498fe432d821fe7e4ad38256890df1f716dec2340e2712dcb1eee93e979f59dc920ba58193b7cf3f29eff9ba46e8128f42dd96
       APPWRITE_DATABASE_ID: 6985bccb00216e0a7171
 
-      # Redis (local container)
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
-      REDIS_PASSWORD: ""
-      REDIS_DB: 0
-
       # Workers
       WORKER_COUNT: 5
       QUEUE_SIZE: 100
@@ -34,35 +28,12 @@ services:
       # Gold Provider
       GOLD_PROVIDER_URL: ${GOLD_PROVIDER_URL:-http://localhost:9000}
 
-    depends_on:
-      - redis
-
     restart: unless-stopped
 
     networks:
       - gold-network
-
-  # Redis Service (for local development)
-  redis:
-    image: redis:7-alpine
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis-data:/data
-    command: redis-server --appendonly yes
-    restart: unless-stopped
-    networks:
-      - gold-network
-    healthcheck:
-      test: [ "CMD", "redis-cli", "ping" ]
-      interval: 10s
-      timeout: 3s
-      retries: 3
-
-volumes:
-  redis-data:
-    driver: local
 
 networks:
   gold-network:
     driver: bridge
+
