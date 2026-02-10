@@ -102,7 +102,7 @@ func (r *repository) UpdateVirtualWallet(wallet *models.VirtualWallet) error {
 		r.client.Config.DatabaseID,
 		CollectionVirtualWallets,
 		wallet.ID,
-		appwrite.WithUpdateDocumentData(data),
+		r.client.Databases.WithUpdateDocumentData(data),
 	)
 	if err != nil {
 		return err
@@ -165,7 +165,7 @@ func (r *repository) CreatePortfolioItem(item *models.UserPortfolio) error {
 		"user_id":        item.UserID,
 		"company_id":     item.CompanyID,
 		"quantity":       item.Quantity,
-		"avg_buy_price":  item.AvgBuyPrice,
+		"average_price":  item.AvgBuyPrice,
 		"total_invested": item.TotalInvested,
 	}
 
@@ -184,7 +184,7 @@ func (r *repository) CreatePortfolioItem(item *models.UserPortfolio) error {
 func (r *repository) UpdatePortfolioItem(item *models.UserPortfolio) error {
 	data := map[string]interface{}{
 		"quantity":       item.Quantity,
-		"avg_buy_price":  item.AvgBuyPrice,
+		"average_price":  item.AvgBuyPrice,
 		"total_invested": item.TotalInvested,
 	}
 
@@ -192,7 +192,7 @@ func (r *repository) UpdatePortfolioItem(item *models.UserPortfolio) error {
 		r.client.Config.DatabaseID,
 		CollectionUserPortfolios,
 		item.ID,
-		appwrite.WithUpdateDocumentData(data),
+		r.client.Databases.WithUpdateDocumentData(data),
 	)
 	if err != nil {
 		return err

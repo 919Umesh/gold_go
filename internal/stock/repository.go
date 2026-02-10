@@ -207,7 +207,7 @@ func (r *repository) UpdateCompany(company *models.Company) error {
 		r.client.Config.DatabaseID,
 		CollectionCompanies,
 		company.ID,
-		appwrite.WithUpdateDocumentData(data),
+		r.client.Databases.WithUpdateDocumentData(data),
 	)
 	if err != nil {
 		return err

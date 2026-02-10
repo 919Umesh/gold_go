@@ -17,7 +17,6 @@ func NewStockHandler(service stock.Service) *StockHandler {
 	return &StockHandler{service: service}
 }
 
-
 func (h *StockHandler) GetCompany(c *gin.Context) {
 	symbol := c.Param("symbol")
 
@@ -64,7 +63,6 @@ func (h *StockHandler) SearchCompanies(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"companies": companies})
 }
 
-
 func (h *StockHandler) GetCompaniesBySector(c *gin.Context) {
 	sector := c.Param("sector")
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "50"))
@@ -84,7 +82,6 @@ func (h *StockHandler) GetCompaniesBySector(c *gin.Context) {
 	})
 }
 
-
 func (h *StockHandler) GetCurrentPrice(c *gin.Context) {
 	symbol := c.Param("symbol")
 
@@ -96,7 +93,6 @@ func (h *StockHandler) GetCurrentPrice(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"price": price})
 }
-
 
 func (h *StockHandler) GetPriceHistory(c *gin.Context) {
 	symbol := c.Param("symbol")
@@ -126,7 +122,6 @@ func (h *StockHandler) GetMarketOverview(c *gin.Context) {
 	c.JSON(http.StatusOK, overview)
 }
 
-
 func (h *StockHandler) GetTopGainers(c *gin.Context) {
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
 
@@ -138,7 +133,6 @@ func (h *StockHandler) GetTopGainers(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"gainers": gainers})
 }
-
 
 func (h *StockHandler) GetTopLosers(c *gin.Context) {
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
@@ -152,7 +146,6 @@ func (h *StockHandler) GetTopLosers(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"losers": losers})
 }
 
-
 func (h *StockHandler) GetMostActive(c *gin.Context) {
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
 
@@ -164,7 +157,6 @@ func (h *StockHandler) GetMostActive(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"active": active})
 }
-
 
 func (h *StockHandler) GetUpcomingEvents(c *gin.Context) {
 	symbol := c.Param("symbol")

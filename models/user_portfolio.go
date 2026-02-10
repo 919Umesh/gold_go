@@ -10,7 +10,7 @@ type UserPortfolio struct {
 	UserID        string    `json:"user_id"`
 	CompanyID     string    `json:"company_id"`
 	Quantity      int       `json:"quantity"`
-	AvgBuyPrice   float64   `json:"avg_buy_price"`
+	AvgBuyPrice   float64   `json:"average_price"`
 	TotalInvested float64   `json:"total_invested"`
 	CreatedAt     time.Time `json:"$createdAt,omitempty"`
 	UpdatedAt     time.Time `json:"$updatedAt,omitempty"`

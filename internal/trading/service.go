@@ -72,7 +72,7 @@ func (s *service) CreateWallet(userID string) (*models.VirtualWallet, error) {
 
 	wallet := &models.VirtualWallet{
 		UserID:          userID,
-		Balance:         1000000.00, 
+		Balance:         1000000.00,
 		TotalInvested:   0,
 		TotalProfitLoss: 0,
 	}
@@ -107,7 +107,7 @@ func (s *service) GetPortfolio(userID string) (*PortfolioSummary, error) {
 	}
 
 	for _, item := range portfolio {
-	
+
 		price, err := s.stockRepo.GetLatestPrice(item.CompanyID)
 		currentPrice := 0.0
 		if err == nil {

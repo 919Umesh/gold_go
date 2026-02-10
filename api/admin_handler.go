@@ -81,8 +81,7 @@ func (h *AdminHandler) SeedStockData(c *gin.Context) {
 	pricesCreated := 0
 	eventsCreated := 0
 
-
-	companyMap := make(map[string]string) 
+	companyMap := make(map[string]string)
 
 	for _, nc := range nepaliCompanies {
 		existing, err := h.stockRepo.GetCompanyBySymbol(nc.Symbol)

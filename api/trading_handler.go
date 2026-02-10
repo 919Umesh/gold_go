@@ -27,7 +27,6 @@ type SellRequest struct {
 	Quantity int    `json:"quantity" binding:"required,min=1"`
 }
 
-
 func (h *TradingHandler) GetWallet(c *gin.Context) {
 	userID := c.GetString("user_id")
 	if userID == "" {
@@ -65,7 +64,6 @@ func (h *TradingHandler) GetPortfolio(c *gin.Context) {
 
 	c.JSON(http.StatusOK, portfolio)
 }
-
 
 func (h *TradingHandler) BuyStock(c *gin.Context) {
 	userID := c.GetString("user_id")
@@ -120,7 +118,6 @@ func (h *TradingHandler) SellStock(c *gin.Context) {
 
 	c.JSON(http.StatusOK, result)
 }
-
 
 func (h *TradingHandler) GetTransactionHistory(c *gin.Context) {
 	userID := c.GetString("user_id")

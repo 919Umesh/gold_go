@@ -7,7 +7,6 @@ import (
 	"unsafe"
 )
 
-
 func Decode(model interface{}, target interface{}) error {
 	v := reflect.ValueOf(model)
 	if v.Kind() == reflect.Ptr {

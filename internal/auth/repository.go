@@ -128,7 +128,7 @@ func (r *repository) Update(user *models.User) error {
 		r.client.Config.DatabaseID,
 		CollectionUsers,
 		user.ID,
-		appwrite.WithUpdateDocumentData(data),
+		r.client.Databases.WithUpdateDocumentData(data),
 	)
 	if err != nil {
 		return err

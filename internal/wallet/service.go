@@ -18,7 +18,7 @@ var (
 
 type Service interface {
 	GetWallet(userID string) (*models.Wallet, error)
-	TopUp(userID string, amount float64, referenceID string) (*models.Wallet, *models.Transaction, error)
+	TopUp(userID string, amount float64, companyID string, referenceID string) (*models.Wallet, *models.Transaction, error)
 	GetUserTransaction(userID string) ([]models.Transaction, error)
 }
 
@@ -57,8 +57,12 @@ func NewService(repo Repository, wp *queue.WorkerPool) Service {
 func (s *service) GetWallet(userID string) (*models.Wallet, error) {
 	wallet, err := s.repo.GetByUserID(userID)
 	if err != nil {
-		
-		wallet = &models.Wallet{UserID: userID}
+		wallet = &models.Wallet{
+			UserID:      userID,
+			FiatBalance: 0,
+			Locked:      false,
+			Version:     1,
+		}
 		if err := s.repo.Create(wallet); err != nil {
 			return nil, fmt.Errorf("failed to create wallet: %w", err)
 		}
@@ -66,7 +70,7 @@ func (s *service) GetWallet(userID string) (*models.Wallet, error) {
 	return wallet, nil
 }
 
-func (s *service) TopUp(userID string, amount float64, referenceID string) (*models.Wallet, *models.Transaction, error) {
+func (s *service) TopUp(userID string, amount float64, companyID string, referenceID string) (*models.Wallet, *models.Transaction, error) {
 	if amount <= 0 {
 		return nil, nil, ErrInvalidAmount
 	}
@@ -78,11 +82,10 @@ func (s *service) TopUp(userID string, amount float64, referenceID string) (*mod
 	var updatedWallet *models.Wallet
 	var transaction *models.Transaction
 
-
 	err := s.repo.WithLock(userID, func(wallet *models.Wallet) error {
-		if wallet.Locked {
-			return ErrWalletLocked
-		}
+		// NOTE: Don't check wallet.Locked here - WithLock already handles locking
+		// and the wallet is now locked. The check would always fail.
+		
 		wallet.FiatBalance += amount
 		updatedWallet = wallet
 
@@ -113,12 +116,9 @@ func (s *service) TopUp(userID string, amount float64, referenceID string) (*mod
 }
 
 func (s *service) GetUserTransaction(userID string) ([]models.Transaction, error) {
-
 	transaction, err := s.repo.GetUserTransaction(userID)
-
 	if err != nil {
 		return nil, err
 	}
-
 	return transaction, nil
 }

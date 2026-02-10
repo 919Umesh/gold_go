@@ -26,7 +26,6 @@ func main() {
 
 	cfg := config.InitConfig()
 
-
 	appwriteClient, err := appwrite.NewClient()
 	if err != nil {
 		slog.Error("Failed to initialize Appwrite client", "error", err)
@@ -56,7 +55,6 @@ func main() {
 
 	ctxShutdown, cancelShutdown := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancelShutdown()
-
 
 	done := make(chan struct{})
 	go func() {

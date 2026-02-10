@@ -11,7 +11,7 @@ import (
 
 const (
 	CollectionWallets      = "virtual_wallets"
-	CollectionTransactions = "stock_transactions"
+	CollectionTransactions = "transactions" // For wallet top-ups (NO company_id)
 )
 
 type Repository interface {
@@ -60,10 +60,13 @@ func (r *repository) GetByUserID(userID string) (*models.Wallet, error) {
 
 func (r *repository) Create(wallet *models.Wallet) error {
 	data := map[string]interface{}{
-		"user_id":      wallet.UserID,
-		"fiat_balance": wallet.FiatBalance,
-		"locked":       wallet.Locked,
-		"version":      wallet.Version,
+		"user_id":           wallet.UserID,
+		"balance":           0.0,
+		"total_invested":    0.0,
+		"total_profit_loss": 0.0,
+		"fiat_balance":      wallet.FiatBalance,
+		"locked":            wallet.Locked,
+		"version":           wallet.Version,
 	}
 
 	resp, err := r.client.Databases.CreateDocument(
@@ -85,11 +88,12 @@ func (r *repository) Update(wallet *models.Wallet) error {
 		"version":      wallet.Version,
 	}
 
+	// Use the SDK's built-in method to set data correctly
 	resp, err := r.client.Databases.UpdateDocument(
 		r.client.Config.DatabaseID,
 		CollectionWallets,
 		wallet.ID,
-		appwrite.WithUpdateDocumentData(data),
+		r.client.Databases.WithUpdateDocumentData(data),
 	)
 	if err != nil {
 		return err
@@ -100,9 +104,9 @@ func (r *repository) Update(wallet *models.Wallet) error {
 func (r *repository) CreateTransaction(transaction *models.Transaction) error {
 	data := map[string]interface{}{
 		"user_id":      transaction.UserID,
-		"type":         transaction.Type,
+		"type":         string(transaction.Type),
 		"amount":       transaction.Amount,
-		"status":       transaction.Status,
+		"status":       string(transaction.Status),
 		"reference_id": transaction.ReferenceID,
 	}
 
@@ -120,14 +124,14 @@ func (r *repository) CreateTransaction(transaction *models.Transaction) error {
 
 func (r *repository) UpdateTransaction(transaction *models.Transaction) error {
 	data := map[string]interface{}{
-		"status": transaction.Status,
+		"status": string(transaction.Status),
 	}
 
 	resp, err := r.client.Databases.UpdateDocument(
 		r.client.Config.DatabaseID,
 		CollectionTransactions,
 		transaction.ID,
-		appwrite.WithUpdateDocumentData(data),
+		r.client.Databases.WithUpdateDocumentData(data),
 	)
 	if err != nil {
 		return err
@@ -142,20 +146,19 @@ func (r *repository) GetUserTransaction(userID string) ([]models.Transaction, er
 		appwrite.WithListDocumentsQueries([]string{
 			query.Equal("user_id", userID),
 			query.OrderDesc("$createdAt"),
+			query.Limit(100),
 		}),
 	)
 	if err != nil {
 		return nil, err
 	}
 
-	transactions := make([]models.Transaction, 0, len(resp.Documents))
+	transactions := make([]models.Transaction, len(resp.Documents))
 	for i := range resp.Documents {
-		var t models.Transaction
-		if err := appwrite.DecodeListItem(resp, i, &t); err == nil {
-			transactions = append(transactions, t)
+		if err := appwrite.DecodeListItem(resp, i, &transactions[i]); err != nil {
+			return nil, fmt.Errorf("failed to decode transaction: %w", err)
 		}
 	}
-
 	return transactions, nil
 }
 
@@ -165,10 +168,26 @@ func (r *repository) WithLock(userID string, fn func(*models.Wallet) error) erro
 		return err
 	}
 
-	if err := fn(wallet); err != nil {
+	if wallet.Locked {
+		return fmt.Errorf("wallet is locked")
+	}
+
+	// Lock the wallet
+	wallet.Locked = true
+	if err := r.Update(wallet); err != nil {
 		return err
 	}
 
-	wallet.Version++
-	return r.Update(wallet)
+	// Execute the callback
+	callbackErr := fn(wallet)
+
+	// Always unlock and save the wallet changes
+	wallet.Locked = false
+	if updateErr := r.Update(wallet); updateErr != nil {
+		if callbackErr == nil {
+			return updateErr
+		}
+	}
+
+	return callbackErr
 }

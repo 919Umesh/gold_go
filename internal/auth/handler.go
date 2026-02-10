@@ -156,7 +156,6 @@ func (h *Handler) UpdateProfile(c *gin.Context) {
 func (h *Handler) UpdateKYC(c *gin.Context) {
 	userIDStr := c.Param("user_id")
 
-
 	var request UpdateKYCAdmin
 	if err := c.ShouldBindJSON(&request); err != nil {
 		apperr.Respond(c, http.StatusBadRequest, err)

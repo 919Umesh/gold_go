@@ -1,6 +1,7 @@
 package wallet
 
 import (
+	"log/slog"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -50,7 +51,7 @@ func (h *Handler) TopUp(c *gin.Context) {
 
 	referenceID := "topup_" + uuid.New().String()
 
-	wallet, transaction, err := h.service.TopUp(userID, req.Amount, referenceID)
+	wallet, transaction, err := h.service.TopUp(userID, req.Amount, "", referenceID)
 	if err != nil {
 		switch err {
 		case ErrInvalidAmount:
@@ -58,6 +59,7 @@ func (h *Handler) TopUp(c *gin.Context) {
 		case ErrWalletLocked:
 			c.JSON(http.StatusLocked, gin.H{"error": "wallet is locked"})
 		default:
+			slog.Error("TopUp failed", "error", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "top-up failed"})
 		}
 		return

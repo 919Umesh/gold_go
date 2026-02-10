@@ -3,6 +3,9 @@ package auth
 import (
 	"errors"
 	"fmt"
+	"log/slog"
+	"strings"
+	"sync"
 
 	"github.com/919Umesh/stock_market_sim/models"
 	"github.com/919Umesh/stock_market_sim/pkg/utils"
@@ -11,6 +14,10 @@ import (
 var (
 	ErrUserExists         = errors.New("user already exists")
 	ErrInvalidCredentials = errors.New("invalid credentials")
+
+	// Thread-safe in-memory cache for user lookups
+	cacheMu   sync.RWMutex
+	userCache = make(map[string]*models.User)
 )
 
 type Service interface {
@@ -34,14 +41,6 @@ func NewService(repo Repository, jwtSecret string) Service {
 }
 
 func (s *service) Register(fullName, email, phone, password, role string) (*models.User, error) {
-	exists, err := s.repo.ExistsByEmail(email)
-	if err != nil {
-		return nil, fmt.Errorf("database error: %w", err)
-	}
-	if exists {
-		return nil, ErrUserExists
-	}
-
 	hashedPassword, err := utils.HashPassword(password)
 	if err != nil {
 		return nil, fmt.Errorf("password hashing failed: %w", err)
@@ -57,13 +56,39 @@ func (s *service) Register(fullName, email, phone, password, role string) (*mode
 	}
 
 	if err := s.repo.Create(user); err != nil {
+		if strings.Contains(err.Error(), "already exists") {
+			return nil, ErrUserExists
+		}
 		return nil, fmt.Errorf("user creation failed: %w", err)
 	}
 
+	// Cache the user after successful registration
+	cacheMu.Lock()
+	userCache[email] = user
+	cacheMu.Unlock()
+
+	slog.Info("user registered successfully", "email", email, "user_id", user.ID)
 	return user, nil
 }
 
 func (s *service) Login(email, password string) (*models.User, string, error) {
+	// Check cache first (thread-safe)
+	cacheMu.RLock()
+	cachedUser, exists := userCache[email]
+	cacheMu.RUnlock()
+
+	if exists {
+		if err := utils.ComparePassword(cachedUser.PasswordHash, password); err == nil {
+			token, err := utils.GenerateToken(cachedUser.ID, s.jwtSecret)
+			if err != nil {
+				return nil, "", fmt.Errorf("token generation failed: %w", err)
+			}
+			return cachedUser, token, nil
+		}
+		return nil, "", ErrInvalidCredentials
+	}
+
+	// Not in cache, query repository
 	user, err := s.repo.FindByEmail(email)
 	if err != nil {
 		return nil, "", ErrInvalidCredentials
@@ -72,6 +97,11 @@ func (s *service) Login(email, password string) (*models.User, string, error) {
 	if err := utils.ComparePassword(user.PasswordHash, password); err != nil {
 		return nil, "", ErrInvalidCredentials
 	}
+
+	// Cache the user for future lookups
+	cacheMu.Lock()
+	userCache[email] = user
+	cacheMu.Unlock()
 
 	token, err := utils.GenerateToken(user.ID, s.jwtSecret)
 	if err != nil {
@@ -96,8 +126,13 @@ func (s *service) UpdateProfile(userID string, updates map[string]interface{}) (
 	}
 
 	if err := s.repo.Update(user); err != nil {
-		return nil, fmt.Errorf("profile update error : %w", err)
+		return nil, fmt.Errorf("profile update failed: %w", err)
 	}
+
+	// Invalidate cache for this user
+	cacheMu.Lock()
+	delete(userCache, user.Email)
+	cacheMu.Unlock()
 
 	return user, nil
 }

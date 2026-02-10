@@ -20,9 +20,9 @@ func main() {
 	}
 
 	dbID := client.Config.DatabaseID
-	slog.Info("Setting up Appwrite Database", "database_id", dbID)
+	slog.Info("Setting up Appwrite Database (Fresh Setup)", "database_id", dbID)
 
-	// List of collections to create
+	// List of collections to create with permissions
 	collections := []struct {
 		ID   string
 		Name string
@@ -33,44 +33,63 @@ func main() {
 		{ID: "market_events", Name: "Market Events"},
 		{ID: "virtual_wallets", Name: "Virtual Wallets"},
 		{ID: "user_portfolios", Name: "User Portfolios"},
+		{ID: "transactions", Name: "Wallet Transactions"},
 		{ID: "stock_transactions", Name: "Stock Transactions"},
 	}
 
+	// Permissions: Create, Read, Update for any user (NO Delete)
+	permissions := []string{
+		"create(\"users\")",
+		"read(\"users\")",
+		"update(\"users\")",
+	}
+
 	for _, c := range collections {
-		createCollection(client, dbID, c.ID, c.Name)
+		createCollectionWithPermissions(client, dbID, c.ID, c.Name, permissions)
 	}
 
 	// Create Attributes
 	createAttributes(client, dbID)
 
-	slog.Info("Appwrite setup completed successfully.")
+	slog.Info("✅ Appwrite setup completed successfully!")
+	slog.Info("Collections created with permissions: Create, Read, Update (NO Delete)")
+	slog.Info("New fields added: profile (users), image_url (market_events)")
 }
 
-func createCollection(client *appwrite.Client, dbID, colID, colName string) {
+func createCollectionWithPermissions(client *appwrite.Client, dbID, colID, colName string, permissions []string) {
 	_, err := client.Databases.GetCollection(dbID, colID)
 	if err == nil {
 		slog.Info("Collection already exists", "id", colID)
 		return
 	}
 
-	_, err = client.Databases.CreateCollection(dbID, colID, colName)
+	_, err = client.Databases.CreateCollection(
+		dbID,
+		colID,
+		colName,
+		appwrite.WithCreateCollectionPermissions(permissions),
+		appwrite.WithCreateCollectionDocumentSecurity(true),
+	)
 	if err != nil {
 		log.Printf("Failed to create collection %s: %v", colName, err)
 	} else {
-		slog.Info("Created collection", "id", colID)
+		slog.Info("✅ Created collection with permissions", "id", colID)
 	}
+	time.Sleep(200 * time.Millisecond)
 }
 
 func createAttributes(client *appwrite.Client, dbID string) {
-	// Users
+	// ==================== USERS ====================
 	createStringAttr(client, dbID, "users", "full_name", 100, true)
 	createStringAttr(client, dbID, "users", "email", 255, true)
 	createStringAttr(client, dbID, "users", "phone", 20, true)
 	createStringAttr(client, dbID, "users", "password_hash", 255, true)
 	createStringAttr(client, dbID, "users", "kyc_status", 50, false)
 	createStringAttr(client, dbID, "users", "role", 50, false)
+	// NEW: Profile field (optional) - URL to profile image
+	createStringAttr(client, dbID, "users", "profile", 500, false)
 
-	// Companies
+	// ==================== COMPANIES ====================
 	createStringAttr(client, dbID, "companies", "symbol", 10, true)
 	createStringAttr(client, dbID, "companies", "name", 100, true)
 	createStringAttr(client, dbID, "companies", "sector", 50, true)
@@ -80,68 +99,78 @@ func createAttributes(client *appwrite.Client, dbID string) {
 	createIntegerAttr(client, dbID, "companies", "employees", false)
 	createBooleanAttr(client, dbID, "companies", "is_active", true)
 
-	// Stock Prices
+	// ==================== STOCK PRICES ====================
 	createStringAttr(client, dbID, "stock_prices", "company_id", 50, true)
 	createFloatAttr(client, dbID, "stock_prices", "open_price", true)
 	createFloatAttr(client, dbID, "stock_prices", "high_price", true)
 	createFloatAttr(client, dbID, "stock_prices", "low_price", true)
 	createFloatAttr(client, dbID, "stock_prices", "close_price", true)
 	createIntegerAttr(client, dbID, "stock_prices", "volume", true)
-	createStringAttr(client, dbID, "stock_prices", "timestamp", 50, true) // RFC3339
+	createStringAttr(client, dbID, "stock_prices", "timestamp", 50, true)
 	createStringAttr(client, dbID, "stock_prices", "timeframe", 10, true)
 
-	// Market Events
+	// ==================== MARKET EVENTS ====================
 	createStringAttr(client, dbID, "market_events", "company_id", 50, true)
 	createStringAttr(client, dbID, "market_events", "event_type", 50, true)
 	createStringAttr(client, dbID, "market_events", "title", 255, true)
 	createStringAttr(client, dbID, "market_events", "description", 1000, false)
 	createFloatAttr(client, dbID, "market_events", "impact_percentage", true)
 	createStringAttr(client, dbID, "market_events", "event_date", 50, true)
+	// NEW: Image URL for market events (optional)
+	createStringAttr(client, dbID, "market_events", "image_url", 500, false)
 
-	// Virtual Wallets
+	// ==================== VIRTUAL WALLETS ====================
 	createStringAttr(client, dbID, "virtual_wallets", "user_id", 50, true)
 	createFloatAttr(client, dbID, "virtual_wallets", "balance", true)
 	createFloatAttr(client, dbID, "virtual_wallets", "total_invested", true)
 	createFloatAttr(client, dbID, "virtual_wallets", "total_profit_loss", true)
+	createFloatAttr(client, dbID, "virtual_wallets", "fiat_balance", false)
+	createBooleanAttr(client, dbID, "virtual_wallets", "locked", false)
+	createIntegerAttr(client, dbID, "virtual_wallets", "version", false)
 
-	// User Portfolios
+	// ==================== WALLET TRANSACTIONS (NO company_id!) ====================
+	// This is for fiat top-ups only - NO company_id required
+	createStringAttr(client, dbID, "transactions", "user_id", 50, true)
+	createStringAttr(client, dbID, "transactions", "type", 50, true)
+	createFloatAttr(client, dbID, "transactions", "amount", true)
+	createStringAttr(client, dbID, "transactions", "status", 50, true)
+	createStringAttr(client, dbID, "transactions", "reference_id", 100, true)
+
+	// ==================== USER PORTFOLIOS ====================
 	createStringAttr(client, dbID, "user_portfolios", "user_id", 50, true)
 	createStringAttr(client, dbID, "user_portfolios", "company_id", 50, true)
 	createIntegerAttr(client, dbID, "user_portfolios", "quantity", true)
 	createFloatAttr(client, dbID, "user_portfolios", "average_price", true)
 	createFloatAttr(client, dbID, "user_portfolios", "total_invested", true)
 
-	// Stock Transactions
+	// ==================== STOCK TRANSACTIONS (HAS company_id!) ====================
+	// This is for buy/sell stock trades - company_id IS required
 	createStringAttr(client, dbID, "stock_transactions", "user_id", 50, true)
 	createStringAttr(client, dbID, "stock_transactions", "company_id", 50, true)
-	createStringAttr(client, dbID, "stock_transactions", "transaction_type", 20, true)
+	createStringAttr(client, dbID, "stock_transactions", "type", 20, true)
 	createIntegerAttr(client, dbID, "stock_transactions", "quantity", true)
-	createFloatAttr(client, dbID, "stock_transactions", "price", true)
+	createFloatAttr(client, dbID, "stock_transactions", "price_per_share", true)
 	createFloatAttr(client, dbID, "stock_transactions", "total_amount", true)
-	// createStringAttr(client, dbID, "stock_transactions", "transaction_date", 50, true) // Usually $createdAt handles this, but code might use explicit field?
-	// Models don't seem to have explicit transaction_date field other than timestamps?
-	// Checking internal/trading/repository.go, it uses $createdAt/UpdatedAt.
-	// Models.StockTransaction has CreatedAt. So we don't strictly need it if we rely on Appwrite meta, but wait, Models usually decodes it.
+	createStringAttr(client, dbID, "stock_transactions", "status", 50, true)
+	createStringAttr(client, dbID, "stock_transactions", "reference_id", 100, false)
 
-	// Creating Indexes
+	// ==================== INDEXES ====================
+	slog.Info("Creating indexes...")
 	createIndex(client, dbID, "users", "email_idx", "unique", []string{"email"})
 	createIndex(client, dbID, "companies", "symbol_idx", "unique", []string{"symbol"})
 	createIndex(client, dbID, "stock_prices", "company_time_idx", "key", []string{"company_id", "timestamp"})
 	createIndex(client, dbID, "virtual_wallets", "user_id_idx", "unique", []string{"user_id"})
-	// Add more indexes as needed (e.g. for searching)
+	createIndex(client, dbID, "transactions", "user_id_idx", "key", []string{"user_id"})
+	createIndex(client, dbID, "stock_transactions", "user_id_idx", "key", []string{"user_id"})
+	createIndex(client, dbID, "user_portfolios", "user_company_idx", "key", []string{"user_id", "company_id"})
+	createIndex(client, dbID, "market_events", "company_id_idx", "key", []string{"company_id"})
 }
 
 func createStringAttr(client *appwrite.Client, dbID, colID, key string, size int, required bool) {
-	// Check if exists? Appwrite errors if exists? Or we can just try.
-	// Easier to just try and ignore "Attribute already exists" error.
-	// But let's swallow error for simplicity in this script.
 	_, err := client.Databases.CreateStringAttribute(dbID, colID, key, size, required)
 	if err == nil {
 		slog.Info("Created String attribute", "collection", colID, "key", key)
-	} else {
-		// slog.Warn("Failed to create attribute (might exist)", "collection", colID, "key", key, "error", err)
 	}
-	// Optimization: Add a small sleep to avoid hitting rate limits if creating many?
 	time.Sleep(100 * time.Millisecond)
 }
 
