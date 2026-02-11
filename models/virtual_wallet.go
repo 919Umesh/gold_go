@@ -14,6 +14,6 @@ type VirtualWallet struct {
 	CreatedAt       time.Time `json:"$createdAt,omitempty"`
 	UpdatedAt       time.Time `json:"$updatedAt,omitempty"`
 
-	// Relationships
+	// Relationships Data
 	User *User `json:"user,omitempty"`
 }
