@@ -37,10 +37,6 @@ func NewRouter(client *appwrite.Client, cfg *config.Config, wp *queue.WorkerPool
 }
 
 func (r *Router) setupRoutes() {
-	r.engine.GET("/health", func(c *gin.Context) {
-		c.JSON(200, gin.H{"status": "healthy"})
-	})
-
 	v1 := r.engine.Group("/api/v1")
 	{
 
@@ -53,7 +49,7 @@ func (r *Router) setupRoutes() {
 			public.POST("/auth/register", authHandler.Register)
 			public.POST("/auth/login", authHandler.Login)
 
-			// Stock Market Public Routes
+			// Stock Market
 			stockRepo := stock.NewRepository(r.client)
 			stockService := stock.NewService(stockRepo)
 			stockHandler := NewStockHandler(stockService)
