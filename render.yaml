@@ -7,6 +7,8 @@ services:
     plan: free  # Change to 'starter' or higher for production
     branch: main
     dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    healthCheckProtocol: http
     envVars:
       # Server Configuration
       - key: PORT
@@ -20,7 +22,7 @@ services:
         value: 698599a4000fcd54a56a
       
       - key: APPWRITE_API_KEY
-        sync: false  # Set this in Render dashboard for security
+        sync: false  # Set this in Render  for security
       
       - key: APPWRITE_DATABASE_ID
         value: 6985bccb00216e0a7171

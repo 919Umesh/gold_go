@@ -37,6 +37,11 @@ func NewRouter(client *appwrite.Client, cfg *config.Config, wp *queue.WorkerPool
 }
 
 func (r *Router) setupRoutes() {
+	// Health check endpoint for Render deployment - responds immediately without dependencies
+	r.engine.GET("/health", func(c *gin.Context) {
+		c.JSON(200, gin.H{"status": "ok"})
+	})
+
 	v1 := r.engine.Group("/api/v1")
 	{
 
