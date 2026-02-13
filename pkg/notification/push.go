@@ -1,4 +1,4 @@
-package mail
+package notification
 
 import (
 	"bytes"
@@ -12,91 +12,105 @@ import (
 	"github.com/919Umesh/stock_market_sim/models"
 )
 
-const (
-	ONE_SIGNAL_REST_API_KEY = "YOUR_ONESIGNAL_REST_API_KEY"
-	ONE_SIGNAL_APP_ID       = "YOUR_ONESIGNAL_APP_ID"
+var (
+	oneSignalRestAPIKey = "os_v2_app_xmzxpa3xq5hs7de7bxmzj4wm6vbpekcdunwucx5mavjqsjn3rk7q7y7nijanhv7mhfocb5be4v5h7pnq6izbuibhn7fyoadocgwrdwa"
+	oneSignalAppID      = "bb337783-7787-4f2f-8c9f-0dd994f2ccf5"
+	httpClient          = &http.Client{Timeout: 10 * time.Second}
 )
 
-var CHANNEL_MAP = map[string]string{
-	"ORDERS":     "order_channel",
-	"TICKETS":    "ticket_channel",
-	"UPDATES":    "update_channel",
-	"INVENTORY":  "inventory_channel",
-	"PROMOTIONS": "promotion_channel",
-	"PAYMENTS":   "payment_channel",
-	"REVIEWS":    "review_channel",
-	"QUERIES":    "query_channel",
-	"ISSUES":     "issue_channel",
-	"GENERAL":    "general_channel",
-}
+const oneSignalPushEndpoint = "https://api.onesignal.com/notifications?c=push"
 
-
-
-func SendPushNotification(
-	customerID string,
-	title string,
-	message string,
-	notificationType string,
-	linkedID interface{},
-) error {
-
-	if customerID == "" || title == "" || message == "" {
-		return errors.New("missing required fields")
+func SendOneSignalPush(in models.PushInput) ([]byte, error) {
+	if oneSignalAppID == "" || oneSignalRestAPIKey == "" {
+		return nil, errors.New("missing ONE_SIGNAL_APP_ID or ONE_SIGNAL_REST_API_KEY")
 	}
 
-	if notificationType == "" {
-		notificationType = "GENERAL"
+	if in.CustomerID == "" {
+		return nil, errors.New("customer_id is required")
 	}
 
-	channelID := CHANNEL_MAP[notificationType]
+	if in.Title == "" && in.Message == "" {
+		return nil, errors.New("at least one of title or message required")
+	}
 
-	reqBody := &models.SendPushNotification{
-		AppID:                  ONE_SIGNAL_APP_ID,
-		IncludeExternalUserIDs: []string{customerID},
-		Headings:               map[string]string{"en": title},
-		Contents:               map[string]string{"en": message},
-		ExistingAndroidChannel: channelID,
-		SmallIcon:              "ic_stat_onesignal",
-		IOSSound:               "default",
-		AndroidSound:           "default",
-		TTL:                    3600,
-		Data: map[string]interface{}{
-			"linked_id": linkedID,
-			"type":      notificationType,
+	reqBody := &models.OneSignalPush{
+		AppID: oneSignalAppID,
+		IncludeAliases: map[string][]string{
+			"external_id": {in.CustomerID},
 		},
+		TargetChannel:            "push",
+		Headings:                 map[string]string{"en": in.Title},
+		Contents:                 map[string]string{"en": in.Message},
+		URL:                      in.LaunchURL,
+		AppURL:                   in.AppURL,
+		WebURL:                   in.WebURL,
+		ExistingAndroidChannelID: in.AndroidChannel,
+		SmallIcon:                in.SmallIcon,
+		IOSSound:                 nonEmpty(in.IOSSound, "default"),
+		AndroidSound:             nonEmpty(in.AndroidSound, "default"),
+		TTL:                      firstNonZero(in.TTL, 3600),
+		IsAndroid:                in.IsAndroid,
+		IsIos:                    in.IsIos,
+		IsAnyWeb:                 in.IsAnyWeb,
+	}
+
+	if in.ImageURL != "" {
+		reqBody.BigPicture = in.ImageURL
+		reqBody.ChromeWebImage = in.ImageURL
+		reqBody.IOSAttachments = map[string]string{
+			"id": in.ImageURL,
+		}
+	}
+
+	reqBody.Data = map[string]interface{}{
+		"type":      in.NotificationType,
+		"linked_id": in.LinkedID,
+	}
+	for k, v := range in.Data {
+		reqBody.Data[k] = v
 	}
 
 	payload, err := json.Marshal(reqBody)
 	if err != nil {
-		return fmt.Errorf("marshal error: %w", err)
+		return nil, fmt.Errorf("marshal error: %w", err)
 	}
-
-	client := &http.Client{Timeout: 10 * time.Second}
 
 	req, err := http.NewRequest(
 		"POST",
-		"https://onesignal.com/api/v1/notifications",
+		oneSignalPushEndpoint,
 		bytes.NewReader(payload),
 	)
 	if err != nil {
-		return fmt.Errorf("request creation failed: %w", err)
+		return nil, fmt.Errorf("request creation failed: %w", err)
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Basic "+ONE_SIGNAL_REST_API_KEY)
+	req.Header.Set("Authorization", "Key "+oneSignalRestAPIKey)
 
-	resp, err := client.Do(req)
+	resp, err := httpClient.Do(req)
 	if err != nil {
-		return fmt.Errorf("request failed: %w", err)
+		return nil, fmt.Errorf("onesignal request failed: %w", err)
 	}
 	defer resp.Body.Close()
 
 	respBody, _ := io.ReadAll(resp.Body)
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf("onesignal error %d: %s", resp.StatusCode, string(respBody))
+		return respBody, fmt.Errorf("onesignal error %d: %s", resp.StatusCode, string(respBody))
 	}
 
-	fmt.Println("OneSignal response:", string(respBody))
-	return nil
+	return respBody, nil
+}
+func nonEmpty(value string, fallback string) string {
+	if value != "" {
+		return value
+	}
+	return fallback
+}
+
+func firstNonZero(value int, fallback int) int {
+	if value > 0 {
+		return value
+	}
+	return fallback
 }

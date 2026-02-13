@@ -1,10 +1,12 @@
 package wallet
 
 import (
+	"fmt"
 	"log/slog"
 	"net/http"
 
-	mail "github.com/919Umesh/stock_market_sim/pkg/notification"
+	"github.com/919Umesh/stock_market_sim/models"
+	"github.com/919Umesh/stock_market_sim/pkg/notification"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
@@ -76,9 +78,28 @@ func (h *Handler) TopUp(c *gin.Context) {
 	}
 
 	if userEmail != "" {
-		mail.SendEmail(userEmail, "Top-Up", topupData)
+		notification.SendEmail(userEmail, "Top-Up", topupData)
 	} else {
 		slog.Warn("no user email available to send top-up notification", "user_id", userID)
+	}
+
+	push := models.PushInput{
+		CustomerID:       userID,
+		Title:            "Wallet Top-Up",
+		Message:          fmt.Sprintf("₹%.2f has been added to your wallet", transaction.Amount),
+		NotificationType: "TOP-UP",
+		LinkedID:         transaction.ID,
+		Data: map[string]interface{}{
+			"amount":         transaction.Amount,
+			"transaction_id": transaction.ID,
+			"reference_id":   transaction.ReferenceID,
+			"new_balance":    wallet.FiatBalance,
+		},
+	}
+	_, err = notification.SendOneSignalPush(push)
+	if err != nil {
+		slog.Error("failed to send push notification", "error", err)
+
 	}
 	c.JSON(http.StatusOK, gin.H{
 		"message":     "top-up successful",
