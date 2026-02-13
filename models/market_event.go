@@ -4,7 +4,7 @@ import (
 	"time"
 )
 
-// MarketEventType represents different types of market events
+
 type MarketEventType string
 
 const (
@@ -16,7 +16,6 @@ const (
 	MarketEventSplit    MarketEventType = "split"
 )
 
-// MarketEvent represents events that can affect stock prices
 type MarketEvent struct {
 	ID               string          `json:"$id,omitempty"`
 	CompanyID        string          `json:"company_id"`

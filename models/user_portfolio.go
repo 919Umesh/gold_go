@@ -20,18 +20,18 @@ type UserPortfolio struct {
 	Company *Company `json:"company,omitempty"`
 }
 
-// CalculateCurrentValue calculates the current value of the holding
+
 func (u *UserPortfolio) CalculateCurrentValue(currentPrice float64) float64 {
 	return float64(u.Quantity) * currentPrice
 }
 
-// CalculateProfitLoss calculates the profit or loss
+
 func (u *UserPortfolio) CalculateProfitLoss(currentPrice float64) float64 {
 	currentValue := u.CalculateCurrentValue(currentPrice)
 	return currentValue - u.TotalInvested
 }
 
-// CalculateProfitLossPercentage calculates the profit or loss percentage
+
 func (u *UserPortfolio) CalculateProfitLossPercentage(currentPrice float64) float64 {
 	if u.TotalInvested == 0 {
 		return 0

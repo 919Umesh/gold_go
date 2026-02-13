@@ -5,7 +5,6 @@ import (
 	"os"
 )
 
-// InitLogger configures the default slog logger to use JSON format
 func InitLogger() {
 	handler := slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
 		Level: slog.LevelInfo,

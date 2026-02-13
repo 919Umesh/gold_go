@@ -59,7 +59,7 @@ func NewClient() (*Client, error) {
 	}, nil
 }
 
-// getEnv reads an environment variable with a fallback default value
+
 func getEnv(key, defaultValue string) string {
 	if value := os.Getenv(key); value != "" {
 		return value

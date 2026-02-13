@@ -29,7 +29,6 @@ func NewRouter(client *appwrite.Client, cfg *config.Config, wp *queue.WorkerPool
 		workerPool: wp,
 	}
 
-	//To allow the all origin for development purpose
 	router.engine.Use(cors.Default())
 
 	router.setupRoutes()
@@ -37,7 +36,6 @@ func NewRouter(client *appwrite.Client, cfg *config.Config, wp *queue.WorkerPool
 }
 
 func (r *Router) setupRoutes() {
-	// Health check endpoint for Render deployment - responds immediately without dependencies
 	r.engine.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{"status": "ok"})
 	})
@@ -113,7 +111,6 @@ func (r *Router) setupRoutes() {
 
 			admin.PUT("/users/:user_id/kyc", authHandler.UpdateKYC)
 
-			// Admin seed endpoint
 			stockRepoAdmin := stock.NewRepository(r.client)
 			adminHandler := NewAdminHandler(stockRepoAdmin)
 			admin.POST("/seed-stocks", adminHandler.SeedStockData)

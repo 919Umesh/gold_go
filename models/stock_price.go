@@ -4,7 +4,6 @@ import (
 	"time"
 )
 
-// StockPrice represents OHLCV (Open, High, Low, Close, Volume) data for a stock
 type StockPrice struct {
 	ID         string    `json:"$id,omitempty"`
 	CompanyID  string    `json:"company_id"`
@@ -14,14 +13,14 @@ type StockPrice struct {
 	ClosePrice float64   `json:"close_price"`
 	Volume     int64     `json:"volume"`
 	Timestamp  time.Time `json:"timestamp"`
-	Timeframe  string    `json:"timeframe"` // 1d, 1h, 15m, 5m
+	Timeframe  string    `json:"timeframe"`
 	CreatedAt  time.Time `json:"$createdAt,omitempty"`
 
-	// Relationships
+
 	Company *Company `json:"company,omitempty"`
 }
 
-// CalculateChange returns the price change percentage
+
 func (s *StockPrice) CalculateChange() float64 {
 	if s.OpenPrice == 0 {
 		return 0

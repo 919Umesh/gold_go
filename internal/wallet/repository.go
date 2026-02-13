@@ -11,7 +11,7 @@ import (
 
 const (
 	CollectionWallets      = "virtual_wallets"
-	CollectionTransactions = "transactions" // For wallet top-ups (NO company_id)
+	CollectionTransactions = "transactions" 
 )
 
 type Repository interface {
@@ -88,7 +88,6 @@ func (r *repository) Update(wallet *models.Wallet) error {
 		"version":      wallet.Version,
 	}
 
-	// Use the SDK's built-in method to set data correctly
 	resp, err := r.client.Databases.UpdateDocument(
 		r.client.Config.DatabaseID,
 		CollectionWallets,
@@ -172,16 +171,14 @@ func (r *repository) WithLock(userID string, fn func(*models.Wallet) error) erro
 		return fmt.Errorf("wallet is locked")
 	}
 
-	// Lock the wallet
 	wallet.Locked = true
 	if err := r.Update(wallet); err != nil {
 		return err
 	}
 
-	// Execute the callback
 	callbackErr := fn(wallet)
 
-	// Always unlock and save the wallet changes
+
 	wallet.Locked = false
 	if updateErr := r.Update(wallet); updateErr != nil {
 		if callbackErr == nil {

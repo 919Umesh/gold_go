@@ -18,7 +18,6 @@ const (
 )
 
 type Repository interface {
-	// Company operations
 	CreateCompany(company *models.Company) error
 	GetCompanyByID(id string) (*models.Company, error)
 	GetCompanyBySymbol(symbol string) (*models.Company, error)
@@ -27,18 +26,15 @@ type Repository interface {
 	SearchCompanies(query string, limit int) ([]models.Company, error)
 	UpdateCompany(company *models.Company) error
 
-	// Stock price operations
 	CreateStockPrice(price *models.StockPrice) error
 	GetLatestPrice(companyID string) (*models.StockPrice, error)
 	GetPriceHistory(companyID string, timeframe string, from, to time.Time, limit int) ([]models.StockPrice, error)
 	GetPriceAtTime(companyID string, timestamp time.Time) (*models.StockPrice, error)
 
-	// Market overview
 	GetTopGainers(limit int) ([]models.Company, error)
 	GetTopLosers(limit int) ([]models.Company, error)
 	GetMostActive(limit int) ([]models.Company, error)
 
-	// Market events
 	CreateMarketEvent(event *models.MarketEvent) error
 	GetUpcomingEvents(companyID string, limit int) ([]models.MarketEvent, error)
 }
@@ -51,7 +47,6 @@ func NewRepository(client *appwrite.Client) Repository {
 	return &repository{client: client}
 }
 
-// Company operations
 
 func (r *repository) CreateCompany(company *models.Company) error {
 	data := map[string]interface{}{
@@ -215,7 +210,6 @@ func (r *repository) UpdateCompany(company *models.Company) error {
 	return appwrite.Decode(resp, company)
 }
 
-// Stock price operations
 
 func (r *repository) CreateStockPrice(price *models.StockPrice) error {
 	data := map[string]interface{}{
@@ -317,7 +311,6 @@ func (r *repository) GetPriceAtTime(companyID string, timestamp time.Time) (*mod
 	return &price, nil
 }
 
-// Market overview helper
 func (r *repository) getCompanyChangePct(companyID string) (float64, error) {
 	latest, err := r.GetLatestPrice(companyID)
 	if err != nil {
@@ -423,7 +416,6 @@ func (r *repository) GetMostActive(limit int) ([]models.Company, error) {
 	return result, nil
 }
 
-// Market events
 
 func (r *repository) CreateMarketEvent(event *models.MarketEvent) error {
 	data := map[string]interface{}{

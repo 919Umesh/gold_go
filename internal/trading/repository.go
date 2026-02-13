@@ -16,24 +16,21 @@ const (
 )
 
 type Repository interface {
-	// Virtual wallet operations
 	CreateVirtualWallet(wallet *models.VirtualWallet) error
 	GetVirtualWallet(userID string) (*models.VirtualWallet, error)
 	UpdateVirtualWallet(wallet *models.VirtualWallet) error
 
-	// Portfolio operations
 	GetPortfolio(userID string) ([]models.UserPortfolio, error)
 	GetPortfolioItem(userID, companyID string) (*models.UserPortfolio, error)
 	CreatePortfolioItem(item *models.UserPortfolio) error
 	UpdatePortfolioItem(item *models.UserPortfolio) error
 	DeletePortfolioItem(userID, companyID string) error
 
-	// Transaction operations
 	CreateTransaction(tx *models.StockTransaction) error
 	GetUserTransactions(userID string, limit, offset int) ([]models.StockTransaction, error)
 	GetTransactionsByCompany(userID, companyID string, limit int) ([]models.StockTransaction, error)
 
-	// Atomic trading operations
+
 	ExecuteBuy(userID, companyID string, quantity int, pricePerShare float64) error
 	ExecuteSell(userID, companyID string, quantity int, pricePerShare float64) error
 }
@@ -46,7 +43,6 @@ func NewRepository(client *appwrite.Client) Repository {
 	return &repository{client: client}
 }
 
-// Virtual wallet operations
 
 func (r *repository) CreateVirtualWallet(wallet *models.VirtualWallet) error {
 	data := map[string]interface{}{
@@ -110,7 +106,6 @@ func (r *repository) UpdateVirtualWallet(wallet *models.VirtualWallet) error {
 	return appwrite.Decode(resp, wallet)
 }
 
-// Portfolio operations
 
 func (r *repository) GetPortfolio(userID string) ([]models.UserPortfolio, error) {
 	resp, err := r.client.Databases.ListDocuments(
@@ -213,7 +208,6 @@ func (r *repository) DeletePortfolioItem(userID, companyID string) error {
 	return err
 }
 
-// Transaction operations
 
 func (r *repository) CreateTransaction(tx *models.StockTransaction) error {
 	data := map[string]interface{}{
@@ -289,7 +283,6 @@ func (r *repository) GetTransactionsByCompany(userID, companyID string, limit in
 	return transactions, nil
 }
 
-// Atomic trading operations - Simulated with sequential calls
 
 func (r *repository) ExecuteBuy(userID, companyID string, quantity int, pricePerShare float64) error {
 	totalAmount := float64(quantity) * pricePerShare

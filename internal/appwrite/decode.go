@@ -13,7 +13,6 @@ func Decode(model interface{}, target interface{}) error {
 		v = v.Elem()
 	}
 
-	// Access unexported 'data' field
 	dataField := v.FieldByName("data")
 	if !dataField.IsValid() {
 		return fmt.Errorf("field 'data' not found in model %T", model)

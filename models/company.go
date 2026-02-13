@@ -2,9 +2,8 @@ package models
 
 import "time"
 
-// Company represents a demo company in the virtual stock market
 type Company struct {
-	ID          string    `json:"$id,omitempty"` // Appwrite ID
+	ID          string    `json:"$id,omitempty"` 
 	Symbol      string    `json:"symbol"`
 	Name        string    `json:"name"`
 	Sector      string    `json:"sector"`

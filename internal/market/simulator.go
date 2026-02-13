@@ -42,7 +42,6 @@ func (s *Simulator) Stop() {
 }
 
 func (s *Simulator) UpdateMarket() {
-	// 1. Fetch all active companies
 	companies, err := s.stockRepo.ListCompanies(100, 0)
 	if err != nil {
 		log.Printf("Error fetching companies for simulation: %v", err)
@@ -57,19 +56,16 @@ func (s *Simulator) UpdateMarket() {
 }
 
 func (s *Simulator) SimulateStockPrice(company *models.Company) error {
-	// Get latest price
 	latestPrice, err := s.stockRepo.GetLatestPrice(company.ID)
 
 	var currentPrice float64
 	if err != nil {
-		// No price yet? Start with some base
-		currentPrice = 100.0 // Default start price
+		currentPrice = 100.0 
 	} else {
 		currentPrice = latestPrice.ClosePrice
 	}
 
-	// Simple random walk simulation
-	// Volatility around 2%
+
 	changePct := (rand.Float64() - 0.5) * 0.04
 	newPrice := currentPrice * (1 + changePct)
 
@@ -77,8 +73,6 @@ func (s *Simulator) SimulateStockPrice(company *models.Company) error {
 		newPrice = 0.01
 	}
 
-	// Create OHLCV bar for this interval (simplified: assuming 1 tick per interval)
-	// In reality we might Aggregate ticks. Here just saving "Close" as new candle.
 
 	now := time.Now()
 
@@ -88,9 +82,9 @@ func (s *Simulator) SimulateStockPrice(company *models.Company) error {
 		HighPrice:  max(currentPrice, newPrice),
 		LowPrice:   min(currentPrice, newPrice),
 		ClosePrice: newPrice,
-		Volume:     int64(rand.Intn(1000)), // Random volume
+		Volume:     int64(rand.Intn(1000)), 
 		Timestamp:  now,
-		Timeframe:  "1m", // simulation interval assumed
+		Timeframe:  "1m", 
 	}
 
 	return s.stockRepo.CreateStockPrice(newStockPrice)

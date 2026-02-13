@@ -8,23 +8,19 @@ import (
 )
 
 type Service interface {
-	// Company operations
 	GetCompany(symbol string) (*models.Company, error)
 	ListCompanies(limit, offset int) ([]models.Company, error)
 	SearchCompanies(query string) ([]models.Company, error)
 	GetCompaniesBySector(sector string, limit, offset int) ([]models.Company, error)
 
-	// Price operations
 	GetCurrentPrice(symbol string) (*models.StockPrice, error)
 	GetPriceHistory(symbol string, timeframe string, days int) ([]models.StockPrice, error)
 
-	// Market overview
 	GetMarketOverview() (*MarketOverview, error)
 	GetTopGainers(limit int) ([]CompanyWithChange, error)
 	GetTopLosers(limit int) ([]CompanyWithChange, error)
 	GetMostActive(limit int) ([]models.Company, error)
 
-	// Events
 	GetUpcomingEvents(symbol string) ([]models.MarketEvent, error)
 }
 
@@ -163,7 +159,6 @@ func (s *service) enrichWithPriceChange(companies []models.Company) ([]CompanyWi
 			continue
 		}
 
-		// Get previous day's price
 		yesterday := time.Now().AddDate(0, 0, -1)
 		previous, err := s.repo.GetPriceAtTime(company.ID, yesterday)
 		if err != nil {

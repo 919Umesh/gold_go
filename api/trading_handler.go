@@ -43,12 +43,6 @@ func (h *TradingHandler) GetWallet(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"wallet": wallet})
 }
 
-// GetPortfolio godoc
-// @Summary Get user portfolio
-// @Tags trading
-// @Security BearerAuth
-// @Success 200 {object} trading.PortfolioSummary
-// @Router /api/v1/trading/portfolio [get]
 func (h *TradingHandler) GetPortfolio(c *gin.Context) {
 	userID := c.GetString("user_id")
 	if userID == "" {

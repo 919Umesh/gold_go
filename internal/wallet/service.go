@@ -27,7 +27,7 @@ type service struct {
 	workerPool *queue.WorkerPool
 }
 
-// TransactionAnalyticsJob implements queue.Job to simulate post-transaction processing
+
 type TransactionAnalyticsJob struct {
 	TransactionID string
 	Type          models.TransactionType
@@ -36,7 +36,6 @@ type TransactionAnalyticsJob struct {
 }
 
 func (j *TransactionAnalyticsJob) Process() error {
-	// Simulate heavy analytics processing
 	time.Sleep(100 * time.Millisecond)
 	slog.Info("Async analytics processed",
 		"transaction_id", j.TransactionID,
@@ -83,8 +82,6 @@ func (s *service) TopUp(userID string, amount float64, companyID string, referen
 	var transaction *models.Transaction
 
 	err := s.repo.WithLock(userID, func(wallet *models.Wallet) error {
-		// NOTE: Don't check wallet.Locked here - WithLock already handles locking
-		// and the wallet is now locked. The check would always fail.
 		
 		wallet.FiatBalance += amount
 		updatedWallet = wallet

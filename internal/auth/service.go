@@ -14,8 +14,6 @@ import (
 var (
 	ErrUserExists         = errors.New("user already exists")
 	ErrInvalidCredentials = errors.New("invalid credentials")
-
-	// Thread-safe in-memory cache for user lookups
 	cacheMu   sync.RWMutex
 	userCache = make(map[string]*models.User)
 )
@@ -61,8 +59,6 @@ func (s *service) Register(fullName, email, phone, password, role string) (*mode
 		}
 		return nil, fmt.Errorf("user creation failed: %w", err)
 	}
-
-	// Cache the user after successful registration
 	cacheMu.Lock()
 	userCache[email] = user
 	cacheMu.Unlock()
@@ -72,7 +68,6 @@ func (s *service) Register(fullName, email, phone, password, role string) (*mode
 }
 
 func (s *service) Login(email, password string) (*models.User, string, error) {
-	// Check cache first (thread-safe)
 	cacheMu.RLock()
 	cachedUser, exists := userCache[email]
 	cacheMu.RUnlock()
@@ -88,7 +83,6 @@ func (s *service) Login(email, password string) (*models.User, string, error) {
 		return nil, "", ErrInvalidCredentials
 	}
 
-	// Not in cache, query repository
 	user, err := s.repo.FindByEmail(email)
 	if err != nil {
 		return nil, "", ErrInvalidCredentials

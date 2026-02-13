@@ -9,15 +9,13 @@ import (
 )
 
 type Service interface {
-	// Wallet
 	CreateWallet(userID string) (*models.VirtualWallet, error)
 	GetWallet(userID string) (*models.VirtualWallet, error)
 	GetOrCreateWallet(userID string) (*models.VirtualWallet, error)
 
-	// Portfolio
+
 	GetPortfolio(userID string) (*PortfolioSummary, error)
 
-	// Trading
 	BuyStock(userID, symbol string, quantity int) (*TradeResult, error)
 	SellStock(userID, symbol string, quantity int) (*TradeResult, error)
 	GetTransactionHistory(userID string, limit, offset int) ([]models.StockTransaction, error)
