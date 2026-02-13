@@ -87,7 +87,6 @@ func (r *Router) setupRoutes() {
 			protected.GET("/transaction", walletHandler.GetUserTransaction)
 			protected.POST("/wallet/topup", walletHandler.TopUp)
 
-			// Stock Trading Protected Routes
 			stockRepoProtected := stock.NewRepository(r.client)
 			tradingRepo := trading.NewRepository(r.client)
 			tradingService := trading.NewService(tradingRepo, stockRepoProtected)
