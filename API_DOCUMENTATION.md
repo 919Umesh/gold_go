@@ -15,8 +15,6 @@
 
 ## Base Information
 
-**Base URL:** `https://gold-go-backend.onrender.com/api/v1`
-
 **API Version:** v1
 
 **Content-Type:** `application/json`

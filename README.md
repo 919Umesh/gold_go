@@ -16,7 +16,6 @@ Stock Market Simulator is a fully-featured backend API that allows users to:
 - 📈 Track portfolio performance and transaction history
 - 🎓 Learn stock trading without financial risk
 
-**Live API:** https://gold-go-backend.onrender.com
 
 ---
 
