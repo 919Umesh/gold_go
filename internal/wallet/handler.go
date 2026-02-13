@@ -4,6 +4,7 @@ import (
 	"log/slog"
 	"net/http"
 
+	mail "github.com/919Umesh/stock_market_sim/pkg/notification"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
@@ -50,8 +51,7 @@ func (h *Handler) TopUp(c *gin.Context) {
 	}
 
 	referenceID := "topup_" + uuid.New().String()
-
-	wallet, transaction, err := h.service.TopUp(userID, req.Amount, "", referenceID)
+	wallet, transaction, userEmail, err := h.service.TopUp(userID, req.Amount, "", referenceID)
 	if err != nil {
 		switch err {
 		case ErrInvalidAmount:
@@ -65,6 +65,21 @@ func (h *Handler) TopUp(c *gin.Context) {
 		return
 	}
 
+	topupData := map[string]any{
+		"message":        "Top-up successful",
+		"amount":         transaction.Amount,
+		"status":         transaction.Status,
+		"reference_id":   transaction.ReferenceID,
+		"created_at":     transaction.CreatedAt,
+		"updated_at":     transaction.UpdatedAt,
+		"wallet_balance": wallet.FiatBalance,
+	}
+
+	if userEmail != "" {
+		mail.SendEmail(userEmail, "Top-Up", topupData)
+	} else {
+		slog.Warn("no user email available to send top-up notification", "user_id", userID)
+	}
 	c.JSON(http.StatusOK, gin.H{
 		"message":     "top-up successful",
 		"wallet":      wallet,

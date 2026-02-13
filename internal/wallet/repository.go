@@ -11,10 +11,12 @@ import (
 
 const (
 	CollectionWallets      = "virtual_wallets"
-	CollectionTransactions = "transactions" 
+	CollectionTransactions = "transactions"
+	CollectionUsers        = "users"
 )
 
 type Repository interface {
+	FindUserByID(userID string) (*models.User, error)
 	GetByUserID(userID string) (*models.Wallet, error)
 	Create(wallet *models.Wallet) error
 	Update(wallet *models.Wallet) error
@@ -32,6 +34,25 @@ type repository struct {
 
 func NewRepository(client *appwrite.Client) Repository {
 	return &repository{client: client}
+}
+
+func (r *repository) FindUserByID(userID string) (*models.User, error) {
+	doc, err := r.client.Databases.GetDocument(
+		r.client.Config.DatabaseID,
+		CollectionUsers,
+		userID,
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	var user models.User
+	if err := appwrite.Decode(doc, &user); err != nil {
+		return nil, fmt.Errorf("failed to decode user: %w", err)
+	}
+
+	return &user, nil
 }
 
 func (r *repository) GetByUserID(userID string) (*models.Wallet, error) {
@@ -177,7 +198,6 @@ func (r *repository) WithLock(userID string, fn func(*models.Wallet) error) erro
 	}
 
 	callbackErr := fn(wallet)
-
 
 	wallet.Locked = false
 	if updateErr := r.Update(wallet); updateErr != nil {

@@ -18,7 +18,7 @@ var (
 
 type Service interface {
 	GetWallet(userID string) (*models.Wallet, error)
-	TopUp(userID string, amount float64, companyID string, referenceID string) (*models.Wallet, *models.Transaction, error)
+	TopUp(userID string, amount float64, companyID string, referenceID string) (*models.Wallet, *models.Transaction, string, error)
 	GetUserTransaction(userID string) ([]models.Transaction, error)
 }
 
@@ -26,7 +26,6 @@ type service struct {
 	repo       Repository
 	workerPool *queue.WorkerPool
 }
-
 
 type TransactionAnalyticsJob struct {
 	TransactionID string
@@ -69,20 +68,27 @@ func (s *service) GetWallet(userID string) (*models.Wallet, error) {
 	return wallet, nil
 }
 
-func (s *service) TopUp(userID string, amount float64, companyID string, referenceID string) (*models.Wallet, *models.Transaction, error) {
+func (s *service) GetUserInfo(userID string) (string, error) {
+	userInfo, err := s.repo.FindUserByID(userID)
+	if err != nil {
+		return "", err
+	}
+	return userInfo.Email, nil
+}
+
+func (s *service) TopUp(userID string, amount float64, companyID string, referenceID string) (*models.Wallet, *models.Transaction, string, error) {
 	if amount <= 0 {
-		return nil, nil, ErrInvalidAmount
+		return nil, nil, "", ErrInvalidAmount
 	}
 
 	if _, err := s.GetWallet(userID); err != nil {
-		return nil, nil, fmt.Errorf("failed to ensure wallet: %w", err)
+		return nil, nil, "", fmt.Errorf("failed to ensure wallet: %w", err)
 	}
 
 	var updatedWallet *models.Wallet
 	var transaction *models.Transaction
 
 	err := s.repo.WithLock(userID, func(wallet *models.Wallet) error {
-		
 		wallet.FiatBalance += amount
 		updatedWallet = wallet
 
@@ -99,7 +105,7 @@ func (s *service) TopUp(userID string, amount float64, companyID string, referen
 		return s.repo.CreateTransaction(transaction)
 	})
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, "", err
 	}
 
 	s.workerPool.Submit(&TransactionAnalyticsJob{
@@ -109,7 +115,13 @@ func (s *service) TopUp(userID string, amount float64, companyID string, referen
 		UserID:        transaction.UserID,
 	})
 
-	return updatedWallet, transaction, err
+	email, emailErr := s.GetUserInfo(userID)
+	if emailErr != nil {
+		slog.Warn("failed to fetch user email", "user_id", userID, "error", emailErr)
+		email = ""
+	}
+
+	return updatedWallet, transaction, email, nil
 }
 
 func (s *service) GetUserTransaction(userID string) ([]models.Transaction, error) {
