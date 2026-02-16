@@ -85,7 +85,7 @@ func (r *repository) Create(wallet *models.Wallet) error {
 		"balance":           0.0,
 		"total_invested":    0.0,
 		"total_profit_loss": 0.0,
-		"fiat_balance":      wallet.FiatBalance,
+		"fiat_balance":      wallet.FiatBalance.InexactFloat64(),
 		"locked":            wallet.Locked,
 		"version":           wallet.Version,
 	}
@@ -104,7 +104,7 @@ func (r *repository) Create(wallet *models.Wallet) error {
 
 func (r *repository) Update(wallet *models.Wallet) error {
 	data := map[string]interface{}{
-		"fiat_balance": wallet.FiatBalance,
+		"fiat_balance": wallet.FiatBalance.InexactFloat64(),
 		"locked":       wallet.Locked,
 		"version":      wallet.Version,
 	}
@@ -125,7 +125,7 @@ func (r *repository) CreateTransaction(transaction *models.Transaction) error {
 	data := map[string]interface{}{
 		"user_id":      transaction.UserID,
 		"type":         string(transaction.Type),
-		"amount":       transaction.Amount,
+		"amount":       transaction.Amount.InexactFloat64(),
 		"status":       string(transaction.Status),
 		"reference_id": transaction.ReferenceID,
 	}

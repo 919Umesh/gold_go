@@ -2,6 +2,8 @@ package models
 
 import (
 	"time"
+
+	"github.com/shopspring/decimal"
 )
 
 type TransactionType string
@@ -23,7 +25,7 @@ type Transaction struct {
 	ID          string            `json:"$id,omitempty"`
 	UserID      string            `json:"user_id"`
 	Type        TransactionType   `json:"type"`
-	Amount      float64           `json:"amount"`
+	Amount      decimal.Decimal   `json:"amount"`
 	Status      TransactionStatus `json:"status"`
 	ReferenceID string            `json:"reference_id"`
 	CreatedAt   time.Time         `json:"$createdAt,omitempty"`

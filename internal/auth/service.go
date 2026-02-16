@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"mime/multipart"
 	"strings"
 	"sync"
 
@@ -14,8 +15,8 @@ import (
 var (
 	ErrUserExists         = errors.New("user already exists")
 	ErrInvalidCredentials = errors.New("invalid credentials")
-	cacheMu   sync.RWMutex
-	userCache = make(map[string]*models.User)
+	cacheMu               sync.RWMutex
+	userCache             = make(map[string]*models.User)
 )
 
 type Service interface {
@@ -24,6 +25,7 @@ type Service interface {
 	GetProfile(userID string) (*models.User, error)
 	UpdateProfile(userID string, updates map[string]interface{}) (*models.User, error)
 	UpdateUserKYCStatus(userID string, kycStatus, role string) (*models.User, error)
+	UploadProfileImage(userID string, file multipart.File, filename string) (*models.User, error)
 }
 
 type service struct {
@@ -149,4 +151,28 @@ func (s *service) UpdateUserKYCStatus(userID string, kycStatus, role string) (*m
 
 func (s *service) GetProfile(userID string) (*models.User, error) {
 	return s.repo.FindByID(userID)
+}
+
+func (s *service) UploadProfileImage(userID string, file multipart.File, filename string) (*models.User, error) {
+	user, err := s.repo.FindByID(userID)
+	if err != nil {
+		return nil, fmt.Errorf("user not found: %w", err)
+	}
+
+	fileID, err := s.repo.UploadProfileImage(file, filename)
+	if err != nil {
+		return nil, fmt.Errorf("failed to upload image: %w", err)
+	}
+
+	user.ProfileImageID = fileID
+	if err := s.repo.Update(user); err != nil {
+		return nil, fmt.Errorf("failed to update user profile with image: %w", err)
+	}
+
+	// Invalidate cache
+	cacheMu.Lock()
+	delete(userCache, user.Email)
+	cacheMu.Unlock()
+
+	return user, nil
 }

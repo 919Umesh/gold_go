@@ -6,6 +6,7 @@ import (
 	"github.com/919Umesh/stock_market_sim/config"
 	"github.com/919Umesh/stock_market_sim/internal/appwrite"
 	"github.com/919Umesh/stock_market_sim/internal/auth"
+	"github.com/919Umesh/stock_market_sim/internal/ml"
 	"github.com/919Umesh/stock_market_sim/internal/stock"
 	"github.com/919Umesh/stock_market_sim/internal/trading"
 	"github.com/919Umesh/stock_market_sim/internal/wallet"
@@ -40,12 +41,15 @@ func (r *Router) setupRoutes() {
 		c.JSON(200, gin.H{"status": "ok"})
 	})
 
+	// Initialize repositories once for reuse
+	authRepo := auth.NewRepository(r.client)
+	stockRepo := stock.NewRepository(r.client)
+
 	v1 := r.engine.Group("/api/v1")
 	{
 
 		public := v1.Group("")
 		{
-			authRepo := auth.NewRepository(r.client)
 			authService := auth.NewService(authRepo, r.cfg.JWTSecret)
 			authHandler := auth.NewHandler(authService)
 
@@ -53,7 +57,6 @@ func (r *Router) setupRoutes() {
 			public.POST("/auth/login", authHandler.Login)
 
 			// Stock Market
-			stockRepo := stock.NewRepository(r.client)
 			stockService := stock.NewService(stockRepo)
 			stockHandler := NewStockHandler(stockService)
 
@@ -67,17 +70,27 @@ func (r *Router) setupRoutes() {
 			public.GET("/stocks/top-losers", stockHandler.GetTopLosers)
 			public.GET("/stocks/most-active", stockHandler.GetMostActive)
 			public.GET("/stocks/:symbol/events", stockHandler.GetUpcomingEvents)
+
+			// Sector APIs
+			public.GET("/sectors", stockHandler.GetAllSectors)
+			public.GET("/sectors/:sector/companies", stockHandler.GetCompaniesBySector)
+			public.GET("/sectors/:sector/stats", stockHandler.GetSectorStats)
+
+			// Prediction API
+			mlService := ml.NewService(stockRepo)
+			predictionHandler := NewPredictionHandler(mlService)
+			public.GET("/prediction/:symbol", predictionHandler.GetPrediction)
 		}
 
 		protected := v1.Group("")
 		protected.Use(middleware.JWTAuth(r.cfg))
 		{
-			authRepo := auth.NewRepository(r.client)
 			authService := auth.NewService(authRepo, r.cfg.JWTSecret)
 			authHandler := auth.NewHandler(authService)
 
 			protected.GET("/auth/profile", authHandler.GetProfile)
 			protected.PUT("/auth/profile/update", authHandler.UpdateProfile)
+			protected.POST("/auth/profile/image", authHandler.UploadProfileImage)
 
 			walletRepo := wallet.NewRepository(r.client)
 			walletService := wallet.NewService(walletRepo, r.workerPool)
@@ -87,9 +100,8 @@ func (r *Router) setupRoutes() {
 			protected.GET("/transaction", walletHandler.GetUserTransaction)
 			protected.POST("/wallet/topup", walletHandler.TopUp)
 
-			stockRepoProtected := stock.NewRepository(r.client)
 			tradingRepo := trading.NewRepository(r.client)
-			tradingService := trading.NewService(tradingRepo, stockRepoProtected)
+			tradingService := trading.NewService(tradingRepo, stockRepo)
 			tradingHandler := NewTradingHandler(tradingService)
 
 			protected.GET("/trading/wallet", tradingHandler.GetWallet)
@@ -101,17 +113,14 @@ func (r *Router) setupRoutes() {
 
 		admin := v1.Group("/admin")
 		admin.Use(middleware.JWTAuth(r.cfg))
-
-		authRepoAdmin := auth.NewRepository(r.client)
-		admin.Use(middleware.AdminAuth(authRepoAdmin))
+		admin.Use(middleware.AdminAuth(authRepo))
 		{
-			authService := auth.NewService(authRepoAdmin, r.cfg.JWTSecret)
+			authService := auth.NewService(authRepo, r.cfg.JWTSecret)
 			authHandler := auth.NewHandler(authService)
 
 			admin.PUT("/users/:user_id/kyc", authHandler.UpdateKYC)
 
-			stockRepoAdmin := stock.NewRepository(r.client)
-			adminHandler := NewAdminHandler(stockRepoAdmin)
+			adminHandler := NewAdminHandler(stockRepo)
 			admin.POST("/seed-stocks", adminHandler.SeedStockData)
 
 		}

@@ -6,11 +6,13 @@ import (
 
 	"github.com/appwrite/sdk-for-go/client"
 	"github.com/appwrite/sdk-for-go/databases"
+	"github.com/appwrite/sdk-for-go/storage"
 )
 
 type Client struct {
 	Client    client.Client
 	Databases *databases.Databases
+	Storage   *storage.Storage
 	Config    *Config
 }
 
@@ -46,10 +48,12 @@ func NewClient() (*Client, error) {
 	c.AddHeader("X-Appwrite-Key", apiKey)
 
 	db := databases.New(c)
+	str := storage.New(c)
 
 	return &Client{
 		Client:    c,
 		Databases: db,
+		Storage:   str,
 		Config: &Config{
 			Endpoint:   endpoint,
 			ProjectID:  projectID,
@@ -58,7 +62,6 @@ func NewClient() (*Client, error) {
 		},
 	}, nil
 }
-
 
 func getEnv(key, defaultValue string) string {
 	if value := os.Getenv(key); value != "" {

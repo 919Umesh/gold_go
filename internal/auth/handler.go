@@ -173,3 +173,40 @@ func (h *Handler) UpdateKYC(c *gin.Context) {
 		"user":    ToUserResponse(user),
 	})
 }
+
+func (h *Handler) UploadProfileImage(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		apperr.RespondWithMessage(c, http.StatusUnauthorized, "user not authenticated")
+		return
+	}
+	uid, ok := userID.(string)
+	if !ok {
+		apperr.RespondWithMessage(c, http.StatusInternalServerError, "invalid user id type")
+		return
+	}
+
+	file, header, err := c.Request.FormFile("image")
+	if err != nil {
+		apperr.RespondWithMessage(c, http.StatusBadRequest, "image file is required")
+		return
+	}
+	defer file.Close()
+
+	// Check file size (e.g. 5MB)
+	if header.Size > 5*1024*1024 {
+		apperr.RespondWithMessage(c, http.StatusBadRequest, "image too large (max 5MB)")
+		return
+	}
+
+	user, err := h.service.UploadProfileImage(uid, file, header.Filename)
+	if err != nil {
+		apperr.RespondWithMessage(c, http.StatusInternalServerError, "failed to upload image: "+err.Error())
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "profile image uploaded successfully",
+		"user":    ToUserResponse(user),
+	})
+}

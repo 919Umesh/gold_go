@@ -2,16 +2,21 @@ package auth
 
 import (
 	"fmt"
+	"io"
+	"mime/multipart"
+	"os"
 
 	"github.com/919Umesh/stock_market_sim/internal/appwrite"
 	"github.com/919Umesh/stock_market_sim/models"
 
+	"github.com/appwrite/sdk-for-go/file"
 	"github.com/appwrite/sdk-for-go/id"
 	"github.com/appwrite/sdk-for-go/query"
 )
 
 const (
-	CollectionUsers = "users"
+	CollectionUsers    = "users"
+	BucketUserProfiles = "user-profiles"
 )
 
 type Repository interface {
@@ -20,6 +25,7 @@ type Repository interface {
 	FindByID(id string) (*models.User, error)
 	ExistsByEmail(email string) (bool, error)
 	Update(user *models.User) error
+	UploadProfileImage(file multipart.File, filename string) (string, error)
 }
 
 type repository struct {
@@ -118,10 +124,11 @@ func (r *repository) ExistsByEmail(email string) (bool, error) {
 
 func (r *repository) Update(user *models.User) error {
 	data := map[string]interface{}{
-		"full_name":  user.FullName,
-		"phone":      user.Phone,
-		"kyc_status": user.KYCStatus,
-		"role":       user.Role,
+		"full_name":        user.FullName,
+		"phone":            user.Phone,
+		"kyc_status":       user.KYCStatus,
+		"role":             user.Role,
+		"profile_image_id": user.ProfileImageID,
 	}
 
 	resp, err := r.client.Databases.UpdateDocument(
@@ -134,4 +141,34 @@ func (r *repository) Update(user *models.User) error {
 		return err
 	}
 	return appwrite.Decode(resp, user)
+}
+
+func (r *repository) UploadProfileImage(f multipart.File, filename string) (string, error) {
+	// Create a temp file
+	tempFile, err := os.CreateTemp("", "upload-*")
+	if err != nil {
+		return "", fmt.Errorf("failed to create temp file: %w", err)
+	}
+	defer os.Remove(tempFile.Name()) // Clean up
+	defer tempFile.Close()
+
+	// Copy multipart file to temp file
+	if _, err := io.Copy(tempFile, f); err != nil {
+		return "", fmt.Errorf("failed to save temp file: %w", err)
+	}
+
+	inputFile := file.InputFile{
+		Name: filename,
+		Path: tempFile.Name(), // SDK uses Path to read file
+	}
+
+	resp, err := r.client.Storage.CreateFile(
+		BucketUserProfiles,
+		id.Unique(),
+		inputFile,
+	)
+	if err != nil {
+		return "", fmt.Errorf("failed to upload file to appwrite: %w", err)
+	}
+	return resp.Id, nil
 }

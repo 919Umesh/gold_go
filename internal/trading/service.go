@@ -6,13 +6,14 @@ import (
 
 	"github.com/919Umesh/stock_market_sim/internal/stock"
 	"github.com/919Umesh/stock_market_sim/models"
+
+	"github.com/shopspring/decimal"
 )
 
 type Service interface {
 	CreateWallet(userID string) (*models.VirtualWallet, error)
 	GetWallet(userID string) (*models.VirtualWallet, error)
 	GetOrCreateWallet(userID string) (*models.VirtualWallet, error)
-
 
 	GetPortfolio(userID string) (*PortfolioSummary, error)
 
@@ -22,32 +23,32 @@ type Service interface {
 }
 
 type PortfolioSummary struct {
-	TotalValue      float64                `json:"total_value"`
-	TotalInvested   float64                `json:"total_invested"`
-	TotalProfitLoss float64                `json:"total_profit_loss"`
-	ProfitLossPct   float64                `json:"profit_loss_pct"`
+	TotalValue      decimal.Decimal        `json:"total_value"`
+	TotalInvested   decimal.Decimal        `json:"total_invested"`
+	TotalProfitLoss decimal.Decimal        `json:"total_profit_loss"`
+	ProfitLossPct   decimal.Decimal        `json:"profit_loss_pct"`
 	Items           []PortfolioItemSummary `json:"items"`
 }
 
 type PortfolioItemSummary struct {
 	models.UserPortfolio
-	CurrentPrice  float64 `json:"current_price"`
-	CurrentValue  float64 `json:"current_value"`
-	ProfitLoss    float64 `json:"profit_loss"`
-	ProfitLossPct float64 `json:"profit_loss_pct"`
-	CompanyName   string  `json:"company_name"`
-	CompanySymbol string  `json:"company_symbol"`
-	CompanySector string  `json:"company_sector"`
+	CurrentPrice  decimal.Decimal `json:"current_price"`
+	CurrentValue  decimal.Decimal `json:"current_value"`
+	ProfitLoss    decimal.Decimal `json:"profit_loss"`
+	ProfitLossPct decimal.Decimal `json:"profit_loss_pct"`
+	CompanyName   string          `json:"company_name"`
+	CompanySymbol string          `json:"company_symbol"`
+	CompanySector string          `json:"company_sector"`
 }
 
 type TradeResult struct {
-	Success       bool    `json:"success"`
-	Message       string  `json:"message"`
-	TransactionID string  `json:"transaction_id,omitempty"`
-	Quantity      int     `json:"quantity"`
-	PricePerShare float64 `json:"price_per_share"`
-	TotalAmount   float64 `json:"total_amount"`
-	NewBalance    float64 `json:"new_balance"`
+	Success       bool            `json:"success"`
+	Message       string          `json:"message"`
+	TransactionID string          `json:"transaction_id,omitempty"`
+	Quantity      int             `json:"quantity"`
+	PricePerShare decimal.Decimal `json:"price_per_share"`
+	TotalAmount   decimal.Decimal `json:"total_amount"`
+	NewBalance    decimal.Decimal `json:"new_balance"`
 }
 
 type service struct {
@@ -70,9 +71,9 @@ func (s *service) CreateWallet(userID string) (*models.VirtualWallet, error) {
 
 	wallet := &models.VirtualWallet{
 		UserID:          userID,
-		Balance:         1000000.00,
-		TotalInvested:   0,
-		TotalProfitLoss: 0,
+		Balance:         decimal.NewFromInt(1000000), // Start with 1 Lakh or 1M
+		TotalInvested:   decimal.Zero,
+		TotalProfitLoss: decimal.Zero,
 	}
 
 	if err := s.repo.CreateVirtualWallet(wallet); err != nil {
@@ -101,13 +102,15 @@ func (s *service) GetPortfolio(userID string) (*PortfolioSummary, error) {
 	}
 
 	summary := &PortfolioSummary{
-		Items: make([]PortfolioItemSummary, 0, len(portfolio)),
+		Items:         make([]PortfolioItemSummary, 0, len(portfolio)),
+		TotalValue:    decimal.Zero,
+		TotalInvested: decimal.Zero,
 	}
 
 	for _, item := range portfolio {
 
 		price, err := s.stockRepo.GetLatestPrice(item.CompanyID)
-		currentPrice := 0.0
+		currentPrice := decimal.Zero
 		if err == nil {
 			currentPrice = price.ClosePrice
 		}
@@ -122,15 +125,12 @@ func (s *service) GetPortfolio(userID string) (*PortfolioSummary, error) {
 			companySector = company.Sector
 		}
 
-		currentValue := float64(item.Quantity) * currentPrice
-		profitLoss := currentValue - item.TotalInvested
-		profitLossPct := 0.0
-		if item.TotalInvested > 0 {
-			profitLossPct = (profitLoss / item.TotalInvested) * 100
-		}
+		currentValue := item.CalculateCurrentValue(currentPrice)
+		profitLoss := item.CalculateProfitLoss(currentPrice)
+		profitLossPct := item.CalculateProfitLossPercentage(currentPrice)
 
-		summary.TotalValue += currentValue
-		summary.TotalInvested += item.TotalInvested
+		summary.TotalValue = summary.TotalValue.Add(currentValue)
+		summary.TotalInvested = summary.TotalInvested.Add(item.TotalInvested)
 
 		summary.Items = append(summary.Items, PortfolioItemSummary{
 			UserPortfolio: item,
@@ -144,9 +144,12 @@ func (s *service) GetPortfolio(userID string) (*PortfolioSummary, error) {
 		})
 	}
 
-	summary.TotalProfitLoss = summary.TotalValue - summary.TotalInvested
-	if summary.TotalInvested > 0 {
-		summary.ProfitLossPct = (summary.TotalProfitLoss / summary.TotalInvested) * 100
+	summary.TotalProfitLoss = summary.TotalValue.Sub(summary.TotalInvested)
+
+	if summary.TotalInvested.IsPositive() {
+		summary.ProfitLossPct = summary.TotalProfitLoss.Div(summary.TotalInvested).Mul(decimal.NewFromInt(100))
+	} else {
+		summary.ProfitLossPct = decimal.Zero
 	}
 
 	return summary, nil
@@ -167,7 +170,7 @@ func (s *service) BuyStock(userID, symbol string, quantity int) (*TradeResult, e
 		return nil, fmt.Errorf("failed to get stock price: %w", err)
 	}
 
-	totalAmount := float64(quantity) * price.ClosePrice
+	totalAmount := price.ClosePrice.Mul(decimal.NewFromInt(int64(quantity)))
 
 	err = s.repo.ExecuteBuy(userID, company.ID, quantity, price.ClosePrice)
 	if err != nil {
@@ -201,7 +204,7 @@ func (s *service) SellStock(userID, symbol string, quantity int) (*TradeResult, 
 		return nil, fmt.Errorf("failed to get stock price: %w", err)
 	}
 
-	totalAmount := float64(quantity) * price.ClosePrice
+	totalAmount := price.ClosePrice.Mul(decimal.NewFromInt(int64(quantity)))
 
 	err = s.repo.ExecuteSell(userID, company.ID, quantity, price.ClosePrice)
 	if err != nil {

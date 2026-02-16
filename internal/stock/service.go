@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/919Umesh/stock_market_sim/models"
+	"github.com/shopspring/decimal"
 )
 
 type Service interface {
@@ -12,6 +13,7 @@ type Service interface {
 	ListCompanies(limit, offset int) ([]models.Company, error)
 	SearchCompanies(query string) ([]models.Company, error)
 	GetCompaniesBySector(sector string, limit, offset int) ([]models.Company, error)
+	GetAllSectors() ([]string, error)
 
 	GetCurrentPrice(symbol string) (*models.StockPrice, error)
 	GetPriceHistory(symbol string, timeframe string, days int) ([]models.StockPrice, error)
@@ -33,10 +35,10 @@ type MarketOverview struct {
 
 type CompanyWithChange struct {
 	models.Company
-	CurrentPrice  float64 `json:"current_price"`
-	PreviousPrice float64 `json:"previous_price"`
-	Change        float64 `json:"change"`
-	ChangePercent float64 `json:"change_percent"`
+	CurrentPrice  decimal.Decimal `json:"current_price"`
+	PreviousPrice decimal.Decimal `json:"previous_price"`
+	Change        decimal.Decimal `json:"change"`
+	ChangePercent decimal.Decimal `json:"change_percent"`
 }
 
 type service struct {
@@ -70,6 +72,10 @@ func (s *service) GetCompaniesBySector(sector string, limit, offset int) ([]mode
 		limit = 50
 	}
 	return s.repo.ListCompaniesBySector(sector, limit, offset)
+}
+
+func (s *service) GetAllSectors() ([]string, error) {
+	return s.repo.GetAllSectors()
 }
 
 func (s *service) GetCurrentPrice(symbol string) (*models.StockPrice, error) {
@@ -165,8 +171,11 @@ func (s *service) enrichWithPriceChange(companies []models.Company) ([]CompanyWi
 			continue
 		}
 
-		change := current.ClosePrice - previous.ClosePrice
-		changePercent := (change / previous.ClosePrice) * 100
+		change := current.ClosePrice.Sub(previous.ClosePrice)
+		changePercent := decimal.Zero
+		if !previous.ClosePrice.IsZero() {
+			changePercent = change.Div(previous.ClosePrice).Mul(decimal.NewFromInt(100))
+		}
 
 		result = append(result, CompanyWithChange{
 			Company:       company,

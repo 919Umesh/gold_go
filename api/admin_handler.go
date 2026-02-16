@@ -3,7 +3,6 @@ package api
 import (
 	"fmt"
 	"log/slog"
-	"math"
 	"math/rand"
 	"net/http"
 	"time"
@@ -12,6 +11,7 @@ import (
 	"github.com/919Umesh/stock_market_sim/models"
 	"github.com/919Umesh/stock_market_sim/pkg/apperr"
 	"github.com/gin-gonic/gin"
+	"github.com/shopspring/decimal"
 )
 
 type AdminHandler struct {
@@ -88,7 +88,7 @@ func (h *AdminHandler) SeedStockData(c *gin.Context) {
 			Symbol:      nc.Symbol,
 			Name:        nc.Name,
 			Sector:      nc.Sector,
-			MarketCap:   nc.MarketCap,
+			MarketCap:   decimal.NewFromFloat(nc.MarketCap),
 			Description: nc.Description,
 			FoundedYear: nc.FoundedYear,
 			Employees:   nc.Employees,
@@ -111,7 +111,7 @@ func (h *AdminHandler) SeedStockData(c *gin.Context) {
 			continue
 		}
 
-		currentPrice := nc.BasePrice
+		currentPrice := decimal.NewFromFloat(nc.BasePrice)
 
 		seedDays := 30
 		startTime := time.Now().AddDate(0, 0, -seedDays)
@@ -123,25 +123,25 @@ func (h *AdminHandler) SeedStockData(c *gin.Context) {
 				continue
 			}
 
-			change := (rand.Float64() - 0.5) * 0.05
-			currentPrice = currentPrice * (1 + change)
+			change := decimal.NewFromFloat((rand.Float64() - 0.5) * 0.05)
+			currentPrice = currentPrice.Mul(decimal.NewFromInt(1).Add(change))
 
-			open := currentPrice * (1 + (rand.Float64()-0.5)*0.01)
-			high := currentPrice * (1 + rand.Float64()*0.02)
-			low := currentPrice * (1 - rand.Float64()*0.02)
-			close := currentPrice
+			open := currentPrice.Mul(decimal.NewFromInt(1).Add(decimal.NewFromFloat((rand.Float64() - 0.5) * 0.01)))
+			high := currentPrice.Mul(decimal.NewFromInt(1).Add(decimal.NewFromFloat(rand.Float64() * 0.02)))
+			low := currentPrice.Mul(decimal.NewFromInt(1).Sub(decimal.NewFromFloat(rand.Float64() * 0.02)))
+			closePrice := currentPrice
 
-			high = math.Max(high, math.Max(open, close))
-			low = math.Min(low, math.Min(open, close))
+			high = decimal.Max(high, decimal.Max(open, closePrice))
+			low = decimal.Min(low, decimal.Min(open, closePrice))
 
 			volume := int64(10000 + rand.Intn(990000))
 
 			stockPrice := &models.StockPrice{
 				CompanyID:  companyID,
-				OpenPrice:  math.Round(open*100) / 100,
-				HighPrice:  math.Round(high*100) / 100,
-				LowPrice:   math.Round(low*100) / 100,
-				ClosePrice: math.Round(close*100) / 100,
+				OpenPrice:  open.Round(2),
+				HighPrice:  high.Round(2),
+				LowPrice:   low.Round(2),
+				ClosePrice: closePrice.Round(2),
 				Volume:     volume,
 				Timestamp:  timestamp,
 				Timeframe:  "1d",

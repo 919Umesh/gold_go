@@ -7,6 +7,7 @@ import (
 	"github.com/919Umesh/stock_market_sim/internal/stock"
 	"github.com/919Umesh/stock_market_sim/pkg/apperr"
 	"github.com/gin-gonic/gin"
+	"github.com/shopspring/decimal"
 )
 
 type StockHandler struct {
@@ -168,4 +169,70 @@ func (h *StockHandler) GetUpcomingEvents(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"events": events})
+}
+
+// GetAllSectors returns a list of all sectors
+func (h *StockHandler) GetAllSectors(c *gin.Context) {
+	sectors, err := h.service.GetAllSectors()
+	if err != nil {
+		apperr.RespondWithMessage(c, http.StatusInternalServerError, "Failed to fetch sectors")
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "sectors retrieved successfully",
+		"sectors": sectors,
+		"count":   len(sectors),
+	})
+}
+
+// GetSectorStats returns statistics for a specific sector
+func (h *StockHandler) GetSectorStats(c *gin.Context) {
+	sector := c.Param("sector")
+
+	companies, err := h.service.GetCompaniesBySector(sector, 1000, 0)
+	if err != nil {
+		apperr.RespondWithMessage(c, http.StatusInternalServerError, "Failed to fetch sector stats")
+		return
+	}
+
+	if len(companies) == 0 {
+		apperr.RespondWithMessage(c, http.StatusNotFound, "no companies found in this sector")
+		return
+	}
+
+	totalMarketCap := decimal.Zero
+	totalEmployees := 0
+	avgYear := 0
+
+	for _, comp := range companies {
+		totalMarketCap = totalMarketCap.Add(comp.MarketCap)
+		totalEmployees += comp.Employees
+		avgYear += comp.FoundedYear
+	}
+	avgYear = avgYear / len(companies)
+
+	topCompanies := companies
+	if len(topCompanies) > 5 {
+		topCompanies = topCompanies[:5]
+	}
+
+	avgMarketCap := decimal.Zero
+	if len(companies) > 0 {
+		avgMarketCap = totalMarketCap.Div(decimal.NewFromInt(int64(len(companies))))
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "sector statistics",
+		"sector":  sector,
+		"statistics": gin.H{
+			"company_count":    len(companies),
+			"total_market_cap": totalMarketCap,
+			"avg_market_cap":   avgMarketCap,
+			"total_employees":  totalEmployees,
+			"avg_employees":    totalEmployees / len(companies),
+			"avg_founded_year": avgYear,
+		},
+		"top_5_companies": topCompanies,
+	})
 }

@@ -2,8 +2,9 @@ package models
 
 import (
 	"time"
-)
 
+	"github.com/shopspring/decimal"
+)
 
 type StockTransactionType string
 
@@ -21,15 +22,14 @@ const (
 	StockTransactionCancelled StockTransactionStatus = "cancelled"
 )
 
-
 type StockTransaction struct {
 	ID            string                 `json:"$id,omitempty"`
 	UserID        string                 `json:"user_id"`
 	CompanyID     string                 `json:"company_id"`
 	Type          StockTransactionType   `json:"type"`
 	Quantity      int                    `json:"quantity"`
-	PricePerShare float64                `json:"price_per_share"`
-	TotalAmount   float64                `json:"total_amount"`
+	PricePerShare decimal.Decimal        `json:"price_per_share"`
+	TotalAmount   decimal.Decimal        `json:"total_amount"`
 	Status        StockTransactionStatus `json:"status"`
 	ReferenceID   string                 `json:"reference_id"`
 	CreatedAt     time.Time              `json:"$createdAt,omitempty"`

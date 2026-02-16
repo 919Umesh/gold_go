@@ -9,6 +9,7 @@ import (
 	"github.com/919Umesh/stock_market_sim/models"
 	"github.com/appwrite/sdk-for-go/id"
 	"github.com/appwrite/sdk-for-go/query"
+	"github.com/shopspring/decimal"
 )
 
 const (
@@ -23,6 +24,7 @@ type Repository interface {
 	GetCompanyBySymbol(symbol string) (*models.Company, error)
 	ListCompanies(limit, offset int) ([]models.Company, error)
 	ListCompaniesBySector(sector string, limit, offset int) ([]models.Company, error)
+	GetAllSectors() ([]string, error)
 	SearchCompanies(query string, limit int) ([]models.Company, error)
 	UpdateCompany(company *models.Company) error
 
@@ -47,13 +49,12 @@ func NewRepository(client *appwrite.Client) Repository {
 	return &repository{client: client}
 }
 
-
 func (r *repository) CreateCompany(company *models.Company) error {
 	data := map[string]interface{}{
 		"symbol":       company.Symbol,
 		"name":         company.Name,
 		"sector":       company.Sector,
-		"market_cap":   company.MarketCap,
+		"market_cap":   company.MarketCap.InexactFloat64(),
 		"description":  company.Description,
 		"founded_year": company.FoundedYear,
 		"employees":    company.Employees,
@@ -191,7 +192,7 @@ func (r *repository) UpdateCompany(company *models.Company) error {
 	data := map[string]interface{}{
 		"name":         company.Name,
 		"sector":       company.Sector,
-		"market_cap":   company.MarketCap,
+		"market_cap":   company.MarketCap.InexactFloat64(),
 		"description":  company.Description,
 		"founded_year": company.FoundedYear,
 		"employees":    company.Employees,
@@ -210,14 +211,13 @@ func (r *repository) UpdateCompany(company *models.Company) error {
 	return appwrite.Decode(resp, company)
 }
 
-
 func (r *repository) CreateStockPrice(price *models.StockPrice) error {
 	data := map[string]interface{}{
 		"company_id":  price.CompanyID,
-		"open_price":  price.OpenPrice,
-		"high_price":  price.HighPrice,
-		"low_price":   price.LowPrice,
-		"close_price": price.ClosePrice,
+		"open_price":  price.OpenPrice.InexactFloat64(),
+		"high_price":  price.HighPrice.InexactFloat64(),
+		"low_price":   price.LowPrice.InexactFloat64(),
+		"close_price": price.ClosePrice.InexactFloat64(),
 		"volume":      price.Volume,
 		"timestamp":   price.Timestamp.Format(time.RFC3339),
 		"timeframe":   price.Timeframe,
@@ -241,7 +241,7 @@ func (r *repository) GetLatestPrice(companyID string) (*models.StockPrice, error
 		CollectionStockPrices,
 		appwrite.WithListDocumentsQueries([]string{
 			query.Equal("company_id", companyID),
-			query.Equal("timeframe", "1d"),
+			query.Equal("timeframe", "1D"), // Changed from 1d to 1D to match data
 			query.OrderDesc("timestamp"),
 			query.Limit(1),
 		}),
@@ -311,10 +311,10 @@ func (r *repository) GetPriceAtTime(companyID string, timestamp time.Time) (*mod
 	return &price, nil
 }
 
-func (r *repository) getCompanyChangePct(companyID string) (float64, error) {
+func (r *repository) getCompanyChangePct(companyID string) (decimal.Decimal, error) {
 	latest, err := r.GetLatestPrice(companyID)
 	if err != nil {
-		return 0, nil
+		return decimal.Zero, nil
 	}
 	return latest.CalculateChange(), nil
 }
@@ -327,7 +327,7 @@ func (r *repository) GetTopGainers(limit int) ([]models.Company, error) {
 
 	type enrichedCompany struct {
 		company models.Company
-		change  float64
+		change  decimal.Decimal
 	}
 
 	var enriched []enrichedCompany
@@ -337,7 +337,7 @@ func (r *repository) GetTopGainers(limit int) ([]models.Company, error) {
 	}
 
 	sort.Slice(enriched, func(i, j int) bool {
-		return enriched[i].change > enriched[j].change
+		return enriched[i].change.GreaterThan(enriched[j].change)
 	})
 
 	result := make([]models.Company, 0, len(companies))
@@ -358,7 +358,7 @@ func (r *repository) GetTopLosers(limit int) ([]models.Company, error) {
 
 	type enrichedCompany struct {
 		company models.Company
-		change  float64
+		change  decimal.Decimal
 	}
 
 	var enriched []enrichedCompany
@@ -368,7 +368,7 @@ func (r *repository) GetTopLosers(limit int) ([]models.Company, error) {
 	}
 
 	sort.Slice(enriched, func(i, j int) bool {
-		return enriched[i].change < enriched[j].change
+		return enriched[i].change.LessThan(enriched[j].change)
 	})
 
 	result := make([]models.Company, 0, len(companies))
@@ -416,7 +416,6 @@ func (r *repository) GetMostActive(limit int) ([]models.Company, error) {
 	return result, nil
 }
 
-
 func (r *repository) CreateMarketEvent(event *models.MarketEvent) error {
 	data := map[string]interface{}{
 		"company_id":        event.CompanyID,
@@ -462,4 +461,36 @@ func (r *repository) GetUpcomingEvents(companyID string, limit int) ([]models.Ma
 		}
 	}
 	return events, nil
+}
+
+// GetAllSectors returns a unique list of all sectors
+func (r *repository) GetAllSectors() ([]string, error) {
+	resp, err := r.client.Databases.ListDocuments(
+		r.client.Config.DatabaseID,
+		CollectionCompanies,
+		appwrite.WithListDocumentsQueries([]string{
+			query.Limit(10000),
+		}),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	sectorMap := make(map[string]bool)
+	for i := range resp.Documents {
+		var company models.Company
+		if err := appwrite.DecodeListItem(resp, i, &company); err == nil {
+			if company.Sector != "" {
+				sectorMap[company.Sector] = true
+			}
+		}
+	}
+
+	sectors := make([]string, 0, len(sectorMap))
+	for sector := range sectorMap {
+		sectors = append(sectors, sector)
+	}
+	sort.Strings(sectors)
+
+	return sectors, nil
 }

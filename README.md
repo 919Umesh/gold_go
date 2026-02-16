@@ -114,6 +114,8 @@ docker-compose up --build
 - 📖 **Full API Docs**: See [`API_DOCUMENTATION.md`](./API_DOCUMENTATION.md)
 - 🔐 **Authentication**: JWT Bearer tokens required for protected endpoints
 - 📊 **Base URL**: `/api/v1`
+- 📦 **Data**: 25 companies, 30 days of historical prices, 750 test transactions
+
 
 ### Public Endpoints (No Auth Required)
 ```

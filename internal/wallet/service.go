@@ -8,6 +8,7 @@ import (
 
 	"github.com/919Umesh/stock_market_sim/models"
 	"github.com/919Umesh/stock_market_sim/pkg/queue"
+	"github.com/shopspring/decimal"
 )
 
 var (
@@ -57,7 +58,7 @@ func (s *service) GetWallet(userID string) (*models.Wallet, error) {
 	if err != nil {
 		wallet = &models.Wallet{
 			UserID:      userID,
-			FiatBalance: 0,
+			FiatBalance: decimal.Zero,
 			Locked:      false,
 			Version:     1,
 		}
@@ -88,14 +89,16 @@ func (s *service) TopUp(userID string, amount float64, companyID string, referen
 	var updatedWallet *models.Wallet
 	var transaction *models.Transaction
 
+	amountDecimal := decimal.NewFromFloat(amount)
+
 	err := s.repo.WithLock(userID, func(wallet *models.Wallet) error {
-		wallet.FiatBalance += amount
+		wallet.FiatBalance = wallet.FiatBalance.Add(amountDecimal)
 		updatedWallet = wallet
 
 		transaction = &models.Transaction{
 			UserID:      userID,
 			Type:        models.TransactionTypeTopUp,
-			Amount:      amount,
+			Amount:      amountDecimal,
 			Status:      models.TransactionStatusSuccess,
 			ReferenceID: referenceID,
 			CreatedAt:   time.Now(),
@@ -111,7 +114,7 @@ func (s *service) TopUp(userID string, amount float64, companyID string, referen
 	s.workerPool.Submit(&TransactionAnalyticsJob{
 		TransactionID: transaction.ID,
 		Type:          transaction.Type,
-		Amount:        transaction.Amount,
+		Amount:        transaction.Amount.InexactFloat64(),
 		UserID:        transaction.UserID,
 	})
 

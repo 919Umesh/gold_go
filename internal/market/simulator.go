@@ -7,6 +7,7 @@ import (
 
 	"github.com/919Umesh/stock_market_sim/internal/stock"
 	"github.com/919Umesh/stock_market_sim/models"
+	"github.com/shopspring/decimal"
 )
 
 type Simulator struct {
@@ -58,48 +59,34 @@ func (s *Simulator) UpdateMarket() {
 func (s *Simulator) SimulateStockPrice(company *models.Company) error {
 	latestPrice, err := s.stockRepo.GetLatestPrice(company.ID)
 
-	var currentPrice float64
+	var currentPrice decimal.Decimal
 	if err != nil {
-		currentPrice = 100.0 
+		currentPrice = decimal.NewFromFloat(100.0)
 	} else {
 		currentPrice = latestPrice.ClosePrice
 	}
 
+	// Change percentage: (rand - 0.5) * 0.04 -> between -2% and +2%
+	changePct := decimal.NewFromFloat((rand.Float64() - 0.5) * 0.04)
+	// New Price = Current * (1 + changePct)
+	newPrice := currentPrice.Mul(decimal.NewFromInt(1).Add(changePct))
 
-	changePct := (rand.Float64() - 0.5) * 0.04
-	newPrice := currentPrice * (1 + changePct)
-
-	if newPrice < 0.01 {
-		newPrice = 0.01
+	if newPrice.LessThan(decimal.NewFromFloat(0.01)) {
+		newPrice = decimal.NewFromFloat(0.01)
 	}
-
 
 	now := time.Now()
 
 	newStockPrice := &models.StockPrice{
 		CompanyID:  company.ID,
 		OpenPrice:  currentPrice,
-		HighPrice:  max(currentPrice, newPrice),
-		LowPrice:   min(currentPrice, newPrice),
+		HighPrice:  decimal.Max(currentPrice, newPrice),
+		LowPrice:   decimal.Min(currentPrice, newPrice),
 		ClosePrice: newPrice,
-		Volume:     int64(rand.Intn(1000)), 
+		Volume:     int64(rand.Intn(1000)),
 		Timestamp:  now,
-		Timeframe:  "1m", 
+		Timeframe:  "1m",
 	}
 
 	return s.stockRepo.CreateStockPrice(newStockPrice)
-}
-
-func max(a, b float64) float64 {
-	if a > b {
-		return a
-	}
-	return b
-}
-
-func min(a, b float64) float64 {
-	if a < b {
-		return a
-	}
-	return b
 }

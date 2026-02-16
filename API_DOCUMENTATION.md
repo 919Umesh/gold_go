@@ -1,728 +1,998 @@
-# Stock Market Simulator - Complete API Documentation
+# Gold Go - API Documentation
+
+Complete API reference for the Gold Go Virtual Stock Market Platform.
+
+**Base URL**: `http://localhost:8081/api/v1` (local) or `https://your-deployment-url/api/v1` (production)
+
+---
+
+## 🔐 Authentication
+
+Most endpoints require JWT authentication. Include the token in the Authorization header:
+```
+Authorization: Bearer <your_jwt_token>
+```
+
+---
 
 ## 📋 Table of Contents
 
-1. [Base Information](#base-information)
-2. [Authentication](#authentication)
-3. [Public Endpoints](#public-endpoints)
-4. [Protected Endpoints](#protected-endpoints)
-5. [Admin Endpoints](#admin-endpoints)
-6. [Data Models](#data-models)
-7. [Error Handling](#error-handling)
-8. [Examples](#examples)
+1. [Authentication Endpoints](#authentication-endpoints)
+2. [Stock Market Endpoints](#stock-market-endpoints)
+3. [Sector Endpoints](#sector-endpoints)
+4. [AI Prediction Endpoints](#ai-prediction-endpoints)
+5. [User Profile Endpoints](#user-profile-endpoints)
+6. [Wallet Endpoints](#wallet-endpoints)
+7. [Trading Endpoints](#trading-endpoints)
+8. [Admin Endpoints](#admin-endpoints)
+9. [Error Responses](#error-responses)
 
 ---
 
-## Base Information
+## Authentication Endpoints
 
-**API Version:** v1
+### Register User
+Create a new user account.
 
-**Content-Type:** `application/json`
+**Endpoint**: `POST /auth/register`  
+**Authentication**: None (Public)
 
-**Authentication:** JWT Bearer Token (except for public endpoints)
-
----
-
-## Authentication
-
-### Login
-
-Authenticate a user and receive a JWT token.
-
-**Endpoint:** `POST /auth/login`
-
-**Access:** Public
-
-**Request Body:**
+**Request Body**:
 ```json
 {
-  "email": "user@example.com",
-  "password": "securepassword"
+  "full_name": "John Doe",
+  "email": "john@example.com",
+  "phone": "9876543210",
+  "password": "securepass123",
+  "role": "user"
 }
 ```
 
-**Success Response (200 OK):**
+**Response** (201 Created):
+```json
+{
+  "message": "user registered successfully",
+  "user": {
+    "$id": "65f8a9b2c3d4e5f6g7h8i9j0",
+    "full_name": "John Doe",
+    "email": "john@example.com",
+    "phone": "9876543210",
+    "kyc_status": "pending",
+    "role": "user",
+    "$createdAt": "2026-02-16T12:00:00.000Z"
+  }
+}
+```
+
+**cURL Example**:
+```bash
+curl -X POST http://localhost:8081/api/v1/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "full_name": "John Doe",
+    "email": "john@example.com",
+    "phone": "9876543210",
+    "password": "securepass123",
+    "role": "user"
+  }'
+```
+
+---
+
+### Login
+Authenticate and receive JWT token.
+
+**Endpoint**: `POST /auth/login`  
+**Authentication**: None (Public)
+
+**Request Body**:
+```json
+{
+  "email": "john@example.com",
+  "password": "securepass123"
+}
+```
+
+**Response** (200 OK):
 ```json
 {
   "message": "login successful",
   "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
   "user": {
-    "id": "user_123",
+    "$id": "65f8a9b2c3d4e5f6g7h8i9j0",
     "full_name": "John Doe",
-    "email": "user@example.com",
-    "phone": "+977981234567",
-    "kyc_status": "verified",
-    "role": "user"
-  }
-}
-```
-
-**Error Response (401 Unauthorized):**
-```json
-{
-  "error": "invalid credentials"
-}
-```
-
----
-
-### Register
-
-Create a new user account.
-
-**Endpoint:** `POST /auth/register`
-
-**Access:** Public
-
-**Request Body:**
-```json
-{
-  "full_name": "John Doe",
-  "email": "user@example.com",
-  "phone": "+977981234567",
-  "password": "securepassword",
-  "role": "user"
-}
-```
-
-**Validation:**
-- `full_name`: 2-100 characters
-- `email`: Valid email format
-- `phone`: 10-15 characters
-- `password`: Minimum 6 characters
-- `role`: "user" or "admin"
-
-**Success Response (201 Created):**
-```json
-{
-  "message": "user registered successfully",
-  "user": {
-    "id": "user_123",
-    "full_name": "John Doe",
-    "email": "user@example.com",
-    "phone": "+977981234567",
+    "email": "john@example.com",
+    "phone": "9876543210",
     "kyc_status": "pending",
     "role": "user"
   }
 }
 ```
 
-**Error Response (409 Conflict):**
-```json
-{
-  "error": "user already exists"
-}
+**cURL Example**:
+```bash
+curl -X POST http://localhost:8081/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "john@example.com",
+    "password": "securepass123"
+  }'
 ```
 
 ---
 
-## Public Endpoints
+## Stock Market Endpoints
 
-### Stock Market - Browse & Search
+### List All Companies
+Get a paginated list of all companies.
 
-#### List All Companies
+**Endpoint**: `GET /stocks?limit=25&offset=0`  
+**Authentication**: None (Public)
 
-**Endpoint:** `GET /stocks`
-
-**Access:** Public
-
-**Query Parameters:**
-- `limit` (optional): Number of results (default: 50)
+**Query Parameters**:
+- `limit` (optional): Number of results (default: 25)
 - `offset` (optional): Pagination offset (default: 0)
-- `sort` (optional): Sort field (name, symbol, price)
 
-**Success Response (200 OK):**
+**Response** (200 OK):
 ```json
 {
   "companies": [
     {
-      "id": "company_1",
-      "name": "Nepal Telecom",
-      "symbol": "NTC",
-      "current_price": 1250.50,
-      "market_cap": "500B",
-      "sector": "Telecommunications"
+      "$id": "company_id_1",
+      "symbol": "NABIL",
+      "name": "Nabil Bank Limited",
+      "sector": "Banking",
+      "market_cap": 180000000000,
+      "description": "Leading private sector bank in Nepal",
+      "founded_year": 1984,
+      "employees": 3500,
+      "is_active": true,
+      "$createdAt": "2026-02-16T11:33:50.000Z"
     }
   ],
-  "total": 45,
-  "limit": 50,
+  "total": 25,
+  "limit": 25,
   "offset": 0
 }
 ```
 
+**cURL Example**:
+```bash
+curl http://localhost:8081/api/v1/stocks?limit=10&offset=0
+```
+
 ---
 
-#### Search Companies
+### Search Companies
+Search for companies by name or symbol.
 
-**Endpoint:** `GET /stocks/search`
+**Endpoint**: `GET /stocks/search?q=nabil`  
+**Authentication**: None (Public)
 
-**Access:** Public
-
-**Query Parameters:**
+**Query Parameters**:
 - `q` (required): Search query (name or symbol)
 
-**Success Response (200 OK):**
+**Response** (200 OK):
 ```json
 {
   "companies": [
     {
-      "id": "company_1",
-      "name": "Nepal Telecom",
-      "symbol": "NTC",
-      "current_price": 1250.50,
-      "market_cap": "500B",
-      "sector": "Telecommunications"
+      "$id": "company_id_1",
+      "symbol": "NABIL",
+      "name": "Nabil Bank Limited",
+      "sector": "Banking",
+      "market_cap": 180000000000,
+      "is_active": true
     }
   ]
 }
 ```
 
+**cURL Example**:
+```bash
+curl "http://localhost:8081/api/v1/stocks/search?q=bank"
+```
+
 ---
 
-#### Get Company Details
+### Get Company Details
+Get detailed information about a specific company.
 
-**Endpoint:** `GET /stocks/:symbol`
+**Endpoint**: `GET /stocks/:symbol`  
+**Authentication**: None (Public)
 
-**Access:** Public
-
-**URL Parameters:**
-- `symbol`: Company symbol (e.g., "NTC")
-
-**Success Response (200 OK):**
+**Response** (200 OK):
 ```json
 {
   "company": {
-    "id": "company_1",
-    "name": "Nepal Telecom",
-    "symbol": "NTC",
-    "current_price": 1250.50,
-    "market_cap": "500B",
-    "sector": "Telecommunications",
-    "description": "State-owned telecommunications company",
-    "pe_ratio": 15.5,
-    "dividend_yield": 3.2
+    "$id": "company_id_1",
+    "symbol": "NABIL",
+    "name": "Nabil Bank Limited",
+    "sector": "Banking",
+    "market_cap": 180000000000,
+    "description": "Leading private sector bank in Nepal",
+    "founded_year": 1984,
+    "employees": 3500,
+    "is_active": true,
+    "$createdAt": "2026-02-16T11:33:50.000Z"
   }
 }
 ```
 
----
-
-#### Get Current Stock Price
-
-**Endpoint:** `GET /stocks/:symbol/price`
-
-**Access:** Public
-
-**URL Parameters:**
-- `symbol`: Company symbol (e.g., "NTC")
-
-**Success Response (200 OK):**
-```json
-{
-  "symbol": "NTC",
-  "price": 1250.50,
-  "currency": "NPR",
-  "timestamp": "2026-02-12T10:30:00Z",
-  "change_percent": 2.5,
-  "change_amount": 30.50
-}
+**cURL Example**:
+```bash
+curl http://localhost:8081/api/v1/stocks/NABIL
 ```
 
 ---
 
-#### Get Price History
+### Get Current Stock Price
+Get the latest stock price for a company.
 
-**Endpoint:** `GET /stocks/:symbol/history`
+**Endpoint**: `GET /stocks/:symbol/price`  
+**Authentication**: None (Public)
 
-**Access:** Public
-
-**Query Parameters:**
-- `days` (optional): Number of days to fetch (default: 30)
-
-**Success Response (200 OK):**
+**Response** (200 OK):
 ```json
 {
-  "symbol": "NTC",
+  "price": {
+    "$id": "price_id_1",
+    "company_id": "company_id_1",
+    "open_price": 1250.50,
+    "high_price": 1275.00,
+    "low_price": 1240.25,
+    "close_price": 1268.75,
+    "volume": 2500000,
+    "timestamp": "2026-02-16T00:00:00Z",
+    "timeframe": "1D"
+  }
+}
+```
+
+**cURL Example**:
+```bash
+curl http://localhost:8081/api/v1/stocks/NABIL/price
+```
+
+---
+
+### Get Price History
+Get historical price data for a company.
+
+**Endpoint**: `GET /stocks/:symbol/history?days=30`  
+**Authentication**: None (Public)
+
+**Query Parameters**:
+- `days` (optional): Number of days (default: 30, max: 365)
+
+**Response** (200 OK):
+```json
+{
+  "symbol": "NABIL",
   "prices": [
     {
-      "date": "2026-02-12",
-      "open": 1220.00,
-      "high": 1260.00,
-      "low": 1210.00,
-      "close": 1250.50,
-      "volume": 1000000
+      "$id": "price_id_1",
+      "company_id": "company_id_1",
+      "open_price": 1250.50,
+      "high_price": 1275.00,
+      "low_price": 1240.25,
+      "close_price": 1268.75,
+      "volume": 2500000,
+      "timestamp": "2026-02-16T00:00:00Z",
+      "timeframe": "1D"
     }
   ]
 }
 ```
 
----
-
-#### Get Market Overview
-
-**Endpoint:** `GET /stocks/market-overview`
-
-**Access:** Public
-
-**Success Response (200 OK):**
-```json
-{
-  "market_status": "open",
-  "total_companies": 45,
-  "gainers_count": 18,
-  "losers_count": 12,
-  "unchanged_count": 15,
-  "market_index": 2150.75,
-  "index_change_percent": 1.2
-}
+**cURL Example**:
+```bash
+curl "http://localhost:8081/api/v1/stocks/NABIL/history?days=7"
 ```
 
 ---
 
-#### Get Top Gainers
+### Get Market Overview
+Get general market statistics.
 
-**Endpoint:** `GET /stocks/top-gainers`
+**Endpoint**: `GET /stocks/market-overview`  
+**Authentication**: None (Public)
 
-**Access:** Public
+**Response** (200 OK):
+```json
+{
+  "total_companies": 25,
+  "total_market_cap": 2500000000000,
+  "avg_volume": 1500000,
+  "top_gainer": {
+    "symbol": "NTC",
+    "change_percent": 5.2
+  },
+  "top_loser": {
+    "symbol": "HYDRO1",
+    "change_percent": -3.1
+  }
+}
+```
 
-**Query Parameters:**
+**cURL Example**:
+```bash
+curl http://localhost:8081/api/v1/stocks/market-overview
+```
+
+---
+
+### Get Top Gainers
+Get list of top gaining stocks.
+
+**Endpoint**: `GET /stocks/top-gainers?limit=10`  
+**Authentication**: None (Public)
+
+**Query Parameters**:
 - `limit` (optional): Number of results (default: 10)
 
-**Success Response (200 OK):**
+**Response** (200 OK):
 ```json
 {
   "gainers": [
     {
       "symbol": "NTC",
       "name": "Nepal Telecom",
-      "price": 1250.50,
+      "current_price": 1850.00,
       "change_percent": 5.2,
-      "change_amount": 61.75
+      "volume": 3200000
     }
   ]
 }
 ```
 
+**cURL Example**:
+```bash
+curl http://localhost:8081/api/v1/stocks/top-gainers?limit=5
+```
+
 ---
 
-#### Get Top Losers
+### Get Top Losers
+Get list of top losing stocks.
 
-**Endpoint:** `GET /stocks/top-losers`
+**Endpoint**: `GET /stocks/top-losers?limit=10`  
+**Authentication**: None (Public)
 
-**Access:** Public
-
-**Query Parameters:**
-- `limit` (optional): Number of results (default: 10)
-
-**Success Response (200 OK):**
+**Response** (200 OK):
 ```json
 {
   "losers": [
     {
-      "symbol": "NABIL",
-      "name": "Nabil Bank",
-      "price": 850.00,
+      "symbol": "HYDRO1",
+      "name": "Upper Tamakoshi Hydropower",
+      "current_price": 580.00,
       "change_percent": -3.1,
-      "change_amount": -27.50
+      "volume": 1800000
     }
   ]
 }
 ```
 
+**cURL Example**:
+```bash
+curl http://localhost:8081/api/v1/stocks/top-losers?limit=5
+```
+
 ---
 
-#### Get Most Active Stocks
+### Get Most Active Stocks
+Get most traded stocks by volume.
 
-**Endpoint:** `GET /stocks/most-active`
+**Endpoint**: `GET /stocks/most-active?limit=10`  
+**Authentication**: None (Public)
 
-**Access:** Public
-
-**Query Parameters:**
-- `limit` (optional): Number of results (default: 10)
-
-**Success Response (200 OK):**
+**Response** (200 OK):
 ```json
 {
   "most_active": [
     {
-      "symbol": "NTC",
-      "volume": 5000000,
-      "price": 1250.50,
-      "trades": 25000
+      "symbol": "NABIL",
+      "name": "Nabil Bank Limited",
+      "current_price": 1268.75,
+      "volume": 4500000,
+      "change_percent": 2.3
     }
   ]
 }
 ```
 
+**cURL Example**:
+```bash
+curl http://localhost:8081/api/v1/stocks/most-active
+```
+
 ---
 
-#### Get Upcoming Market Events
+### Get Upcoming Events
+Get upcoming market events for a company.
 
-**Endpoint:** `GET /stocks/:symbol/events`
+**Endpoint**: `GET /stocks/:symbol/events`  
+**Authentication**: None (Public)
 
-**Access:** Public
-
-**URL Parameters:**
-- `symbol`: Company symbol (e.g., "NTC")
-
-**Success Response (200 OK):**
+**Response** (200 OK):
 ```json
 {
   "events": [
     {
-      "id": "event_1",
-      "company_symbol": "NTC",
-      "event_type": "dividend",
-      "description": "Dividend payout - 50 NPR per share",
-      "scheduled_date": "2026-03-15T00:00:00Z",
-      "impact": "positive"
+      "$id": "event_id_1",
+      "company_id": "company_id_1",
+      "event_type": "earnings",
+      "title": "Q3 Financial Results",
+      "description": "Strong quarterly earnings announcement with profit growth",
+      "impact_percentage": 3.5,
+      "event_date": "2026-02-20T00:00:00Z",
+      "image_url": "https://placehold.co/600x400?text=Q3+Financial+Results"
     }
   ]
 }
 ```
 
+**cURL Example**:
+```bash
+curl http://localhost:8081/api/v1/stocks/NABIL/events
+```
+
 ---
 
-## Protected Endpoints
+## Sector Endpoints
 
-**Requires:** `Authorization: Bearer <token>` header
+### Get All Sectors
+List all available sectors.
 
-### Authentication - User Profile
+**Endpoint**: `GET /sectors`  
+**Authentication**: None (Public)
 
-#### Get User Profile
+**Response** (200 OK):
+```json
+{
+  "sectors": [
+    {
+      "name": "Banking",
+      "company_count": 5,
+      "total_market_cap": 700000000000
+    },
+    {
+      "name": "Information Technology",
+      "company_count": 5,
+      "total_market_cap": 450000000000
+    },
+    {
+      "name": "Hydropower",
+      "company_count": 5,
+      "total_market_cap": 310000000000
+    }
+  ]
+}
+```
 
-**Endpoint:** `GET /auth/profile`
+**cURL Example**:
+```bash
+curl http://localhost:8081/api/v1/sectors
+```
 
-**Access:** Protected (JWT required)
+---
 
-**Success Response (200 OK):**
+### Get Companies by Sector
+Get all companies in a specific sector.
+
+**Endpoint**: `GET /sectors/:sector/companies`  
+**Authentication**: None (Public)
+
+**Response** (200 OK):
+```json
+{
+  "sector": "Banking",
+  "companies": [
+    {
+      "$id": "company_id_1",
+      "symbol": "NABIL",
+      "name": "Nabil Bank Limited",
+      "market_cap": 180000000000,
+      "is_active": true
+    }
+  ]
+}
+```
+
+**cURL Example**:
+```bash
+curl http://localhost:8081/api/v1/sectors/Banking/companies
+```
+
+---
+
+### Get Sector Statistics
+Get performance statistics for a sector.
+
+**Endpoint**: `GET /sectors/:sector/stats`  
+**Authentication**: None (Public)
+
+**Response** (200 OK):
+```json
+{
+  "sector": "Banking",
+  "total_companies": 5,
+  "total_market_cap": 700000000000,
+  "avg_change_percent": 2.1,
+  "total_volume": 12000000
+}
+```
+
+**cURL Example**:
+```bash
+curl http://localhost:8081/api/v1/sectors/Banking/stats
+```
+
+---
+
+## AI Prediction Endpoints
+
+### Get Stock Price Prediction
+Get AI-based price prediction for a stock (uses Linear Regression on 30 days of historical data).
+
+**Endpoint**: `GET /prediction/:symbol`  
+**Authentication**: None (Public)
+
+**Response** (200 OK):
+```json
+{
+  "symbol": "NABIL",
+  "predicted_price": 1285.50,
+  "rmse": 12.34,
+  "mae": 8.76,
+  "algorithm": "Linear Regression (Simple)",
+  "datapoints": 30
+}
+```
+
+**cURL Example**:
+```bash
+curl http://localhost:8081/api/v1/prediction/NABIL
+```
+
+---
+
+## User Profile Endpoints
+
+### Get User Profile
+Get current user's profile information.
+
+**Endpoint**: `GET /auth/profile`  
+**Authentication**: Required (JWT)
+
+**Response** (200 OK):
 ```json
 {
   "user": {
-    "id": "user_123",
+    "$id": "user_id_1",
     "full_name": "John Doe",
-    "email": "user@example.com",
-    "phone": "+977981234567",
+    "email": "john@example.com",
+    "phone": "9876543210",
     "kyc_status": "verified",
     "role": "user",
-    "created_at": "2026-01-15T08:30:00Z"
+    "profile_image_id": "file_id_123",
+    "$createdAt": "2026-02-15T10:00:00.000Z"
   }
 }
 ```
 
+**cURL Example**:
+```bash
+curl -H "Authorization: Bearer $TOKEN" \
+  http://localhost:8081/api/v1/auth/profile
+```
+
 ---
 
-#### Update User Profile
+### Update Profile
+Update user profile information.
 
-**Endpoint:** `PUT /auth/profile/update`
+**Endpoint**: `PUT /auth/profile/update`  
+**Authentication**: Required (JWT)
 
-**Access:** Protected (JWT required)
-
-**Request Body:**
+**Request Body**:
 ```json
 {
-  "full_name": "John Updated",
-  "phone": "+977981234567"
+  "full_name": "John Updated Doe",
+  "phone": "9876543211"
 }
 ```
 
-**Validation:**
-- `full_name` (optional): 2-100 characters
-- `phone` (optional): 10-15 characters
-
-**Success Response (200 OK):**
+**Response** (200 OK):
 ```json
 {
   "message": "profile updated successfully",
   "user": {
-    "id": "user_123",
-    "full_name": "John Updated",
-    "email": "user@example.com",
-    "phone": "+977981234567",
-    "kyc_status": "verified"
+    "$id": "user_id_1",
+    "full_name": "John Updated Doe",
+    "email": "john@example.com",
+    "phone": "9876543211",
+    "kyc_status": "verified",
+    "role": "user"
   }
 }
 ```
 
+**cURL Example**:
+```bash
+curl -X PUT -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"full_name": "John Updated Doe", "phone": "9876543211"}' \
+  http://localhost:8081/api/v1/auth/profile/update
+```
+
 ---
 
-### Virtual Wallet
+### Upload Profile Image
+Upload a profile picture (multipart form data).
 
-#### Get Wallet Balance
+**Endpoint**: `POST /auth/profile/image`  
+**Authentication**: Required (JWT)
 
-**Endpoint:** `GET /wallet`
+**Request**: Multipart form with `image` field  
+**Max Size**: 5MB  
+**Allowed Types**: jpg, jpeg, png, gif
 
-**Access:** Protected (JWT required)
+**Response** (200 OK):
+```json
+{
+  "message": "profile image uploaded successfully",
+  "user": {
+    "$id": "user_id_1",
+    "full_name": "John Doe",
+    "email": "john@example.com",
+    "profile_image_id": "new_file_id_456"
+  }
+}
+```
 
-**Success Response (200 OK):**
+**cURL Example**:
+```bash
+curl -X POST -H "Authorization: Bearer $TOKEN" \
+  -F "image=@/path/to/profile.jpg" \
+  http://localhost:8081/api/v1/auth/profile/image
+```
+
+---
+
+## Wallet Endpoints
+
+### Get Wallet Balance
+Get user's virtual wallet information.
+
+**Endpoint**: `GET /wallet`  
+**Authentication**: Required (JWT)
+
+**Response** (200 OK):
 ```json
 {
   "wallet": {
-    "id": "wallet_123",
-    "user_id": "user_123",
-    "balance": 1000000.00,
-    "total_invested": 150000.00,
-    "total_profit_loss": 25000.00,
-    "currency": "NPR"
+    "$id": "wallet_id_1",
+    "user_id": "user_id_1",
+    "balance": 950000.00,
+    "total_invested": 50000.00,
+    "total_profit_loss": 2500.00,
+    "locked": false,
+    "$createdAt": "2026-02-15T10:05:00.000Z"
   }
 }
 ```
 
+**cURL Example**:
+```bash
+curl -H "Authorization: Bearer $TOKEN" \
+  http://localhost:8081/api/v1/wallet
+```
+
 ---
 
-#### Top Up Wallet
+### Top Up Wallet
+Add virtual currency to wallet.
 
-**Endpoint:** `POST /wallet/topup`
+**Endpoint**: `POST /wallet/topup`  
+**Authentication**: Required (JWT)
 
-**Access:** Protected (JWT required)
-
-**Request Body:**
+**Request Body**:
 ```json
 {
-  "amount": 50000.00,
-  "reference": "TopUp from bank"
+  "amount": 100000
 }
 ```
 
-**Validation:**
-- `amount`: Minimum 100, Maximum 10,000,000 NPR
-
-**Success Response (200 OK):**
+**Response** (200 OK):
 ```json
 {
   "message": "wallet topped up successfully",
-  "new_balance": 1050000.00,
-  "transaction_id": "txn_456"
-}
-```
-
----
-
-#### Get Transaction History
-
-**Endpoint:** `GET /transaction`
-
-**Access:** Protected (JWT required)
-
-**Query Parameters:**
-- `limit` (optional): Number of results (default: 50)
-- `offset` (optional): Pagination offset (default: 0)
-
-**Success Response (200 OK):**
-```json
-{
-  "transactions": [
-    {
-      "id": "txn_123",
-      "user_id": "user_123",
-      "type": "topup",
-      "amount": 50000.00,
-      "timestamp": "2026-02-12T10:30:00Z",
-      "status": "completed"
-    }
-  ],
-  "limit": 50,
-  "offset": 0,
-  "total": 120
-}
-```
-
----
-
-### Stock Trading
-
-#### Get Trading Wallet
-
-**Endpoint:** `GET /trading/wallet`
-
-**Access:** Protected (JWT required)
-
-**Success Response (200 OK):**
-```json
-{
   "wallet": {
-    "id": "wallet_123",
-    "user_id": "user_123",
-    "balance": 850000.00,
-    "total_invested": 150000.00,
-    "total_profit_loss": 25000.00,
-    "currency": "NPR",
-    "created_at": "2026-01-15T08:30:00Z"
+    "$id": "wallet_id_1",
+    "user_id": "user_id_1",
+    "balance": 1050000.00,
+    "total_invested": 50000.00,
+    "total_profit_loss": 2500.00
+  },
+  "transaction": {
+    "$id": "txn_id_1",
+    "user_id": "user_id_1",
+    "type": "topup",
+    "amount": 100000,
+    "status": "completed",
+    "reference_id": "TOPUP_1234567890"
   }
 }
 ```
 
----
-
-#### Get User Portfolio
-
-**Endpoint:** `GET /trading/portfolio`
-
-**Access:** Protected (JWT required)
-
-**Success Response (200 OK):**
-```json
-{
-  "portfolio": {
-    "total_value": 175000.00,
-    "total_invested": 150000.00,
-    "total_profit_loss": 25000.00,
-    "profit_loss_percent": 16.67,
-    "holdings": [
-      {
-        "id": "portfolio_123",
-        "company_symbol": "NTC",
-        "company_name": "Nepal Telecom",
-        "quantity": 100,
-        "average_price": 1200.00,
-        "current_price": 1250.50,
-        "current_value": 125050.00,
-        "profit_loss": 5050.00,
-        "profit_loss_percent": 4.21
-      }
-    ]
-  }
-}
+**cURL Example**:
+```bash
+curl -X POST -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"amount": 100000}' \
+  http://localhost:8081/api/v1/wallet/topup
 ```
 
 ---
 
-#### Buy Stock
+### Get Wallet Transactions
+Get wallet transaction history (top-ups, etc.).
 
-**Endpoint:** `POST /trading/buy`
+**Endpoint**: `GET /transaction?limit=50&offset=0`  
+**Authentication**: Required (JWT)
 
-**Access:** Protected (JWT required)
-
-**Request Body:**
-```json
-{
-  "symbol": "NTC",
-  "quantity": 50
-}
-```
-
-**Validation:**
-- `symbol`: Stock symbol (required)
-- `quantity`: Minimum 1 share
-
-**Success Response (200 OK):**
-```json
-{
-  "success": true,
-  "message": "Stock purchase successful",
-  "transaction_id": "stock_txn_123",
-  "company_symbol": "NTC",
-  "quantity": 50,
-  "price_per_share": 1250.50,
-  "total_amount": 62525.00,
-  "new_balance": 787475.00
-}
-```
-
-**Error Response (400 Bad Request):**
-```json
-{
-  "success": false,
-  "error": "Insufficient balance in wallet"
-}
-```
-
----
-
-#### Sell Stock
-
-**Endpoint:** `POST /trading/sell`
-
-**Access:** Protected (JWT required)
-
-**Request Body:**
-```json
-{
-  "symbol": "NTC",
-  "quantity": 30
-}
-```
-
-**Validation:**
-- `symbol`: Stock symbol (required)
-- `quantity`: Minimum 1 share, not exceeding owned quantity
-
-**Success Response (200 OK):**
-```json
-{
-  "success": true,
-  "message": "Stock sale successful",
-  "transaction_id": "stock_txn_124",
-  "company_symbol": "NTC",
-  "quantity": 30,
-  "price_per_share": 1250.50,
-  "total_amount": 37515.00,
-  "profit_loss": 1515.00,
-  "new_balance": 824990.00
-}
-```
-
-**Error Response (400 Bad Request):**
-```json
-{
-  "success": false,
-  "error": "You don't own enough shares to sell"
-}
-```
-
----
-
-#### Get Trading Transaction History
-
-**Endpoint:** `GET /trading/transactions`
-
-**Access:** Protected (JWT required)
-
-**Query Parameters:**
-- `limit` (optional): Number of results (default: 50)
-- `offset` (optional): Pagination offset (default: 0)
-- `type` (optional): Filter by transaction type (buy, sell)
-
-**Success Response (200 OK):**
+**Response** (200 OK):
 ```json
 {
   "transactions": [
     {
-      "id": "stock_txn_123",
-      "user_id": "user_123",
-      "company_symbol": "NTC",
-      "type": "buy",
-      "quantity": 50,
-      "price_per_share": 1250.50,
-      "total_amount": 62525.00,
-      "timestamp": "2026-02-12T10:30:00Z",
-      "status": "completed"
+      "$id": "txn_id_1",
+      "user_id": "user_id_1",
+      "type": "topup",
+      "amount": 100000,
+      "status": "completed",
+      "reference_id": "TOPUP_1234567890",
+      "$createdAt": "2026-02-16T10:00:00.000Z"
     }
   ],
   "limit": 50,
-  "offset": 0,
-  "total": 45
+  "offset": 0
 }
+```
+
+**cURL Example**:
+```bash
+curl -H "Authorization: Bearer $TOKEN" \
+  "http://localhost:8081/api/v1/transaction?limit=20"
+```
+
+---
+
+## Trading Endpoints
+
+### Get Trading Wallet
+Get wallet information (same as /wallet but under trading context).
+
+**Endpoint**: `GET /trading/wallet`  
+**Authentication**: Required (JWT)
+
+**Response**: Same as `GET /wallet`
+
+**cURL Example**:
+```bash
+curl -H "Authorization: Bearer $TOKEN" \
+  http://localhost:8081/api/v1/trading/wallet
+```
+
+---
+
+### Get Portfolio
+Get user's stock portfolio holdings.
+
+**Endpoint**: `GET /trading/portfolio`  
+**Authentication**: Required (JWT)
+
+**Response** (200 OK):
+```json
+{
+  "portfolio": [
+    {
+      "$id": "portfolio_id_1",
+      "user_id": "user_id_1",
+      "company_id": "company_id_1",
+      "quantity": 50,
+      "average_price": 1200.00,
+      "total_invested": 60000.00,
+      "company": {
+        "symbol": "NABIL",
+        "name": "Nabil Bank Limited",
+        "current_price": 1268.75
+      },
+      "current_value": 63437.50,
+      "profit_loss": 3437.50,
+      "profit_loss_percent": 5.73
+    }
+  ],
+  "total_invested": 60000.00,
+  "current_value": 63437.50,
+  "total_profit_loss": 3437.50
+}
+```
+
+**cURL Example**:
+```bash
+curl -H "Authorization: Bearer $TOKEN" \
+  http://localhost:8081/api/v1/trading/portfolio
+```
+
+---
+
+### Buy Stock
+Purchase shares of a company.
+
+**Endpoint**: `POST /trading/buy`  
+**Authentication**: Required (JWT)
+
+**Request Body**:
+```json
+{
+  "symbol": "NABIL",
+  "quantity": 10
+}
+```
+
+**Response** (200 OK):
+```json
+{
+  "success": true,
+  "message": "Stock purchased successfully",
+  "transaction": {
+    "$id": "stock_txn_id_1",
+    "user_id": "user_id_1",
+    "company_id": "company_id_1",
+    "type": "buy",
+    "quantity": 10,
+    "price_per_share": 1268.75,
+    "total_amount": 12687.50,
+    "status": "completed",
+    "$createdAt": "2026-02-16T12:00:00.000Z"
+  },
+  "wallet": {
+    "balance": 937312.50,
+    "total_invested": 62687.50
+  }
+}
+```
+
+**Error Response** (400 Bad Request):
+```json
+{
+  "success": false,
+  "message": "Insufficient balance",
+  "required": 12687.50,
+  "available": 5000.00
+}
+```
+
+**cURL Example**:
+```bash
+curl -X POST -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"symbol": "NABIL", "quantity": 10}' \
+  http://localhost:8081/api/v1/trading/buy
+```
+
+---
+
+### Sell Stock
+Sell shares of a company.
+
+**Endpoint**: `POST /trading/sell`  
+**Authentication**: Required (JWT)
+
+**Request Body**:
+```json
+{
+  "symbol": "NABIL",
+  "quantity": 5
+}
+```
+
+**Response** (200 OK):
+```json
+{
+  "success": true,
+  "message": "Stock sold successfully",
+  "transaction": {
+    "$id": "stock_txn_id_2",
+    "user_id": "user_id_1",
+    "company_id": "company_id_1",
+    "type": "sell",
+    "quantity": 5,
+    "price_per_share": 1280.00,
+    "total_amount": 6400.00,
+    "status": "completed",
+    "$createdAt": "2026-02-16T12:30:00.000Z"
+  },
+  "wallet": {
+    "balance": 943712.50,
+    "total_invested": 56687.50
+  },
+  "profit_loss": 343.75
+}
+```
+
+**Error Response** (400 Bad Request):
+```json
+{
+  "success": false,
+  "message": "Insufficient shares",
+  "requested": 10,
+  "available": 5
+}
+```
+
+**cURL Example**:
+```bash
+curl -X POST -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"symbol": "NABIL", "quantity": 5}' \
+  http://localhost:8081/api/v1/trading/sell
+```
+
+---
+
+### Get Trading History
+Get stock transaction history (buy/sell records).
+
+**Endpoint**: `GET /trading/transactions?limit=50&offset=0`  
+**Authentication**: Required (JWT)
+
+**Response** (200 OK):
+```json
+{
+  "transactions": [
+    {
+      "$id": "stock_txn_id_1",
+      "user_id": "user_id_1",
+      "company_id": "company_id_1",
+      "type": "buy",
+      "quantity": 10,
+      "price_per_share": 1268.75,
+      "total_amount": 12687.50,
+      "status": "completed",
+      "reference_id": "TXN_NABIL_1708084800000",
+      "$createdAt": "2026-02-16T12:00:00.000Z",
+      "company": {
+        "symbol": "NABIL",
+        "name": "Nabil Bank Limited"
+      }
+    }
+  ],
+  "limit": 50,
+  "offset": 0
+}
+```
+
+**cURL Example**:
+```bash
+curl -H "Authorization: Bearer $TOKEN" \
+  "http://localhost:8081/api/v1/trading/transactions?limit=20"
 ```
 
 ---
 
 ## Admin Endpoints
 
-**Requires:** `Authorization: Bearer <token>` header + Admin Role
+### Update User KYC Status
+Update a user's KYC status and role (admin only).
 
-### KYC Management
+**Endpoint**: `PUT /admin/users/:user_id/kyc`  
+**Authentication**: Required (JWT + Admin Role)
 
-#### Update User KYC Status
-
-**Endpoint:** `PUT /admin/users/:user_id/kyc`
-
-**Access:** Protected (JWT required) + Admin Role
-
-**URL Parameters:**
-- `user_id`: Target user ID
-
-**Request Body:**
+**Request Body**:
 ```json
 {
   "kyc_status": "verified",
@@ -730,226 +1000,196 @@ Create a new user account.
 }
 ```
 
-**Validation:**
-- `kyc_status`: "pending", "verified", "rejected", "under_review"
-- `role`: "user" or "admin"
+**Valid KYC Statuses**: `pending`, `verified`, `rejected`, `under_review`  
+**Valid Roles**: `user`, `admin`
 
-**Success Response (200 OK):**
+**Response** (200 OK):
 ```json
 {
   "message": "KYC status updated successfully",
-  "user_id": "user_123",
-  "kyc_status": "verified",
-  "updated_at": "2026-02-12T10:30:00Z"
-}
-```
-
----
-
-### Stock Management
-
-#### Seed Stock Data
-
-**Endpoint:** `POST /admin/seed-stocks`
-
-**Access:** Protected (JWT required) + Admin Role
-
-**Request Body:**
-```json
-{
-  "companies": [
-    {
-      "name": "Nepal Telecom",
-      "symbol": "NTC",
-      "price": 1250.50,
-      "market_cap": "500B",
-      "sector": "Telecommunications"
-    }
-  ]
-}
-```
-
-**Success Response (200 OK):**
-```json
-{
-  "message": "Stock data seeded successfully",
-  "count": 1,
-  "companies": [
-    {
-      "id": "company_1",
-      "symbol": "NTC",
-      "name": "Nepal Telecom"
-    }
-  ]
-}
-```
-
----
-
-## Data Models
-
-### User Model
-```json
-{
-  "id": "user_123",
-  "full_name": "John Doe",
-  "email": "user@example.com",
-  "phone": "+977981234567",
-  "kyc_status": "pending|verified|rejected|under_review",
-  "role": "user|admin",
-  "created_at": "2026-01-15T08:30:00Z",
-  "updated_at": "2026-01-15T08:30:00Z"
-}
-```
-
-### Virtual Wallet Model
-```json
-{
-  "id": "wallet_123",
-  "user_id": "user_123",
-  "balance": 1000000.00,
-  "total_invested": 150000.00,
-  "total_profit_loss": 25000.00,
-  "currency": "NPR",
-  "created_at": "2026-01-15T08:30:00Z",
-  "updated_at": "2026-01-15T08:30:00Z"
-}
-```
-
-### User Portfolio Model
-```json
-{
-  "id": "portfolio_123",
-  "user_id": "user_123",
-  "company_id": "company_1",
-  "quantity": 100,
-  "average_price": 1200.00,
-  "total_invested": 120000.00,
-  "created_at": "2026-01-15T08:30:00Z",
-  "updated_at": "2026-01-15T08:30:00Z"
-}
-```
-
-### Stock Transaction Model
-```json
-{
-  "id": "stock_txn_123",
-  "user_id": "user_123",
-  "company_id": "company_1",
-  "type": "buy|sell",
-  "quantity": 50,
-  "price_per_share": 1250.50,
-  "total_amount": 62525.00,
-  "status": "pending|completed|failed|cancelled",
-  "timestamp": "2026-02-12T10:30:00Z"
-}
-```
-
----
-
-## Error Handling
-
-### Standard Error Response Format
-
-```json
-{
-  "error": "Error message describing what went wrong",
-  "timestamp": "2026-02-12T10:30:00Z",
-  "path": "/api/v1/trading/buy"
-}
-```
-
-### HTTP Status Codes
-
-| Code | Meaning | Use Case |
-|------|---------|----------|
-| 200 | OK | Successful request |
-| 201 | Created | Resource successfully created |
-| 400 | Bad Request | Invalid input or insufficient balance |
-| 401 | Unauthorized | Missing or invalid JWT token |
-| 403 | Forbidden | Insufficient permissions (not admin) |
-| 404 | Not Found | Resource not found |
-| 409 | Conflict | Duplicate user email |
-| 500 | Server Error | Internal server error |
-
-### Common Error Messages
-
-| Error | Cause | Solution |
-|-------|-------|----------|
-| "invalid credentials" | Wrong email/password | Verify credentials |
-| "user already exists" | Email already registered | Use different email |
-| "Insufficient balance" | Not enough wallet balance | Top up wallet |
-| "You don't own enough shares" | Trying to sell more than owned | Check portfolio |
-| "User not authenticated" | Missing JWT token | Add Authorization header |
-
----
-
-## Examples
-
-### Example 1: Complete Trading Flow
-
-```bash
-# 1. Register
-curl -X POST https://gold-go-backend.onrender.com/api/v1/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{
+  "user": {
+    "$id": "user_id_1",
     "full_name": "John Doe",
     "email": "john@example.com",
-    "phone": "+977981234567",
-    "password": "securepass123",
+    "kyc_status": "verified",
+    "role": "user"
+  }
+}
+```
+
+**cURL Example**:
+```bash
+curl -X PUT -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"kyc_status": "verified", "role": "user"}' \
+  http://localhost:8081/api/v1/admin/users/user_id_123/kyc
+```
+
+---
+
+### Seed Stock Data
+Trigger stock data seeding (creates 25 companies, 30 days of prices, 10 events).
+
+**Endpoint**: `POST /admin/seed-stocks`  
+**Authentication**: Required (JWT + Admin Role)
+
+**Response** (200 OK):
+```json
+{
+  "success": true,
+  "message": "Database seeded successfully",
+  "companies_created": 25,
+  "prices_created": 750,
+  "events_created": 10
+}
+```
+
+**cURL Example**:
+```bash
+curl -X POST -H "Authorization: Bearer $ADMIN_TOKEN" \
+  http://localhost:8081/api/v1/admin/seed-stocks
+```
+
+---
+
+## Error Responses
+
+All error responses follow a consistent format:
+
+### 400 Bad Request
+```json
+{
+  "error": "Validation failed",
+  "details": "quantity must be at least 1"
+}
+```
+
+### 401 Unauthorized
+```json
+{
+  "error": "Unauthorized",
+  "message": "Invalid or missing token"
+}
+```
+
+### 403 Forbidden
+```json
+{
+  "error": "Forbidden",
+  "message": "Admin access required"
+}
+```
+
+### 404 Not Found
+```json
+{
+  "error": "Not Found",
+  "message": "Company with symbol 'INVALID' not found"
+}
+```
+
+### 409 Conflict
+```json
+{
+  "error": "Conflict",
+  "message": "User already exists"
+}
+```
+
+### 500 Internal Server Error
+```json
+{
+  "error": "Internal Server Error",
+  "message": "An unexpected error occurred"
+}
+```
+
+---
+
+## Testing Workflow Example
+
+Here's a complete workflow to test the API:
+
+```bash
+# 1. Register a new user
+curl -X POST http://localhost:8081/api/v1/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "full_name": "Test User",
+    "email": "test@example.com",
+    "phone": "9876543210",
+    "password": "test123",
     "role": "user"
   }'
 
-# 2. Login
-TOKEN=$(curl -X POST https://gold-go-backend.onrender.com/api/v1/auth/login \
+# 2. Login and save token
+TOKEN=$(curl -X POST http://localhost:8081/api/v1/auth/login \
   -H "Content-Type: application/json" \
   -d '{
-    "email": "john@example.com",
-    "password": "securepass123"
+    "email": "test@example.com",
+    "password": "test123"
   }' | jq -r '.token')
 
-# 3. Check Wallet
-curl -X GET https://gold-go-backend.onrender.com/api/v1/trading/wallet \
-  -H "Authorization: Bearer $TOKEN"
+# 3. View profile
+curl -H "Authorization: Bearer $TOKEN" \
+  http://localhost:8081/api/v1/auth/profile
 
-# 4. Search Stock
-curl -X GET https://gold-go-backend.onrender.com/api/v1/stocks/search?q=NTC
+# 4. Check wallet (should have 1,000,000 NPR initial balance)
+curl -H "Authorization: Bearer $TOKEN" \
+  http://localhost:8081/api/v1/trading/wallet
 
-# 5. Buy Stock
-curl -X POST https://gold-go-backend.onrender.com/api/v1/trading/buy \
-  -H "Authorization: Bearer $TOKEN" \
+# 5. Browse stocks
+curl http://localhost:8081/api/v1/stocks?limit=5
+
+# 6. Get current price for NABIL
+curl http://localhost:8081/api/v1/stocks/NABIL/price
+
+# 7. Buy 10 shares of NABIL
+curl -X POST -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{
-    "symbol": "NTC",
-    "quantity": 50
-  }'
+  -d '{"symbol": "NABIL", "quantity": 10}' \
+  http://localhost:8081/api/v1/trading/buy
 
-# 6. View Portfolio
-curl -X GET https://gold-go-backend.onrender.com/api/v1/trading/portfolio \
-  -H "Authorization: Bearer $TOKEN"
+# 8. Check portfolio
+curl -H "Authorization: Bearer $TOKEN" \
+  http://localhost:8081/api/v1/trading/portfolio
 
-# 7. Sell Stock
-curl -X POST https://gold-go-backend.onrender.com/api/v1/trading/sell \
-  -H "Authorization: Bearer $TOKEN" \
+# 9. Sell 5 shares
+curl -X POST -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{
-    "symbol": "NTC",
-    "quantity": 30
-  }'
+  -d '{"symbol": "NABIL", "quantity": 5}' \
+  http://localhost:8081/api/v1/trading/sell
+
+# 10. View transaction history
+curl -H "Authorization: Bearer $TOKEN" \
+  http://localhost:8081/api/v1/trading/transactions
+
+# 11. Get AI prediction
+curl http://localhost:8081/api/v1/prediction/NABIL
 ```
 
 ---
 
-## Rate Limiting
+## Data Volumes
 
-Currently no rate limiting is enforced. In production, implement:
-- 100 requests per minute per user
-- 1000 requests per minute per IP
+After running the seed script (`go run scripts/setup_appwrite.go`):
+
+- **Companies**: 25 Nepalese companies across 6 sectors
+- **Stock Prices**: ~750 records (30 days × 25 companies)
+- **Market Events**: 250 events (10 per company)
+- **Test Transactions**: 750 stock transactions (30 per company)
 
 ---
 
-## Support
+## Notes
 
-For API issues or questions:
-- **GitHub:** https://github.com/919Umesh/stock_market_sim
-- **Issues:** Report via GitHub Issues
+- All monetary values are in NPR (Nepalese Rupees)
+- Initial wallet balance: 1,000,000 NPR
+- Stock prices are simulated for educational purposes
+- ML predictions use Linear Regression on 30 days of historical data
+- Timestamps are in ISO 8601 format (UTC)
+
+---
+
+**Last Updated**: February 16, 2026  
+**API Version**: v1

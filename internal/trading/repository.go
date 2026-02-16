@@ -7,6 +7,7 @@ import (
 	"github.com/919Umesh/stock_market_sim/models"
 	"github.com/appwrite/sdk-for-go/id"
 	"github.com/appwrite/sdk-for-go/query"
+	"github.com/shopspring/decimal"
 )
 
 const (
@@ -30,9 +31,8 @@ type Repository interface {
 	GetUserTransactions(userID string, limit, offset int) ([]models.StockTransaction, error)
 	GetTransactionsByCompany(userID, companyID string, limit int) ([]models.StockTransaction, error)
 
-
-	ExecuteBuy(userID, companyID string, quantity int, pricePerShare float64) error
-	ExecuteSell(userID, companyID string, quantity int, pricePerShare float64) error
+	ExecuteBuy(userID, companyID string, quantity int, pricePerShare decimal.Decimal) error
+	ExecuteSell(userID, companyID string, quantity int, pricePerShare decimal.Decimal) error
 }
 
 type repository struct {
@@ -43,13 +43,12 @@ func NewRepository(client *appwrite.Client) Repository {
 	return &repository{client: client}
 }
 
-
 func (r *repository) CreateVirtualWallet(wallet *models.VirtualWallet) error {
 	data := map[string]interface{}{
 		"user_id":           wallet.UserID,
-		"balance":           wallet.Balance,
-		"total_invested":    wallet.TotalInvested,
-		"total_profit_loss": wallet.TotalProfitLoss,
+		"balance":           wallet.Balance.InexactFloat64(),
+		"total_invested":    wallet.TotalInvested.InexactFloat64(),
+		"total_profit_loss": wallet.TotalProfitLoss.InexactFloat64(),
 	}
 
 	resp, err := r.client.Databases.CreateDocument(
@@ -89,9 +88,9 @@ func (r *repository) GetVirtualWallet(userID string) (*models.VirtualWallet, err
 
 func (r *repository) UpdateVirtualWallet(wallet *models.VirtualWallet) error {
 	data := map[string]interface{}{
-		"balance":           wallet.Balance,
-		"total_invested":    wallet.TotalInvested,
-		"total_profit_loss": wallet.TotalProfitLoss,
+		"balance":           wallet.Balance.InexactFloat64(),
+		"total_invested":    wallet.TotalInvested.InexactFloat64(),
+		"total_profit_loss": wallet.TotalProfitLoss.InexactFloat64(),
 	}
 
 	resp, err := r.client.Databases.UpdateDocument(
@@ -105,7 +104,6 @@ func (r *repository) UpdateVirtualWallet(wallet *models.VirtualWallet) error {
 	}
 	return appwrite.Decode(resp, wallet)
 }
-
 
 func (r *repository) GetPortfolio(userID string) ([]models.UserPortfolio, error) {
 	resp, err := r.client.Databases.ListDocuments(
@@ -160,8 +158,8 @@ func (r *repository) CreatePortfolioItem(item *models.UserPortfolio) error {
 		"user_id":        item.UserID,
 		"company_id":     item.CompanyID,
 		"quantity":       item.Quantity,
-		"average_price":  item.AvgBuyPrice,
-		"total_invested": item.TotalInvested,
+		"average_price":  item.AvgBuyPrice.InexactFloat64(),
+		"total_invested": item.TotalInvested.InexactFloat64(),
 	}
 
 	resp, err := r.client.Databases.CreateDocument(
@@ -179,8 +177,8 @@ func (r *repository) CreatePortfolioItem(item *models.UserPortfolio) error {
 func (r *repository) UpdatePortfolioItem(item *models.UserPortfolio) error {
 	data := map[string]interface{}{
 		"quantity":       item.Quantity,
-		"average_price":  item.AvgBuyPrice,
-		"total_invested": item.TotalInvested,
+		"average_price":  item.AvgBuyPrice.InexactFloat64(),
+		"total_invested": item.TotalInvested.InexactFloat64(),
 	}
 
 	resp, err := r.client.Databases.UpdateDocument(
@@ -208,15 +206,14 @@ func (r *repository) DeletePortfolioItem(userID, companyID string) error {
 	return err
 }
 
-
 func (r *repository) CreateTransaction(tx *models.StockTransaction) error {
 	data := map[string]interface{}{
 		"user_id":         tx.UserID,
 		"company_id":      tx.CompanyID,
 		"type":            tx.Type,
 		"quantity":        tx.Quantity,
-		"price_per_share": tx.PricePerShare,
-		"total_amount":    tx.TotalAmount,
+		"price_per_share": tx.PricePerShare.InexactFloat64(),
+		"total_amount":    tx.TotalAmount.InexactFloat64(),
 		"status":          tx.Status,
 		"reference_id":    tx.ReferenceID,
 	}
@@ -283,20 +280,19 @@ func (r *repository) GetTransactionsByCompany(userID, companyID string, limit in
 	return transactions, nil
 }
 
-
-func (r *repository) ExecuteBuy(userID, companyID string, quantity int, pricePerShare float64) error {
-	totalAmount := float64(quantity) * pricePerShare
+func (r *repository) ExecuteBuy(userID, companyID string, quantity int, pricePerShare decimal.Decimal) error {
+	totalAmount := pricePerShare.Mul(decimal.NewFromInt(int64(quantity)))
 
 	wallet, err := r.GetVirtualWallet(userID)
 	if err != nil {
 		return err
 	}
-	if wallet.Balance < totalAmount {
+	if wallet.Balance.LessThan(totalAmount) {
 		return fmt.Errorf("insufficient balance")
 	}
 
-	wallet.Balance -= totalAmount
-	wallet.TotalInvested += totalAmount
+	wallet.Balance = wallet.Balance.Sub(totalAmount)
+	wallet.TotalInvested = wallet.TotalInvested.Add(totalAmount)
 	if err := r.UpdateVirtualWallet(wallet); err != nil {
 		return fmt.Errorf("failed to update wallet: %w", err)
 	}
@@ -315,8 +311,8 @@ func (r *repository) ExecuteBuy(userID, companyID string, quantity int, pricePer
 		}
 	} else {
 		newQuantity := item.Quantity + quantity
-		newTotalInvested := item.TotalInvested + totalAmount
-		newAvgPrice := newTotalInvested / float64(newQuantity)
+		newTotalInvested := item.TotalInvested.Add(totalAmount)
+		newAvgPrice := newTotalInvested.Div(decimal.NewFromInt(int64(newQuantity)))
 
 		item.Quantity = newQuantity
 		item.TotalInvested = newTotalInvested
@@ -339,8 +335,8 @@ func (r *repository) ExecuteBuy(userID, companyID string, quantity int, pricePer
 	return r.CreateTransaction(tx)
 }
 
-func (r *repository) ExecuteSell(userID, companyID string, quantity int, pricePerShare float64) error {
-	totalAmount := float64(quantity) * pricePerShare
+func (r *repository) ExecuteSell(userID, companyID string, quantity int, pricePerShare decimal.Decimal) error {
+	totalAmount := pricePerShare.Mul(decimal.NewFromInt(int64(quantity)))
 
 	item, err := r.GetPortfolioItem(userID, companyID)
 	if err != nil {
@@ -351,8 +347,16 @@ func (r *repository) ExecuteSell(userID, companyID string, quantity int, pricePe
 	}
 
 	newQuantity := item.Quantity - quantity
-	soldInvestment := (item.TotalInvested / float64(item.Quantity)) * float64(quantity)
-	newTotalInvested := item.TotalInvested - soldInvestment
+
+	// Check division by zero if item.Quantity is somehow 0 (should be caught by above check, but good to be safe)
+	if item.Quantity == 0 {
+		return fmt.Errorf("invalid portfolio state: quantity is 0")
+	}
+
+	// Weighted reduction of investment
+	// soldInvestment = (TotalInvested / Quantity) * soldQuantity
+	soldInvestment := item.TotalInvested.Div(decimal.NewFromInt(int64(item.Quantity))).Mul(decimal.NewFromInt(int64(quantity)))
+	newTotalInvested := item.TotalInvested.Sub(soldInvestment)
 
 	item.Quantity = newQuantity
 	item.TotalInvested = newTotalInvested
@@ -372,10 +376,15 @@ func (r *repository) ExecuteSell(userID, companyID string, quantity int, pricePe
 		return err
 	}
 
-	profitLoss := totalAmount - soldInvestment
-	wallet.Balance += totalAmount
-	wallet.TotalInvested -= soldInvestment
-	wallet.TotalProfitLoss += profitLoss
+	// Profit = SoldAmount - SoldInvestment
+	profitLoss := totalAmount.Sub(soldInvestment)
+
+	wallet.Balance = wallet.Balance.Add(totalAmount)
+
+	// TotalInvested should decrease by soldInvestment
+	wallet.TotalInvested = wallet.TotalInvested.Sub(soldInvestment)
+
+	wallet.TotalProfitLoss = wallet.TotalProfitLoss.Add(profitLoss)
 
 	if err := r.UpdateVirtualWallet(wallet); err != nil {
 		return fmt.Errorf("failed to update wallet: %w", err)

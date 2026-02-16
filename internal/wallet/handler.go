@@ -86,14 +86,14 @@ func (h *Handler) TopUp(c *gin.Context) {
 	push := models.PushInput{
 		CustomerID:       userID,
 		Title:            "Wallet Top-Up",
-		Message:          fmt.Sprintf("₹%.2f has been added to your wallet", transaction.Amount),
+		Message:          fmt.Sprintf("₹%.2f has been added to your wallet", transaction.Amount.InexactFloat64()),
 		NotificationType: "TOP-UP",
 		LinkedID:         transaction.ID,
 		Data: map[string]interface{}{
-			"amount":         transaction.Amount,
+			"amount":         transaction.Amount.InexactFloat64(),
 			"transaction_id": transaction.ID,
 			"reference_id":   transaction.ReferenceID,
-			"new_balance":    wallet.FiatBalance,
+			"new_balance":    wallet.FiatBalance.InexactFloat64(),
 		},
 	}
 	_, err = notification.SendOneSignalPush(push)
