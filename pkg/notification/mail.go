@@ -5,7 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -63,11 +64,11 @@ func SendEmail(email, emailType string, topUpData interface{}) error {
 	}
 	defer resp.Body.Close()
 
-	respBody, _ := ioutil.ReadAll(resp.Body)
+	respBody, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return fmt.Errorf("onesignal returned status %d: %s", resp.StatusCode, string(respBody))
 	}
 
-	fmt.Println("OneSignal response:", string(respBody))
+	slog.Info("OneSignal email response", "response", string(respBody))
 	return nil
 }

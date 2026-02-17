@@ -144,7 +144,7 @@ func (h *AdminHandler) SeedStockData(c *gin.Context) {
 				ClosePrice: closePrice.Round(2),
 				Volume:     volume,
 				Timestamp:  timestamp,
-				Timeframe:  "1d",
+				Timeframe:  "1D",
 			}
 
 			if err := h.stockRepo.CreateStockPrice(stockPrice); err != nil {

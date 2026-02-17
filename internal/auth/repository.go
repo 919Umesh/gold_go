@@ -63,12 +63,12 @@ func (r *repository) Create(user *models.User) error {
 }
 
 func (r *repository) FindByEmail(email string) (*models.User, error) {
+	// WORKAROUND: Appwrite query.Equal() is unreliable, fetch all and filter in Go
 	resp, err := r.client.Databases.ListDocuments(
 		r.client.Config.DatabaseID,
 		CollectionUsers,
 		appwrite.WithListDocumentsQueries([]string{
-			query.Equal("email", email),
-			query.Limit(1),
+			query.Limit(100),
 		}),
 	)
 
@@ -76,16 +76,17 @@ func (r *repository) FindByEmail(email string) (*models.User, error) {
 		return nil, err
 	}
 
-	if len(resp.Documents) == 0 {
-		return nil, fmt.Errorf("user not found")
+	for i := range resp.Documents {
+		var user models.User
+		if err := appwrite.DecodeListItem(resp, i, &user); err != nil {
+			continue
+		}
+		if user.Email == email {
+			return &user, nil
+		}
 	}
 
-	var user models.User
-	if err := appwrite.DecodeListItem(resp, 0, &user); err != nil {
-		return nil, fmt.Errorf("failed to decode user: %w", err)
-	}
-
-	return &user, nil
+	return nil, fmt.Errorf("user not found")
 }
 
 func (r *repository) FindByID(id string) (*models.User, error) {
@@ -108,18 +109,12 @@ func (r *repository) FindByID(id string) (*models.User, error) {
 }
 
 func (r *repository) ExistsByEmail(email string) (bool, error) {
-	resp, err := r.client.Databases.ListDocuments(
-		r.client.Config.DatabaseID,
-		CollectionUsers,
-		appwrite.WithListDocumentsQueries([]string{
-			query.Equal("email", email),
-			query.Limit(1),
-		}),
-	)
+	// Reuse FindByEmail which already handles the workaround
+	_, err := r.FindByEmail(email)
 	if err != nil {
-		return false, err
+		return false, nil
 	}
-	return len(resp.Documents) > 0, nil
+	return true, nil
 }
 
 func (r *repository) Update(user *models.User) error {

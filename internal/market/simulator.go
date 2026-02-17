@@ -1,7 +1,7 @@
 package market
 
 import (
-	"log"
+	"log/slog"
 	"math/rand"
 	"time"
 
@@ -45,13 +45,13 @@ func (s *Simulator) Stop() {
 func (s *Simulator) UpdateMarket() {
 	companies, err := s.stockRepo.ListCompanies(100, 0)
 	if err != nil {
-		log.Printf("Error fetching companies for simulation: %v", err)
+		slog.Error("Error fetching companies for simulation", "error", err)
 		return
 	}
 
 	for _, company := range companies {
 		if err := s.SimulateStockPrice(&company); err != nil {
-			log.Printf("Error simulating price for %s: %v", company.Symbol, err)
+			slog.Error("Error simulating price", "symbol", company.Symbol, "error", err)
 		}
 	}
 }

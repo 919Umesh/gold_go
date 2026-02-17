@@ -115,10 +115,11 @@ func (s *service) GetMarketOverview() (*MarketOverview, error) {
 		return nil, err
 	}
 
-	companies, _ := s.repo.ListCompanies(1, 0)
+	companies, _ := s.repo.ListCompanies(100, 0)
+	totalCount := len(companies)
 
 	return &MarketOverview{
-		TotalCompanies: len(companies),
+		TotalCompanies: totalCount,
 		TopGainers:     gainers,
 		TopLosers:      losers,
 		MostActive:     active,

@@ -20,6 +20,10 @@ func NewStockHandler(service stock.Service) *StockHandler {
 
 func (h *StockHandler) GetCompany(c *gin.Context) {
 	symbol := c.Param("symbol")
+	if symbol == "" {
+		apperr.RespondWithMessage(c, http.StatusBadRequest, "Symbol parameter required")
+		return
+	}
 
 	company, err := h.service.GetCompany(symbol)
 	if err != nil {
@@ -34,6 +38,19 @@ func (h *StockHandler) ListCompanies(c *gin.Context) {
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "50"))
 	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
 
+	// Validate and constrain limit
+	if limit <= 0 {
+		limit = 50
+	}
+	if limit > 100 {
+		limit = 100
+	}
+
+	// Ensure offset is non-negative
+	if offset < 0 {
+		offset = 0
+	}
+
 	companies, err := h.service.ListCompanies(limit, offset)
 	if err != nil {
 		apperr.RespondWithMessage(c, http.StatusInternalServerError, "Failed to fetch companies")
@@ -44,6 +61,7 @@ func (h *StockHandler) ListCompanies(c *gin.Context) {
 		"companies": companies,
 		"limit":     limit,
 		"offset":    offset,
+		"count":     len(companies),
 	})
 }
 
@@ -85,10 +103,14 @@ func (h *StockHandler) GetCompaniesBySector(c *gin.Context) {
 
 func (h *StockHandler) GetCurrentPrice(c *gin.Context) {
 	symbol := c.Param("symbol")
+	if symbol == "" {
+		apperr.RespondWithMessage(c, http.StatusBadRequest, "Symbol parameter required")
+		return
+	}
 
 	price, err := h.service.GetCurrentPrice(symbol)
 	if err != nil {
-		apperr.RespondWithMessage(c, http.StatusNotFound, "Price not available")
+		apperr.RespondWithMessage(c, http.StatusNotFound, err.Error())
 		return
 	}
 
@@ -97,12 +119,24 @@ func (h *StockHandler) GetCurrentPrice(c *gin.Context) {
 
 func (h *StockHandler) GetPriceHistory(c *gin.Context) {
 	symbol := c.Param("symbol")
-	timeframe := c.DefaultQuery("timeframe", "1d")
+	if symbol == "" {
+		apperr.RespondWithMessage(c, http.StatusBadRequest, "Symbol parameter required")
+		return
+	}
+
+	timeframe := c.DefaultQuery("timeframe", "1D")
 	days, _ := strconv.Atoi(c.DefaultQuery("days", "30"))
+
+	if days <= 0 {
+		days = 30
+	}
+	if days > 365 {
+		days = 365
+	}
 
 	prices, err := h.service.GetPriceHistory(symbol, timeframe, days)
 	if err != nil {
-		apperr.RespondWithMessage(c, http.StatusNotFound, "History not available")
+		apperr.RespondWithMessage(c, http.StatusNotFound, err.Error())
 		return
 	}
 

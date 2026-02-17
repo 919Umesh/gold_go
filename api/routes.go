@@ -41,88 +41,94 @@ func (r *Router) setupRoutes() {
 		c.JSON(200, gin.H{"status": "ok"})
 	})
 
-	// Initialize repositories once for reuse
+	// Initialize repositories
 	authRepo := auth.NewRepository(r.client)
 	stockRepo := stock.NewRepository(r.client)
+	walletRepo := wallet.NewRepository(r.client)
+	tradingRepo := trading.NewRepository(r.client)
+
+	// Initialize services
+	authService := auth.NewService(authRepo, r.cfg.JWTSecret)
+	stockService := stock.NewService(stockRepo)
+	mlService := ml.NewService(stockRepo)
+	walletService := wallet.NewService(walletRepo, r.workerPool)
+	tradingService := trading.NewService(tradingRepo, stockRepo)
+
+	// Initialize handlers
+	authHandler := auth.NewHandler(authService)
+	stockHandler := NewStockHandler(stockService)
+	predictionHandler := NewPredictionHandler(mlService)
+	walletHandler := wallet.NewHandler(walletService)
+	tradingHandler := NewTradingHandler(tradingService)
+	adminHandler := NewAdminHandler(stockRepo)
 
 	v1 := r.engine.Group("/api/v1")
 	{
-
-		public := v1.Group("")
+		authRoutes := v1.Group("/auth")
 		{
-			authService := auth.NewService(authRepo, r.cfg.JWTSecret)
-			authHandler := auth.NewHandler(authService)
+			authRoutes.POST("/register", authHandler.Register)
+			authRoutes.POST("/login", authHandler.Login)
+		}
 
-			public.POST("/auth/register", authHandler.Register)
-			public.POST("/auth/login", authHandler.Login)
+		stockRoutes := v1.Group("/stocks")
+		{
+			stockRoutes.GET("", stockHandler.ListCompanies)
+			stockRoutes.GET("/search", stockHandler.SearchCompanies)
+			stockRoutes.GET("/market-overview", stockHandler.GetMarketOverview)
+			stockRoutes.GET("/top-gainers", stockHandler.GetTopGainers)
+			stockRoutes.GET("/top-losers", stockHandler.GetTopLosers)
+			stockRoutes.GET("/most-active", stockHandler.GetMostActive)
+			stockRoutes.GET("/:symbol", stockHandler.GetCompany)
+			stockRoutes.GET("/:symbol/price", stockHandler.GetCurrentPrice)
+			stockRoutes.GET("/:symbol/history", stockHandler.GetPriceHistory)
+			stockRoutes.GET("/:symbol/events", stockHandler.GetUpcomingEvents)
+		}
 
-			// Stock Market
-			stockService := stock.NewService(stockRepo)
-			stockHandler := NewStockHandler(stockService)
+		sectorRoutes := v1.Group("/sectors")
+		{
+			sectorRoutes.GET("", stockHandler.GetAllSectors)
+			sectorRoutes.GET("/:sector/companies", stockHandler.GetCompaniesBySector)
+			sectorRoutes.GET("/:sector/stats", stockHandler.GetSectorStats)
+		}
 
-			public.GET("/stocks", stockHandler.ListCompanies)
-			public.GET("/stocks/search", stockHandler.SearchCompanies)
-			public.GET("/stocks/:symbol", stockHandler.GetCompany)
-			public.GET("/stocks/:symbol/price", stockHandler.GetCurrentPrice)
-			public.GET("/stocks/:symbol/history", stockHandler.GetPriceHistory)
-			public.GET("/stocks/market-overview", stockHandler.GetMarketOverview)
-			public.GET("/stocks/top-gainers", stockHandler.GetTopGainers)
-			public.GET("/stocks/top-losers", stockHandler.GetTopLosers)
-			public.GET("/stocks/most-active", stockHandler.GetMostActive)
-			public.GET("/stocks/:symbol/events", stockHandler.GetUpcomingEvents)
-
-			// Sector APIs
-			public.GET("/sectors", stockHandler.GetAllSectors)
-			public.GET("/sectors/:sector/companies", stockHandler.GetCompaniesBySector)
-			public.GET("/sectors/:sector/stats", stockHandler.GetSectorStats)
-
-			// Prediction API
-			mlService := ml.NewService(stockRepo)
-			predictionHandler := NewPredictionHandler(mlService)
-			public.GET("/prediction/:symbol", predictionHandler.GetPrediction)
+		predictionRoutes := v1.Group("/prediction")
+		{
+			predictionRoutes.GET("/:symbol", predictionHandler.GetPrediction)
 		}
 
 		protected := v1.Group("")
 		protected.Use(middleware.JWTAuth(r.cfg))
 		{
-			authService := auth.NewService(authRepo, r.cfg.JWTSecret)
-			authHandler := auth.NewHandler(authService)
+			profileRoutes := protected.Group("/auth")
+			{
+				profileRoutes.GET("/profile", authHandler.GetProfile)
+				profileRoutes.PUT("/profile/update", authHandler.UpdateProfile)
+				profileRoutes.POST("/profile/image", authHandler.UploadProfileImage)
+			}
 
-			protected.GET("/auth/profile", authHandler.GetProfile)
-			protected.PUT("/auth/profile/update", authHandler.UpdateProfile)
-			protected.POST("/auth/profile/image", authHandler.UploadProfileImage)
-
-			walletRepo := wallet.NewRepository(r.client)
-			walletService := wallet.NewService(walletRepo, r.workerPool)
-			walletHandler := wallet.NewHandler(walletService)
-
-			protected.GET("/wallet", walletHandler.GetWallet)
+			walletRoutes := protected.Group("/wallet")
+			{
+				walletRoutes.GET("", walletHandler.GetWallet)
+				walletRoutes.POST("/topup", walletHandler.TopUp)
+			}
 			protected.GET("/transaction", walletHandler.GetUserTransaction)
-			protected.POST("/wallet/topup", walletHandler.TopUp)
 
-			tradingRepo := trading.NewRepository(r.client)
-			tradingService := trading.NewService(tradingRepo, stockRepo)
-			tradingHandler := NewTradingHandler(tradingService)
-
-			protected.GET("/trading/wallet", tradingHandler.GetWallet)
-			protected.GET("/trading/portfolio", tradingHandler.GetPortfolio)
-			protected.POST("/trading/buy", tradingHandler.BuyStock)
-			protected.POST("/trading/sell", tradingHandler.SellStock)
-			protected.GET("/trading/transactions", tradingHandler.GetTransactionHistory)
+			tradingRoutes := protected.Group("/trading")
+			{
+				tradingRoutes.GET("/wallet", tradingHandler.GetWallet)
+				tradingRoutes.GET("/portfolio", tradingHandler.GetPortfolio)
+				tradingRoutes.POST("/buy", tradingHandler.BuyStock)
+				tradingRoutes.POST("/sell", tradingHandler.SellStock)
+				tradingRoutes.GET("/transactions", tradingHandler.GetTransactionHistory)
+			}
 		}
 
 		admin := v1.Group("/admin")
 		admin.Use(middleware.JWTAuth(r.cfg))
 		admin.Use(middleware.AdminAuth(authRepo))
 		{
-			authService := auth.NewService(authRepo, r.cfg.JWTSecret)
-			authHandler := auth.NewHandler(authService)
-
 			admin.PUT("/users/:user_id/kyc", authHandler.UpdateKYC)
-
-			adminHandler := NewAdminHandler(stockRepo)
 			admin.POST("/seed-stocks", adminHandler.SeedStockData)
-
 		}
 	}
 }

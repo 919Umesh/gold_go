@@ -102,8 +102,9 @@ func (r *repository) GetCompanyBySymbol(symbol string) (*models.Company, error) 
 	if err != nil {
 		return nil, err
 	}
-	if len(resp.Documents) == 0 {
-		return nil, fmt.Errorf("company not found")
+
+	if resp.Total == 0 {
+		return nil, fmt.Errorf("company with symbol %s not found", symbol)
 	}
 
 	var company models.Company
@@ -165,12 +166,31 @@ func (r *repository) ListCompaniesBySector(sector string, limit, offset int) ([]
 }
 
 func (r *repository) SearchCompanies(q string, limit int) ([]models.Company, error) {
+	// First try searching by symbol (exact match first)
 	resp, err := r.client.Databases.ListDocuments(
 		r.client.Config.DatabaseID,
 		CollectionCompanies,
 		appwrite.WithListDocumentsQueries([]string{
-			query.Equal("is_active", true),
+			query.Equal("symbol", q),
+			query.Limit(1),
+		}),
+	)
+	if err == nil && resp.Total > 0 {
+		var companies []models.Company
+		var c models.Company
+		if err := appwrite.DecodeListItem(resp, 0, &c); err == nil && c.IsActive {
+			companies = append(companies, c)
+			return companies, nil
+		}
+	}
+
+	// Fall back to searching name
+	resp, err = r.client.Databases.ListDocuments(
+		r.client.Config.DatabaseID,
+		CollectionCompanies,
+		appwrite.WithListDocumentsQueries([]string{
 			query.Search("name", q),
+			query.Equal("is_active", true),
 			query.Limit(limit),
 		}),
 	)
@@ -241,7 +261,6 @@ func (r *repository) GetLatestPrice(companyID string) (*models.StockPrice, error
 		CollectionStockPrices,
 		appwrite.WithListDocumentsQueries([]string{
 			query.Equal("company_id", companyID),
-			query.Equal("timeframe", "1D"), // Changed from 1d to 1D to match data
 			query.OrderDesc("timestamp"),
 			query.Limit(1),
 		}),
@@ -249,8 +268,9 @@ func (r *repository) GetLatestPrice(companyID string) (*models.StockPrice, error
 	if err != nil {
 		return nil, err
 	}
-	if len(resp.Documents) == 0 {
-		return nil, fmt.Errorf("no price data found")
+
+	if resp.Total == 0 {
+		return nil, fmt.Errorf("no price data found for company %s", companyID)
 	}
 
 	var price models.StockPrice
@@ -267,7 +287,6 @@ func (r *repository) GetPriceHistory(companyID string, timeframe string, from, t
 		appwrite.WithListDocumentsQueries([]string{
 			query.Equal("company_id", companyID),
 			query.Equal("timeframe", timeframe),
-			query.Between("timestamp", from.Format(time.RFC3339), to.Format(time.RFC3339)),
 			query.OrderDesc("timestamp"),
 			query.Limit(limit),
 		}),
@@ -280,7 +299,9 @@ func (r *repository) GetPriceHistory(companyID string, timeframe string, from, t
 	for i := range resp.Documents {
 		var p models.StockPrice
 		if err := appwrite.DecodeListItem(resp, i, &p); err == nil {
-			prices = append(prices, p)
+			if !p.Timestamp.Before(from) && !p.Timestamp.After(to) {
+				prices = append(prices, p)
+			}
 		}
 	}
 	return prices, nil
@@ -292,7 +313,6 @@ func (r *repository) GetPriceAtTime(companyID string, timestamp time.Time) (*mod
 		CollectionStockPrices,
 		appwrite.WithListDocumentsQueries([]string{
 			query.Equal("company_id", companyID),
-			query.LessThanEqual("timestamp", timestamp.Format(time.RFC3339)),
 			query.OrderDesc("timestamp"),
 			query.Limit(1),
 		}),
@@ -300,8 +320,9 @@ func (r *repository) GetPriceAtTime(companyID string, timestamp time.Time) (*mod
 	if err != nil {
 		return nil, err
 	}
-	if len(resp.Documents) == 0 {
-		return nil, fmt.Errorf("no price data found")
+
+	if resp.Total == 0 {
+		return nil, fmt.Errorf("no price data found for company %s", companyID)
 	}
 
 	var price models.StockPrice
@@ -444,8 +465,7 @@ func (r *repository) GetUpcomingEvents(companyID string, limit int) ([]models.Ma
 		CollectionMarketEvents,
 		appwrite.WithListDocumentsQueries([]string{
 			query.Equal("company_id", companyID),
-			query.GreaterThanEqual("event_date", time.Now().Format(time.RFC3339)),
-			query.OrderAsc("event_date"),
+			query.OrderDesc("event_date"),
 			query.Limit(limit),
 		}),
 	)
@@ -453,11 +473,14 @@ func (r *repository) GetUpcomingEvents(companyID string, limit int) ([]models.Ma
 		return nil, err
 	}
 
+	now := time.Now()
 	var events []models.MarketEvent
 	for i := range resp.Documents {
 		var e models.MarketEvent
 		if err := appwrite.DecodeListItem(resp, i, &e); err == nil {
-			events = append(events, e)
+			if !e.EventDate.Before(now) {
+				events = append(events, e)
+			}
 		}
 	}
 	return events, nil

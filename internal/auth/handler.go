@@ -1,7 +1,7 @@
 package auth
 
 import (
-	"fmt"
+	"log/slog"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -53,7 +53,7 @@ func (h *Handler) Register(c *gin.Context) {
 			apperr.RespondWithMessage(c, http.StatusConflict, "user already exists")
 			return
 		}
-		fmt.Printf("Registration error: %v\n", err)
+		slog.Error("Registration error", "error", err)
 		apperr.RespondWithMessage(c, http.StatusInternalServerError, "registration failed")
 		return
 	}

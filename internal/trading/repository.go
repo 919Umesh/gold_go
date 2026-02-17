@@ -75,8 +75,9 @@ func (r *repository) GetVirtualWallet(userID string) (*models.VirtualWallet, err
 	if err != nil {
 		return nil, err
 	}
-	if len(resp.Documents) == 0 {
-		return nil, fmt.Errorf("virtual wallet not found")
+
+	if resp.Total == 0 {
+		return nil, fmt.Errorf("virtual wallet not found for user %s", userID)
 	}
 
 	var wallet models.VirtualWallet
@@ -111,8 +112,7 @@ func (r *repository) GetPortfolio(userID string) ([]models.UserPortfolio, error)
 		CollectionUserPortfolios,
 		appwrite.WithListDocumentsQueries([]string{
 			query.Equal("user_id", userID),
-			query.GreaterThan("quantity", 0),
-			query.OrderDesc("total_invested"),
+			query.Limit(100), // Assuming a user won't have more than 100 different stocks
 		}),
 	)
 	if err != nil {
@@ -123,7 +123,9 @@ func (r *repository) GetPortfolio(userID string) ([]models.UserPortfolio, error)
 	for i := range resp.Documents {
 		var item models.UserPortfolio
 		if err := appwrite.DecodeListItem(resp, i, &item); err == nil {
-			portfolio = append(portfolio, item)
+			if item.Quantity > 0 {
+				portfolio = append(portfolio, item)
+			}
 		}
 	}
 	return portfolio, nil
@@ -142,7 +144,8 @@ func (r *repository) GetPortfolioItem(userID, companyID string) (*models.UserPor
 	if err != nil {
 		return nil, err
 	}
-	if len(resp.Documents) == 0 {
+
+	if resp.Total == 0 {
 		return nil, fmt.Errorf("portfolio item not found")
 	}
 
