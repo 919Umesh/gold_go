@@ -36,7 +36,5 @@ services:
       - key: GOLD_PROVIDER_URL
         value: https://api.goldprovider.com  # Update with your actual provider
     
-    healthCheckPath: /health  # Add a health endpoint to your API
-    
     autoDeploy: true  # Auto-deploy on push to main branch
 
