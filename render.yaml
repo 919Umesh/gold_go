@@ -8,7 +8,6 @@ services:
     branch: main
     dockerfilePath: ./Dockerfile
     healthCheckPath: /health
-    healthCheckProtocol: http
     envVars:
       # Server Configuration
       - key: PORT
