@@ -8,14 +8,14 @@ import (
 
 // UserPortfolio represents a user's stock holdings
 type UserPortfolio struct {
-	ID            string          `json:"$id,omitempty"`
+	ID            string          `json:"id,omitempty"`
 	UserID        string          `json:"user_id"`
 	CompanyID     string          `json:"company_id"`
 	Quantity      int             `json:"quantity"`
 	AvgBuyPrice   decimal.Decimal `json:"average_price"`
 	TotalInvested decimal.Decimal `json:"total_invested"`
-	CreatedAt     time.Time       `json:"$createdAt,omitempty"`
-	UpdatedAt     time.Time       `json:"$updatedAt,omitempty"`
+	CreatedAt     time.Time       `json:"created_at,omitempty"`
+	UpdatedAt     time.Time       `json:"updated_at,omitempty"`
 
 	// Relationships
 	User    *User    `json:"user,omitempty"`

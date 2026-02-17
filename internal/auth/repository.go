@@ -4,18 +4,15 @@ import (
 	"fmt"
 	"io"
 	"mime/multipart"
-	"os"
+	"net/http"
 
-	"github.com/919Umesh/stock_market_sim/internal/appwrite"
+	"github.com/919Umesh/stock_market_sim/internal/supabase"
 	"github.com/919Umesh/stock_market_sim/models"
-
-	"github.com/appwrite/sdk-for-go/file"
-	"github.com/appwrite/sdk-for-go/id"
-	"github.com/appwrite/sdk-for-go/query"
+	"github.com/google/uuid"
 )
 
 const (
-	CollectionUsers    = "users"
+	TableUsers         = "users"
 	BucketUserProfiles = "user-profiles"
 )
 
@@ -29,141 +26,110 @@ type Repository interface {
 }
 
 type repository struct {
-	client *appwrite.Client
+	client *supabase.Client
 }
 
-func NewRepository(client *appwrite.Client) Repository {
+func NewRepository(client *supabase.Client) Repository {
 	return &repository{client: client}
 }
 
+// =============================================================================
+// Create — INSERT INTO users (full_name, email, phone, password_hash, kyc_status, role)
+//
+//	VALUES ($1, $2, $3, $4, $5, $6) RETURNING *
+//
+// =============================================================================
 func (r *repository) Create(user *models.User) error {
-	data := map[string]interface{}{
-		"full_name":     user.FullName,
-		"email":         user.Email,
-		"phone":         user.Phone,
-		"password_hash": user.PasswordHash,
-		"kyc_status":    user.KYCStatus,
-		"role":          user.Role,
-	}
-
-	docID := id.Unique()
-
-	resp, err := r.client.Databases.CreateDocument(
-		r.client.Config.DatabaseID,
-		CollectionUsers,
-		docID,
-		data,
-	)
-	if err != nil {
-		return err
-	}
-
-	// Use Decode to populate CreatedAt/UpdatedAt
-	return appwrite.Decode(resp, user)
+	query := `INSERT INTO users (full_name, email, phone, password_hash, kyc_status, role)
+			  VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`
+	return r.client.ExecuteInsert(query, user,
+		user.FullName, user.Email, user.Phone, user.PasswordHash, user.KYCStatus, user.Role)
 }
 
+// =============================================================================
+// FindByEmail — SELECT * FROM users WHERE email = $1
+// =============================================================================
 func (r *repository) FindByEmail(email string) (*models.User, error) {
-	// WORKAROUND: Appwrite query.Equal() is unreliable, fetch all and filter in Go
-	resp, err := r.client.Databases.ListDocuments(
-		r.client.Config.DatabaseID,
-		CollectionUsers,
-		appwrite.WithListDocumentsQueries([]string{
-			query.Limit(100),
-		}),
-	)
-
-	if err != nil {
-		return nil, err
-	}
-
-	for i := range resp.Documents {
-		var user models.User
-		if err := appwrite.DecodeListItem(resp, i, &user); err != nil {
-			continue
-		}
-		if user.Email == email {
-			return &user, nil
-		}
-	}
-
-	return nil, fmt.Errorf("user not found")
-}
-
-func (r *repository) FindByID(id string) (*models.User, error) {
-	doc, err := r.client.Databases.GetDocument(
-		r.client.Config.DatabaseID,
-		CollectionUsers,
-		id,
-	)
-
-	if err != nil {
-		return nil, err
-	}
-
 	var user models.User
-	if err := appwrite.Decode(doc, &user); err != nil {
-		return nil, fmt.Errorf("failed to decode user: %w", err)
+	query := "SELECT * FROM users WHERE email = $1"
+	err := r.client.ExecuteQueryRow(query, &user, email)
+	if err != nil {
+		return nil, fmt.Errorf("user not found")
 	}
-
 	return &user, nil
 }
 
+// =============================================================================
+// FindByID — SELECT * FROM users WHERE id = $1
+// =============================================================================
+func (r *repository) FindByID(id string) (*models.User, error) {
+	var user models.User
+	query := "SELECT * FROM users WHERE id = $1"
+	err := r.client.ExecuteQueryRow(query, &user, id)
+	if err != nil {
+		return nil, fmt.Errorf("user not found")
+	}
+	return &user, nil
+}
+
+// =============================================================================
+// ExistsByEmail — SELECT EXISTS(SELECT 1 FROM users WHERE email = $1)
+// =============================================================================
 func (r *repository) ExistsByEmail(email string) (bool, error) {
-	// Reuse FindByEmail which already handles the workaround
 	_, err := r.FindByEmail(email)
 	if err != nil {
-		return false, nil
+		return false, nil // not found = doesn't exist
 	}
 	return true, nil
 }
 
+// =============================================================================
+// Update — UPDATE users SET full_name=$1, phone=$2, kyc_status=$3, role=$4,
+//
+//	profile_image_id=$5 WHERE id = $6 RETURNING *
+//
+// =============================================================================
 func (r *repository) Update(user *models.User) error {
-	data := map[string]interface{}{
-		"full_name":        user.FullName,
-		"phone":            user.Phone,
-		"kyc_status":       user.KYCStatus,
-		"role":             user.Role,
-		"profile_image_id": user.ProfileImageID,
-	}
-
-	resp, err := r.client.Databases.UpdateDocument(
-		r.client.Config.DatabaseID,
-		CollectionUsers,
-		user.ID,
-		r.client.Databases.WithUpdateDocumentData(data),
-	)
-	if err != nil {
-		return err
-	}
-	return appwrite.Decode(resp, user)
+	query := `UPDATE users SET full_name = $1, phone = $2, kyc_status = $3, role = $4,
+			  profile_image_id = $5 WHERE id = $6 RETURNING *`
+	return r.client.ExecuteUpdate(query, user,
+		user.FullName, user.Phone, user.KYCStatus, user.Role, user.ProfileImageID, user.ID)
 }
 
+// =============================================================================
+// UploadProfileImage — Upload a file to Supabase Storage
+// =============================================================================
 func (r *repository) UploadProfileImage(f multipart.File, filename string) (string, error) {
-	// Create a temp file
-	tempFile, err := os.CreateTemp("", "upload-*")
+	// Step 1: Generate a unique path
+	path := fmt.Sprintf("profiles/%s_%s", uuid.New().String(), filename)
+
+	// Step 2: Build the upload URL
+	uploadURL := fmt.Sprintf("%s/object/%s/%s", r.client.StorageURL(), BucketUserProfiles, path)
+
+	// Step 3: Create POST request with file as body
+	req, err := http.NewRequest("POST", uploadURL, io.Reader(f))
 	if err != nil {
-		return "", fmt.Errorf("failed to create temp file: %w", err)
-	}
-	defer os.Remove(tempFile.Name()) // Clean up
-	defer tempFile.Close()
-
-	// Copy multipart file to temp file
-	if _, err := io.Copy(tempFile, f); err != nil {
-		return "", fmt.Errorf("failed to save temp file: %w", err)
+		return "", fmt.Errorf("failed to create upload request: %w", err)
 	}
 
-	inputFile := file.InputFile{
-		Name: filename,
-		Path: tempFile.Name(), // SDK uses Path to read file
-	}
+	// Step 4: Set headers
+	r.client.SetHeaders(req)
+	req.Header.Set("Content-Type", "image/*")
 
-	resp, err := r.client.Storage.CreateFile(
-		BucketUserProfiles,
-		id.Unique(),
-		inputFile,
-	)
+	// Step 5: Send
+	resp, err := r.client.HTTPClient.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("failed to upload file to appwrite: %w", err)
+		return "", fmt.Errorf("upload request failed: %w", err)
 	}
-	return resp.Id, nil
+	defer resp.Body.Close()
+
+	respBody, _ := io.ReadAll(resp.Body)
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return "", fmt.Errorf("upload error (status %d): %s", resp.StatusCode, string(respBody))
+	}
+
+	// Step 6: Build the public URL
+	publicURL := fmt.Sprintf("%s/object/public/%s/%s", r.client.StorageURL(), BucketUserProfiles, path)
+	return publicURL, nil
 }

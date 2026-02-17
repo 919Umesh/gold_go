@@ -7,7 +7,7 @@ import (
 )
 
 type StockPrice struct {
-	ID         string          `json:"$id,omitempty"`
+	ID         string          `json:"id,omitempty"`
 	CompanyID  string          `json:"company_id"`
 	OpenPrice  decimal.Decimal `json:"open_price"`
 	HighPrice  decimal.Decimal `json:"high_price"`
@@ -16,7 +16,7 @@ type StockPrice struct {
 	Volume     int64           `json:"volume"`
 	Timestamp  time.Time       `json:"timestamp"`
 	Timeframe  string          `json:"timeframe"`
-	CreatedAt  time.Time       `json:"$createdAt,omitempty"`
+	CreatedAt  time.Time       `json:"created_at,omitempty"`
 
 	Company *Company `json:"company,omitempty"`
 }

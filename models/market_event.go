@@ -4,7 +4,6 @@ import (
 	"time"
 )
 
-
 type MarketEventType string
 
 const (
@@ -17,14 +16,14 @@ const (
 )
 
 type MarketEvent struct {
-	ID               string          `json:"$id,omitempty"`
+	ID               string          `json:"id,omitempty"`
 	CompanyID        string          `json:"company_id"`
 	EventType        MarketEventType `json:"event_type"`
 	Title            string          `json:"title"`
 	Description      string          `json:"description"`
 	ImpactPercentage float64         `json:"impact_percentage"`
 	EventDate        time.Time       `json:"event_date"`
-	CreatedAt        time.Time       `json:"$createdAt,omitempty"`
+	CreatedAt        time.Time       `json:"created_at,omitempty"`
 
 	Company *Company `json:"company,omitempty"`
 }

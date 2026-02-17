@@ -23,7 +23,7 @@ const (
 )
 
 type StockTransaction struct {
-	ID            string                 `json:"$id,omitempty"`
+	ID            string                 `json:"id,omitempty"`
 	UserID        string                 `json:"user_id"`
 	CompanyID     string                 `json:"company_id"`
 	Type          StockTransactionType   `json:"type"`
@@ -32,7 +32,7 @@ type StockTransaction struct {
 	TotalAmount   decimal.Decimal        `json:"total_amount"`
 	Status        StockTransactionStatus `json:"status"`
 	ReferenceID   string                 `json:"reference_id"`
-	CreatedAt     time.Time              `json:"$createdAt,omitempty"`
+	CreatedAt     time.Time              `json:"created_at,omitempty"`
 
 	User    *User    `json:"user,omitempty"`
 	Company *Company `json:"company,omitempty"`

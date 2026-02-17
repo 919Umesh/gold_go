@@ -28,6 +28,7 @@ Thumbs.db
 # Build artifacts
 /bin/
 /dist/
+/main
 /server
 
 # Generated files

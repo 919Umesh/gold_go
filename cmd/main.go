@@ -10,7 +10,7 @@ import (
 
 	"github.com/919Umesh/stock_market_sim/api"
 	"github.com/919Umesh/stock_market_sim/config"
-	"github.com/919Umesh/stock_market_sim/internal/appwrite"
+	"github.com/919Umesh/stock_market_sim/internal/supabase"
 	"github.com/919Umesh/stock_market_sim/pkg/logger"
 	"github.com/919Umesh/stock_market_sim/pkg/queue"
 	"github.com/joho/godotenv"
@@ -26,9 +26,9 @@ func main() {
 
 	cfg := config.InitConfig()
 
-	appwriteClient, err := appwrite.NewClient()
+	supabaseClient, err := supabase.NewClient()
 	if err != nil {
-		slog.Error("Failed to initialize Appwrite client", "error", err)
+		slog.Error("Failed to initialize Supabase client", "error", err)
 		os.Exit(1)
 	}
 
@@ -36,7 +36,7 @@ func main() {
 	workerPool.Start()
 	slog.Info("Worker pool started", "workers", cfg.WorkerCount)
 
-	router := api.NewRouter(appwriteClient, cfg, workerPool)
+	router := api.NewRouter(supabaseClient, cfg, workerPool)
 
 	serverAddr := ":" + cfg.ServerPort
 	go func() {

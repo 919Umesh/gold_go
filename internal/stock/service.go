@@ -11,8 +11,10 @@ import (
 type Service interface {
 	GetCompany(symbol string) (*models.Company, error)
 	ListCompanies(limit, offset int) ([]models.Company, error)
+	ListCompaniesWithTotal(limit, offset int) ([]models.Company, int, error)
 	SearchCompanies(query string) ([]models.Company, error)
 	GetCompaniesBySector(sector string, limit, offset int) ([]models.Company, error)
+	GetCompaniesBySectorWithTotal(sector string, limit, offset int) ([]models.Company, int, error)
 	GetAllSectors() ([]string, error)
 
 	GetCurrentPrice(symbol string) (*models.StockPrice, error)
@@ -60,6 +62,21 @@ func (s *service) ListCompanies(limit, offset int) ([]models.Company, error) {
 	return s.repo.ListCompanies(limit, offset)
 }
 
+func (s *service) ListCompaniesWithTotal(limit, offset int) ([]models.Company, int, error) {
+	if limit <= 0 || limit > 100 {
+		limit = 50
+	}
+	companies, err := s.repo.ListCompanies(limit, offset)
+	if err != nil {
+		return nil, 0, err
+	}
+	total, err := s.repo.GetTotalCompaniesCount()
+	if err != nil {
+		return companies, 0, nil // Return companies even if count fails
+	}
+	return companies, total, nil
+}
+
 func (s *service) SearchCompanies(query string) ([]models.Company, error) {
 	if query == "" {
 		return []models.Company{}, nil
@@ -72,6 +89,21 @@ func (s *service) GetCompaniesBySector(sector string, limit, offset int) ([]mode
 		limit = 50
 	}
 	return s.repo.ListCompaniesBySector(sector, limit, offset)
+}
+
+func (s *service) GetCompaniesBySectorWithTotal(sector string, limit, offset int) ([]models.Company, int, error) {
+	if limit <= 0 || limit > 100 {
+		limit = 50
+	}
+	companies, err := s.repo.ListCompaniesBySector(sector, limit, offset)
+	if err != nil {
+		return nil, 0, err
+	}
+	total, err := s.repo.GetTotalCompaniesBySectorCount(sector)
+	if err != nil {
+		return companies, 0, nil // Return companies even if count fails
+	}
+	return companies, total, nil
 }
 
 func (s *service) GetAllSectors() ([]string, error) {

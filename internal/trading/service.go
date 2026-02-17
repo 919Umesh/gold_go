@@ -3,6 +3,7 @@ package trading
 import (
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/919Umesh/stock_market_sim/internal/stock"
 	"github.com/919Umesh/stock_market_sim/models"
@@ -71,7 +72,7 @@ func (s *service) CreateWallet(userID string) (*models.VirtualWallet, error) {
 
 	wallet := &models.VirtualWallet{
 		UserID:          userID,
-		Balance:         decimal.NewFromInt(1000000), // Start with 1 Lakh or 1M
+		Balance:         decimal.Zero, // Start with 0 balance — user must top up first
 		TotalInvested:   decimal.Zero,
 		TotalProfitLoss: decimal.Zero,
 	}
@@ -165,9 +166,33 @@ func (s *service) BuyStock(userID, symbol string, quantity int) (*TradeResult, e
 		return &TradeResult{Success: false, Message: "Company not found"}, nil
 	}
 
+	// Check if enough shares are available in the market
+	if company.AvailableShares < int64(quantity) {
+		return &TradeResult{
+			Success: false,
+			Message: fmt.Sprintf("Insufficient shares available. Only %d shares in market", company.AvailableShares),
+		}, nil
+	}
+
+	// Get the latest price; if no price exists yet, create an initial price of 100
 	price, err := s.stockRepo.GetLatestPrice(company.ID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get stock price: %w", err)
+		// No price record exists — create initial price of 100
+		initialPrice := decimal.NewFromInt(100)
+		initialStockPrice := &models.StockPrice{
+			CompanyID:  company.ID,
+			OpenPrice:  initialPrice,
+			HighPrice:  initialPrice,
+			LowPrice:   initialPrice,
+			ClosePrice: initialPrice,
+			Volume:     0,
+			Timestamp:  time.Now(),
+			Timeframe:  "1D",
+		}
+		if createErr := s.stockRepo.CreateStockPrice(initialStockPrice); createErr != nil {
+			return nil, fmt.Errorf("failed to create initial stock price: %w", createErr)
+		}
+		price = initialStockPrice
 	}
 
 	totalAmount := price.ClosePrice.Mul(decimal.NewFromInt(int64(quantity)))
@@ -175,6 +200,19 @@ func (s *service) BuyStock(userID, symbol string, quantity int) (*TradeResult, e
 	err = s.repo.ExecuteBuy(userID, company.ID, quantity, price.ClosePrice)
 	if err != nil {
 		return &TradeResult{Success: false, Message: err.Error()}, nil
+	}
+
+	// Update available shares (decrease) — shares move from market to user
+	newAvailableShares := company.AvailableShares - int64(quantity)
+	if err := s.stockRepo.UpdateCompanyShares(company.ID, newAvailableShares); err != nil {
+		// Log but don't fail the transaction
+		fmt.Printf("Warning: failed to update available shares: %v\n", err)
+	}
+
+	// Update trading volume on the stock price
+	if err := s.stockRepo.UpdateStockPriceVolume(price.ID, int64(quantity)); err != nil {
+		// Log but don't fail the transaction
+		fmt.Printf("Warning: failed to update volume: %v\n", err)
 	}
 
 	wallet, _ := s.repo.GetVirtualWallet(userID)
@@ -199,9 +237,25 @@ func (s *service) SellStock(userID, symbol string, quantity int) (*TradeResult, 
 		return &TradeResult{Success: false, Message: "Company not found"}, nil
 	}
 
+	// Get the latest price; if no price exists yet, create an initial price of 100
 	price, err := s.stockRepo.GetLatestPrice(company.ID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get stock price: %w", err)
+		// No price record exists — create initial price of 100
+		initialPrice := decimal.NewFromInt(100)
+		initialStockPrice := &models.StockPrice{
+			CompanyID:  company.ID,
+			OpenPrice:  initialPrice,
+			HighPrice:  initialPrice,
+			LowPrice:   initialPrice,
+			ClosePrice: initialPrice,
+			Volume:     0,
+			Timestamp:  time.Now(),
+			Timeframe:  "1D",
+		}
+		if createErr := s.stockRepo.CreateStockPrice(initialStockPrice); createErr != nil {
+			return nil, fmt.Errorf("failed to create initial stock price: %w", createErr)
+		}
+		price = initialStockPrice
 	}
 
 	totalAmount := price.ClosePrice.Mul(decimal.NewFromInt(int64(quantity)))
@@ -209,6 +263,23 @@ func (s *service) SellStock(userID, symbol string, quantity int) (*TradeResult, 
 	err = s.repo.ExecuteSell(userID, company.ID, quantity, price.ClosePrice)
 	if err != nil {
 		return &TradeResult{Success: false, Message: err.Error()}, nil
+	}
+
+	// Update available shares (increase) — shares move from user back to market
+	newAvailableShares := company.AvailableShares + int64(quantity)
+	// Cap at total shares (can't exceed total issued shares)
+	if newAvailableShares > company.TotalShares {
+		newAvailableShares = company.TotalShares
+	}
+	if err := s.stockRepo.UpdateCompanyShares(company.ID, newAvailableShares); err != nil {
+		// Log but don't fail the transaction
+		fmt.Printf("Warning: failed to update available shares: %v\n", err)
+	}
+
+	// Update trading volume on the stock price
+	if err := s.stockRepo.UpdateStockPriceVolume(price.ID, int64(quantity)); err != nil {
+		// Log but don't fail the transaction
+		fmt.Printf("Warning: failed to update volume: %v\n", err)
 	}
 
 	wallet, _ := s.repo.GetVirtualWallet(userID)

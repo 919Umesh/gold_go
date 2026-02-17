@@ -3,16 +3,14 @@ package wallet
 import (
 	"fmt"
 
-	"github.com/919Umesh/stock_market_sim/internal/appwrite"
+	"github.com/919Umesh/stock_market_sim/internal/supabase"
 	"github.com/919Umesh/stock_market_sim/models"
-	"github.com/appwrite/sdk-for-go/id"
-	"github.com/appwrite/sdk-for-go/query"
 )
 
 const (
-	CollectionWallets      = "virtual_wallets"
-	CollectionTransactions = "transactions"
-	CollectionUsers        = "users"
+	TableWallets      = "virtual_wallets"
+	TableTransactions = "transactions"
+	TableUsers        = "users"
 )
 
 type Repository interface {
@@ -29,165 +27,116 @@ type Repository interface {
 }
 
 type repository struct {
-	client *appwrite.Client
+	client *supabase.Client
 }
 
-func NewRepository(client *appwrite.Client) Repository {
+func NewRepository(client *supabase.Client) Repository {
 	return &repository{client: client}
 }
 
+// =============================================================================
+// FindUserByID — SELECT * FROM users WHERE id = $1
+// =============================================================================
 func (r *repository) FindUserByID(userID string) (*models.User, error) {
-	doc, err := r.client.Databases.GetDocument(
-		r.client.Config.DatabaseID,
-		CollectionUsers,
-		userID,
-	)
-
-	if err != nil {
-		return nil, err
-	}
-
 	var user models.User
-	if err := appwrite.Decode(doc, &user); err != nil {
-		return nil, fmt.Errorf("failed to decode user: %w", err)
+	query := "SELECT * FROM users WHERE id = $1"
+	err := r.client.ExecuteQueryRow(query, &user, userID)
+	if err != nil {
+		return nil, fmt.Errorf("user not found")
 	}
-
 	return &user, nil
 }
 
+// =============================================================================
+// GetByUserID — SELECT * FROM virtual_wallets WHERE user_id = $1
+// =============================================================================
 func (r *repository) GetByUserID(userID string) (*models.Wallet, error) {
-	// WORKAROUND: Appwrite query.Equal() is unreliable, fetch all and filter in Go
-	resp, err := r.client.Databases.ListDocuments(
-		r.client.Config.DatabaseID,
-		CollectionWallets,
-		appwrite.WithListDocumentsQueries([]string{
-			query.Limit(100),
-		}),
-	)
+	var wallet models.Wallet
+	query := "SELECT * FROM virtual_wallets WHERE user_id = $1"
+	err := r.client.ExecuteQueryRow(query, &wallet, userID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("wallet not found")
 	}
-
-	for i := range resp.Documents {
-		var wallet models.Wallet
-		if err := appwrite.DecodeListItem(resp, i, &wallet); err != nil {
-			continue
-		}
-		if wallet.UserID == userID {
-			return &wallet, nil
-		}
-	}
-
-	return nil, fmt.Errorf("wallet not found")
+	return &wallet, nil
 }
 
+// =============================================================================
+// Create — INSERT INTO virtual_wallets (user_id, balance, total_invested,
+//
+//	total_profit_loss, fiat_balance, locked, version)
+//	VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *
+//
+// =============================================================================
 func (r *repository) Create(wallet *models.Wallet) error {
-	data := map[string]interface{}{
-		"user_id":           wallet.UserID,
-		"balance":           0.0,
-		"total_invested":    0.0,
-		"total_profit_loss": 0.0,
-		"fiat_balance":      wallet.FiatBalance.InexactFloat64(),
-		"locked":            wallet.Locked,
-		"version":           wallet.Version,
-	}
-
-	resp, err := r.client.Databases.CreateDocument(
-		r.client.Config.DatabaseID,
-		CollectionWallets,
-		id.Unique(),
-		data,
-	)
-	if err != nil {
-		return err
-	}
-	return appwrite.Decode(resp, wallet)
+	query := `INSERT INTO virtual_wallets (user_id, balance, total_invested, total_profit_loss, fiat_balance, locked, version)
+			  VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`
+	return r.client.ExecuteInsert(query, wallet,
+		wallet.UserID, 0, 0, 0, wallet.FiatBalance.InexactFloat64(), wallet.Locked, wallet.Version)
 }
 
+// =============================================================================
+// Update — UPDATE virtual_wallets SET fiat_balance=$1, locked=$2, version=$3
+//
+//	WHERE id = $4 RETURNING *
+//
+// =============================================================================
 func (r *repository) Update(wallet *models.Wallet) error {
-	data := map[string]interface{}{
-		"fiat_balance": wallet.FiatBalance.InexactFloat64(),
-		"locked":       wallet.Locked,
-		"version":      wallet.Version,
-	}
-
-	resp, err := r.client.Databases.UpdateDocument(
-		r.client.Config.DatabaseID,
-		CollectionWallets,
-		wallet.ID,
-		r.client.Databases.WithUpdateDocumentData(data),
-	)
-	if err != nil {
-		return err
-	}
-	return appwrite.Decode(resp, wallet)
+	query := `UPDATE virtual_wallets SET fiat_balance = $1, locked = $2, version = $3
+			  WHERE id = $4 RETURNING *`
+	return r.client.ExecuteUpdate(query, wallet,
+		wallet.FiatBalance.InexactFloat64(), wallet.Locked, wallet.Version, wallet.ID)
 }
 
+// =============================================================================
+// CreateTransaction — INSERT INTO transactions (user_id, type, amount, status,
+//
+//	reference_id) VALUES ($1, $2, $3, $4, $5) RETURNING *
+//
+// =============================================================================
 func (r *repository) CreateTransaction(transaction *models.Transaction) error {
-	data := map[string]interface{}{
-		"user_id":      transaction.UserID,
-		"type":         string(transaction.Type),
-		"amount":       transaction.Amount.InexactFloat64(),
-		"status":       string(transaction.Status),
-		"reference_id": transaction.ReferenceID,
-	}
-
-	resp, err := r.client.Databases.CreateDocument(
-		r.client.Config.DatabaseID,
-		CollectionTransactions,
-		id.Unique(),
-		data,
-	)
-	if err != nil {
-		return err
-	}
-	return appwrite.Decode(resp, transaction)
+	query := `INSERT INTO transactions (user_id, type, amount, status, reference_id)
+			  VALUES ($1, $2, $3, $4, $5) RETURNING *`
+	return r.client.ExecuteInsert(query, transaction,
+		transaction.UserID, string(transaction.Type), transaction.Amount.InexactFloat64(),
+		string(transaction.Status), transaction.ReferenceID)
 }
 
+// =============================================================================
+// UpdateTransaction — UPDATE transactions SET status = $1 WHERE id = $2
+//
+//	RETURNING *
+//
+// =============================================================================
 func (r *repository) UpdateTransaction(transaction *models.Transaction) error {
-	data := map[string]interface{}{
-		"status": string(transaction.Status),
-	}
-
-	resp, err := r.client.Databases.UpdateDocument(
-		r.client.Config.DatabaseID,
-		CollectionTransactions,
-		transaction.ID,
-		r.client.Databases.WithUpdateDocumentData(data),
-	)
-	if err != nil {
-		return err
-	}
-	return appwrite.Decode(resp, transaction)
+	query := "UPDATE transactions SET status = $1 WHERE id = $2 RETURNING *"
+	return r.client.ExecuteUpdate(query, transaction,
+		string(transaction.Status), transaction.ID)
 }
 
+// =============================================================================
+// GetUserTransaction — SELECT * FROM transactions WHERE user_id = $1
+//
+//	ORDER BY created_at DESC LIMIT 100
+//
+// =============================================================================
 func (r *repository) GetUserTransaction(userID string) ([]models.Transaction, error) {
-	// WORKAROUND: Appwrite query.Equal() is unreliable, fetch all and filter in Go
-	resp, err := r.client.Databases.ListDocuments(
-		r.client.Config.DatabaseID,
-		CollectionTransactions,
-		appwrite.WithListDocumentsQueries([]string{
-			query.OrderDesc("$createdAt"),
-			query.Limit(100),
-		}),
-	)
+	var transactions []models.Transaction
+	query := "SELECT * FROM transactions WHERE user_id = $1 ORDER BY created_at DESC LIMIT 100"
+	err := r.client.ExecuteQuery(query, &transactions, userID)
 	if err != nil {
 		return nil, err
 	}
-
-	var transactions []models.Transaction
-	for i := range resp.Documents {
-		var tx models.Transaction
-		if err := appwrite.DecodeListItem(resp, i, &tx); err != nil {
-			continue
-		}
-		if tx.UserID == userID {
-			transactions = append(transactions, tx)
-		}
+	if transactions == nil {
+		transactions = []models.Transaction{}
 	}
 	return transactions, nil
 }
 
+// =============================================================================
+// WithLock — Optimistic locking pattern for wallet operations
+// SELECT * FROM virtual_wallets WHERE user_id = $1,
+// UPDATE locked = true, execute callback, UPDATE locked = false
+// =============================================================================
 func (r *repository) WithLock(userID string, fn func(*models.Wallet) error) error {
 	wallet, err := r.GetByUserID(userID)
 	if err != nil {

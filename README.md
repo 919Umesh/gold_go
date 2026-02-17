@@ -35,7 +35,7 @@ Stock Market Simulator is a fully-featured backend API that allows users to:
 - ✅ **Thread-Safe**: Mutex-protected caching and wallet locking
 - ✅ **Structured Logging**: Comprehensive logging for debugging
 - ✅ **Error Handling**: Custom error types and user-friendly messages
-- ✅ **Cloud Native**: Appwrite backend with Render deployment
+- ✅ **Cloud Native**: Supabase (PostgreSQL) backend with Render deployment
 
 ### API Features
 - ✅ **10+ Public Endpoints**: Browse stocks, market data, company info
@@ -53,7 +53,7 @@ Stock Market Simulator is a fully-featured backend API that allows users to:
 |-----------|-----------|---------|
 | **Language** | Go 1.24+ | High-performance backend |
 | **Framework** | Gin Web Framework | REST API server |
-| **Database** | Appwrite Cloud (NoSQL) | User & trading data storage |
+| **Database** | Supabase (PostgreSQL) | User & trading data storage |
 | **Cache** | In-memory (sync.RWMutex) | User data & company cache |
 | **Authentication** | JWT + bcrypt | Secure user auth |
 | **Async Processing** | Worker Pool (Goroutines) | Concurrent transaction handling |
@@ -69,7 +69,7 @@ Stock Market Simulator is a fully-featured backend API that allows users to:
 - Go 1.24+
 - Docker & Docker Compose (optional)
 - Git
-- Appwrite Cloud account (free tier available)
+- Supabase account (free tier available)
 
 ### 1. Clone Repository
 ```bash
@@ -78,14 +78,12 @@ cd stock_market_sim
 ```
 
 ### 2. Environment Setup
-Create `.env` file with your Appwrite credentials:
+Create `.env` file with your Supabase credentials:
 ```env
 PORT=8080
 JWT_SECRET=your_super_secret_jwt_key_here
-APPWRITE_ENDPOINT=https://fra.cloud.appwrite.io/v1
-APPWRITE_PROJECT_ID=your_project_id
-APPWRITE_API_KEY=your_api_key
-APPWRITE_DATABASE_ID=your_database_id
+SUPABASE_URL=https://your-project-ref.supabase.co
+SUPABASE_ANON_KEY=your-anon-key-here
 WORKER_COUNT=5
 QUEUE_SIZE=100
 ```
@@ -232,10 +230,8 @@ stock_market_sim/
 │   ├── stock_handler.go           # Stock market endpoints
 │   └── admin_handler.go           # Admin endpoints
 ├── internal/
-│   ├── appwrite/
-│   │   ├── client.go              # Appwrite client setup
-│   │   ├── repository.go          # Generic repository pattern
-│   │   └── options.go             # Appwrite option builders
+│   ├── supabase/
+│   │   └── client.go              # Supabase REST API client
 │   ├── auth/
 │   │   ├── handler.go             # Auth HTTP handlers
 │   │   ├── service.go             # Auth business logic
@@ -293,15 +289,15 @@ stock_market_sim/
 - ✅ **Error Handling**: No sensitive data leakage
 - ✅ **Thread-Safe Operations**: Mutex protection for shared resources
 - ✅ **Transaction Locking**: Prevent race conditions in trades
-- ✅ **Appwrite Permissions**: Document-level access control
+- ✅ **Row Level Security**: Supabase RLS for data access control
 
 ---
 
 ## 📊 Database Schema
 
-### Collections in Appwrite
+### Tables in Supabase (PostgreSQL)
 
-| Collection | Purpose | Key Fields |
+| Table | Purpose | Key Fields |
 |-----------|---------|-----------|
 | `users` | User accounts | email, password_hash, kyc_status, role |
 | `virtual_wallets` | Trading balances | user_id, balance, total_invested |
@@ -344,7 +340,7 @@ The application is deployed on Render's free tier at: `https://gold-go-backend.o
 - **Concurrent Transactions**: Goroutine-based worker pool (default: 5 workers)
 - **Queue Capacity**: 100 pending jobs
 - **Caching**: In-memory user & company cache with RWMutex
-- **Database**: Appwrite Cloud auto-scales
+- **Database**: Supabase PostgreSQL auto-scales
 
 ### Response Times
 - Health Check: <1ms
@@ -383,10 +379,8 @@ Use the curl examples in the documentation or tools like:
 |----------|----------|---------|-------------|
 | `PORT` | Yes | 8080 | Server port |
 | `JWT_SECRET` | Yes | - | JWT signing key |
-| `APPWRITE_ENDPOINT` | Yes | - | Appwrite API URL |
-| `APPWRITE_PROJECT_ID` | Yes | - | Appwrite project ID |
-| `APPWRITE_API_KEY` | Yes | - | Appwrite API key |
-| `APPWRITE_DATABASE_ID` | Yes | - | Database ID |
+| `SUPABASE_URL` | Yes | - | Supabase project URL |
+| `SUPABASE_ANON_KEY` | Yes | - | Supabase anon/service key |
 | `WORKER_COUNT` | No | 5 | Worker pool size |
 | `QUEUE_SIZE` | No | 100 | Job queue capacity |
 
@@ -400,9 +394,9 @@ Use the curl examples in the documentation or tools like:
 - Solution: Ensure `/health` endpoint is accessible
 - Check: `curl https://gold-go-backend.onrender.com/health`
 
-**"Failed to connect to Appwrite"**
-- Check Appwrite credentials in `.env`
-- Verify Appwrite is running and accessible
+**"Failed to connect to Supabase"**
+- Check Supabase credentials in `.env`
+- Verify Supabase project is running and accessible
 
 **"Insufficient balance"**
 - Top-up wallet: `POST /wallet/topup`

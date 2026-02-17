@@ -14,18 +14,12 @@ services:
       - key: PORT
         value: 8080
       
-      # Appwrite Configuration (Cloud)
-      - key: APPWRITE_ENDPOINT
-        value: https://fra.cloud.appwrite.io/v1
+      # Supabase Configuration
+      - key: SUPABASE_URL
+        sync: false  # Set this in Render dashboard
       
-      - key: APPWRITE_PROJECT_ID
-        value: 698599a4000fcd54a56a
-      
-      - key: APPWRITE_API_KEY
-        sync: false  # Set this in Render  for security
-      
-      - key: APPWRITE_DATABASE_ID
-        value: 6985bccb00216e0a7171
+      - key: SUPABASE_ANON_KEY
+        sync: false  # Set this in Render dashboard for security
       
       # Worker Configuration
       - key: WORKER_COUNT

@@ -4,10 +4,10 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/919Umesh/stock_market_sim/config"
-	"github.com/919Umesh/stock_market_sim/internal/appwrite"
 	"github.com/919Umesh/stock_market_sim/internal/auth"
 	"github.com/919Umesh/stock_market_sim/internal/ml"
 	"github.com/919Umesh/stock_market_sim/internal/stock"
+	"github.com/919Umesh/stock_market_sim/internal/supabase"
 	"github.com/919Umesh/stock_market_sim/internal/trading"
 	"github.com/919Umesh/stock_market_sim/internal/wallet"
 	"github.com/919Umesh/stock_market_sim/pkg/middleware"
@@ -16,13 +16,13 @@ import (
 )
 
 type Router struct {
-	client     *appwrite.Client
+	client     *supabase.Client
 	cfg        *config.Config
 	engine     *gin.Engine
 	workerPool *queue.WorkerPool
 }
 
-func NewRouter(client *appwrite.Client, cfg *config.Config, wp *queue.WorkerPool) *Router {
+func NewRouter(client *supabase.Client, cfg *config.Config, wp *queue.WorkerPool) *Router {
 	router := &Router{
 		client:     client,
 		cfg:        cfg,

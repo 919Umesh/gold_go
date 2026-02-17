@@ -5,16 +5,16 @@ import (
 )
 
 type User struct {
-	ID             string    `json:"$id,omitempty"`
+	ID             string    `json:"id,omitempty"`
 	FullName       string    `json:"full_name"`
 	Email          string    `json:"email"`
 	Phone          string    `json:"phone"`
 	PasswordHash   string    `json:"password_hash"`
 	KYCStatus      string    `json:"kyc_status"`
 	Role           string    `json:"role"`
-	ProfileImageID string    `json:"profile_image_id,omitempty"` // Appwrite File ID
-	CreatedAt      time.Time `json:"$createdAt,omitempty"`
-	UpdatedAt      time.Time `json:"$updatedAt,omitempty"`
+	ProfileImageID string    `json:"profile_image_id,omitempty"`
+	CreatedAt      time.Time `json:"created_at,omitempty"`
+	UpdatedAt      time.Time `json:"updated_at,omitempty"`
 
 	Wallet *Wallet `json:"-"`
 }

@@ -51,7 +51,7 @@ func (h *StockHandler) ListCompanies(c *gin.Context) {
 		offset = 0
 	}
 
-	companies, err := h.service.ListCompanies(limit, offset)
+	companies, total, err := h.service.ListCompaniesWithTotal(limit, offset)
 	if err != nil {
 		apperr.RespondWithMessage(c, http.StatusInternalServerError, "Failed to fetch companies")
 		return
@@ -62,6 +62,7 @@ func (h *StockHandler) ListCompanies(c *gin.Context) {
 		"limit":     limit,
 		"offset":    offset,
 		"count":     len(companies),
+		"total":     total,
 	})
 }
 
@@ -87,7 +88,20 @@ func (h *StockHandler) GetCompaniesBySector(c *gin.Context) {
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "50"))
 	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
 
-	companies, err := h.service.GetCompaniesBySector(sector, limit, offset)
+	// Validate and constrain limit
+	if limit <= 0 {
+		limit = 50
+	}
+	if limit > 100 {
+		limit = 100
+	}
+
+	// Ensure offset is non-negative
+	if offset < 0 {
+		offset = 0
+	}
+
+	companies, total, err := h.service.GetCompaniesBySectorWithTotal(sector, limit, offset)
 	if err != nil {
 		apperr.RespondWithMessage(c, http.StatusInternalServerError, "Failed to fetch companies")
 		return
@@ -98,6 +112,8 @@ func (h *StockHandler) GetCompaniesBySector(c *gin.Context) {
 		"companies": companies,
 		"limit":     limit,
 		"offset":    offset,
+		"count":     len(companies),
+		"total":     total,
 	})
 }
 
