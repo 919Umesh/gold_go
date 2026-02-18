@@ -41,20 +41,19 @@ func (r *Router) setupRoutes() {
 		c.JSON(200, gin.H{"status": "ok"})
 	})
 
-	// Initialize repositories
 	authRepo := auth.NewRepository(r.client)
 	stockRepo := stock.NewRepository(r.client)
 	walletRepo := wallet.NewRepository(r.client)
 	tradingRepo := trading.NewRepository(r.client)
 
-	// Initialize services
+
 	authService := auth.NewService(authRepo, r.cfg.JWTSecret)
 	stockService := stock.NewService(stockRepo)
 	mlService := ml.NewService(stockRepo)
 	walletService := wallet.NewService(walletRepo, r.workerPool)
 	tradingService := trading.NewService(tradingRepo, stockRepo)
 
-	// Initialize handlers
+
 	authHandler := auth.NewHandler(authService)
 	stockHandler := NewStockHandler(stockService)
 	predictionHandler := NewPredictionHandler(mlService)

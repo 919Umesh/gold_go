@@ -38,7 +38,6 @@ func (h *StockHandler) ListCompanies(c *gin.Context) {
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "50"))
 	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
 
-	// Validate and constrain limit
 	if limit <= 0 {
 		limit = 50
 	}
@@ -46,7 +45,7 @@ func (h *StockHandler) ListCompanies(c *gin.Context) {
 		limit = 100
 	}
 
-	// Ensure offset is non-negative
+
 	if offset < 0 {
 		offset = 0
 	}
@@ -88,7 +87,7 @@ func (h *StockHandler) GetCompaniesBySector(c *gin.Context) {
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "50"))
 	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
 
-	// Validate and constrain limit
+
 	if limit <= 0 {
 		limit = 50
 	}
@@ -96,7 +95,6 @@ func (h *StockHandler) GetCompaniesBySector(c *gin.Context) {
 		limit = 100
 	}
 
-	// Ensure offset is non-negative
 	if offset < 0 {
 		offset = 0
 	}
@@ -221,7 +219,7 @@ func (h *StockHandler) GetUpcomingEvents(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"events": events})
 }
 
-// GetAllSectors returns a list of all sectors
+
 func (h *StockHandler) GetAllSectors(c *gin.Context) {
 	sectors, err := h.service.GetAllSectors()
 	if err != nil {
@@ -236,7 +234,7 @@ func (h *StockHandler) GetAllSectors(c *gin.Context) {
 	})
 }
 
-// GetSectorStats returns statistics for a specific sector
+
 func (h *StockHandler) GetSectorStats(c *gin.Context) {
 	sector := c.Param("sector")
 

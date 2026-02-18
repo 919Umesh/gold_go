@@ -15,8 +15,8 @@ type Company struct {
 	Description     string          `json:"description"`
 	FoundedYear     int             `json:"founded_year"`
 	Employees       int             `json:"employees"`
-	TotalShares     int64           `json:"total_shares"`     // Total shares issued by company
-	AvailableShares int64           `json:"available_shares"` // Shares available for trading (not held by users)
+	TotalShares     int64           `json:"total_shares"`     
+	AvailableShares int64           `json:"available_shares"` 
 	IsActive        bool            `json:"is_active"`
 	CreatedAt       time.Time       `json:"created_at,omitempty"`
 	UpdatedAt       time.Time       `json:"updated_at,omitempty"`

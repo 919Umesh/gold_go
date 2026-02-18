@@ -193,7 +193,6 @@ func (h *Handler) UploadProfileImage(c *gin.Context) {
 	}
 	defer file.Close()
 
-	// Check file size (e.g. 5MB)
 	if header.Size > 5*1024*1024 {
 		apperr.RespondWithMessage(c, http.StatusBadRequest, "image too large (max 5MB)")
 		return

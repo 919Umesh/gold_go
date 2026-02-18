@@ -23,7 +23,7 @@ func (h *PredictionHandler) GetPrediction(c *gin.Context) {
 		return
 	}
 
-	result, err := h.service.PredictStockPrice(symbol, 1) // Next 1 day
+	result, err := h.service.PredictStockPrice(symbol, 1) 
 	if err != nil {
 		apperr.RespondWithMessage(c, http.StatusInternalServerError, "Failed to predict price: "+err.Error())
 		return

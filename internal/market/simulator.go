@@ -66,9 +66,8 @@ func (s *Simulator) SimulateStockPrice(company *models.Company) error {
 		currentPrice = latestPrice.ClosePrice
 	}
 
-	// Change percentage: (rand - 0.5) * 0.04 -> between -2% and +2%
+
 	changePct := decimal.NewFromFloat((rand.Float64() - 0.5) * 0.04)
-	// New Price = Current * (1 + changePct)
 	newPrice := currentPrice.Mul(decimal.NewFromInt(1).Add(changePct))
 
 	if newPrice.LessThan(decimal.NewFromFloat(0.01)) {

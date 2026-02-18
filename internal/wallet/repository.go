@@ -34,9 +34,6 @@ func NewRepository(client *supabase.Client) Repository {
 	return &repository{client: client}
 }
 
-// =============================================================================
-// FindUserByID — SELECT * FROM users WHERE id = $1
-// =============================================================================
 func (r *repository) FindUserByID(userID string) (*models.User, error) {
 	var user models.User
 	query := "SELECT * FROM users WHERE id = $1"
@@ -47,9 +44,6 @@ func (r *repository) FindUserByID(userID string) (*models.User, error) {
 	return &user, nil
 }
 
-// =============================================================================
-// GetByUserID — SELECT * FROM virtual_wallets WHERE user_id = $1
-// =============================================================================
 func (r *repository) GetByUserID(userID string) (*models.Wallet, error) {
 	var wallet models.Wallet
 	query := "SELECT * FROM virtual_wallets WHERE user_id = $1"
@@ -60,13 +54,6 @@ func (r *repository) GetByUserID(userID string) (*models.Wallet, error) {
 	return &wallet, nil
 }
 
-// =============================================================================
-// Create — INSERT INTO virtual_wallets (user_id, balance, total_invested,
-//
-//	total_profit_loss, fiat_balance, locked, version)
-//	VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *
-//
-// =============================================================================
 func (r *repository) Create(wallet *models.Wallet) error {
 	query := `INSERT INTO virtual_wallets (user_id, balance, total_invested, total_profit_loss, fiat_balance, locked, version)
 			  VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`
@@ -74,12 +61,7 @@ func (r *repository) Create(wallet *models.Wallet) error {
 		wallet.UserID, 0, 0, 0, wallet.FiatBalance.InexactFloat64(), wallet.Locked, wallet.Version)
 }
 
-// =============================================================================
-// Update — UPDATE virtual_wallets SET fiat_balance=$1, locked=$2, version=$3
-//
-//	WHERE id = $4 RETURNING *
-//
-// =============================================================================
+
 func (r *repository) Update(wallet *models.Wallet) error {
 	query := `UPDATE virtual_wallets SET fiat_balance = $1, locked = $2, version = $3
 			  WHERE id = $4 RETURNING *`
@@ -87,12 +69,7 @@ func (r *repository) Update(wallet *models.Wallet) error {
 		wallet.FiatBalance.InexactFloat64(), wallet.Locked, wallet.Version, wallet.ID)
 }
 
-// =============================================================================
-// CreateTransaction — INSERT INTO transactions (user_id, type, amount, status,
-//
-//	reference_id) VALUES ($1, $2, $3, $4, $5) RETURNING *
-//
-// =============================================================================
+
 func (r *repository) CreateTransaction(transaction *models.Transaction) error {
 	query := `INSERT INTO transactions (user_id, type, amount, status, reference_id)
 			  VALUES ($1, $2, $3, $4, $5) RETURNING *`
@@ -101,24 +78,14 @@ func (r *repository) CreateTransaction(transaction *models.Transaction) error {
 		string(transaction.Status), transaction.ReferenceID)
 }
 
-// =============================================================================
-// UpdateTransaction — UPDATE transactions SET status = $1 WHERE id = $2
-//
-//	RETURNING *
-//
-// =============================================================================
+
 func (r *repository) UpdateTransaction(transaction *models.Transaction) error {
 	query := "UPDATE transactions SET status = $1 WHERE id = $2 RETURNING *"
 	return r.client.ExecuteUpdate(query, transaction,
 		string(transaction.Status), transaction.ID)
 }
 
-// =============================================================================
-// GetUserTransaction — SELECT * FROM transactions WHERE user_id = $1
-//
-//	ORDER BY created_at DESC LIMIT 100
-//
-// =============================================================================
+
 func (r *repository) GetUserTransaction(userID string) ([]models.Transaction, error) {
 	var transactions []models.Transaction
 	query := "SELECT * FROM transactions WHERE user_id = $1 ORDER BY created_at DESC LIMIT 100"
@@ -132,11 +99,6 @@ func (r *repository) GetUserTransaction(userID string) ([]models.Transaction, er
 	return transactions, nil
 }
 
-// =============================================================================
-// WithLock — Optimistic locking pattern for wallet operations
-// SELECT * FROM virtual_wallets WHERE user_id = $1,
-// UPDATE locked = true, execute callback, UPDATE locked = false
-// =============================================================================
 func (r *repository) WithLock(userID string, fn func(*models.Wallet) error) error {
 	wallet, err := r.GetByUserID(userID)
 	if err != nil {

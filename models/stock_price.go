@@ -25,6 +25,5 @@ func (s *StockPrice) CalculateChange() decimal.Decimal {
 	if s.OpenPrice.IsZero() {
 		return decimal.Zero
 	}
-	// ((Close - Open) / Open) * 100
 	return s.ClosePrice.Sub(s.OpenPrice).Div(s.OpenPrice).Mul(decimal.NewFromInt(100))
 }

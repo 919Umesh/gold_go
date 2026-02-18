@@ -30,41 +30,40 @@ type NepaliCompany struct {
 	Description string
 	FoundedYear int
 	Employees   int
-	TotalShares int64 // Total shares issued by company
+	TotalShares int64 
 }
 
 var nepaliCompanies = []NepaliCompany{
-	// Banking (higher market cap = more shares)
 	{Symbol: "NABIL", Name: "Nabil Bank Limited", Sector: "Banking", MarketCap: 180000000000, Description: "Leading private sector bank in Nepal", FoundedYear: 1984, Employees: 3500, TotalShares: 1800000000},
 	{Symbol: "GBIME", Name: "Global IME Bank Limited", Sector: "Banking", MarketCap: 160000000000, Description: "Largest commercial bank by network", FoundedYear: 2007, Employees: 4200, TotalShares: 1600000000},
 	{Symbol: "NICA", Name: "Nepal Investment Mega Bank", Sector: "Banking", MarketCap: 150000000000, Description: "Merged large commercial bank", FoundedYear: 1986, Employees: 4000, TotalShares: 1500000000},
 	{Symbol: "NMB", Name: "NMB Bank Limited", Sector: "Banking", MarketCap: 140000000000, Description: "Corporate-focused commercial bank", FoundedYear: 1996, Employees: 3200, TotalShares: 1400000000},
 	{Symbol: "HBL", Name: "Himalayan Bank Limited", Sector: "Banking", MarketCap: 130000000000, Description: "Joint venture bank with strong presence", FoundedYear: 1993, Employees: 2800, TotalShares: 1300000000},
-	// IT
+
 	{Symbol: "NTC", Name: "Nepal Telecom", Sector: "Information Technology", MarketCap: 200000000000, Description: "Largest telecom & IT service provider", FoundedYear: 2004, Employees: 5000, TotalShares: 2000000000},
 	{Symbol: "NITC", Name: "Nepal IT Corporation", Sector: "Information Technology", MarketCap: 90000000000, Description: "Government-backed IT service company", FoundedYear: 1998, Employees: 1500, TotalShares: 900000000},
 	{Symbol: "F1SOFT", Name: "F1Soft International", Sector: "Information Technology", MarketCap: 70000000000, Description: "Digital payment and fintech company", FoundedYear: 2004, Employees: 1200, TotalShares: 700000000},
 	{Symbol: "ESewa", Name: "eSewa Digital Services", Sector: "Information Technology", MarketCap: 60000000000, Description: "Fintech wallet operator", FoundedYear: 2009, Employees: 900, TotalShares: 600000000},
 	{Symbol: "IMS", Name: "IMS Software Solutions", Sector: "Information Technology", MarketCap: 30000000000, Description: "IT consulting and development", FoundedYear: 2005, Employees: 600, TotalShares: 300000000},
-	// Hydropower
+
 	{Symbol: "HYDRO1", Name: "Upper Tamakoshi Hydropower", Sector: "Hydropower", MarketCap: 120000000000, Description: "Large hydropower producer", FoundedYear: 2007, Employees: 900, TotalShares: 1200000000},
 	{Symbol: "BPC", Name: "Butwal Power Company", Sector: "Hydropower", MarketCap: 55000000000, Description: "Integrated power producer", FoundedYear: 1966, Employees: 600, TotalShares: 550000000},
 	{Symbol: "CHCL", Name: "Chilime Hydropower", Sector: "Hydropower", MarketCap: 60000000000, Description: "Hydropower generation", FoundedYear: 1995, Employees: 450, TotalShares: 600000000},
 	{Symbol: "API", Name: "Api Power Company", Sector: "Hydropower", MarketCap: 40000000000, Description: "Hydropower & energy developer", FoundedYear: 2003, Employees: 350, TotalShares: 400000000},
 	{Symbol: "RSHP", Name: "Rosuwa Shyamkhola Hydro Power", Sector: "Hydropower", MarketCap: 35000000000, Description: "Small-medium hydropower", FoundedYear: 2010, Employees: 280, TotalShares: 350000000},
-	// Insurance
+	
 	{Symbol: "NLIC", Name: "Nepal Life Insurance Company", Sector: "Insurance", MarketCap: 130000000000, Description: "Largest life insurance provider", FoundedYear: 2001, Employees: 1200, TotalShares: 1300000000},
 	{Symbol: "SICL", Name: "Shikhar Insurance Company", Sector: "Insurance", MarketCap: 45000000000, Description: "Leading non-life insurance provider", FoundedYear: 2004, Employees: 800, TotalShares: 450000000},
 	{Symbol: "NMBHL", Name: "NMB Health Insurance", Sector: "Insurance", MarketCap: 35000000000, Description: "Health insurance specialist", FoundedYear: 2010, Employees: 700, TotalShares: 350000000},
-	// Pharma
+	
 	{Symbol: "APOLLONP", Name: "Apollo Nepal Hospitals", Sector: "Pharma", MarketCap: 50000000000, Description: "Hospital & healthcare chain", FoundedYear: 2015, Employees: 1500, TotalShares: 500000000},
 	{Symbol: "MHPL", Name: "Medical Health Products Limited", Sector: "Pharma", MarketCap: 40000000000, Description: "Pharmaceutical manufacturer", FoundedYear: 2008, Employees: 900, TotalShares: 400000000},
-	// Manufacturing
+	
 	{Symbol: "HDL", Name: "Himalayan Distillery Limited", Sector: "Manufacturing", MarketCap: 90000000000, Description: "Distillery & beverages producer", FoundedYear: 1985, Employees: 700, TotalShares: 900000000},
 	{Symbol: "UNL", Name: "Unilever Nepal Limited", Sector: "Manufacturing", MarketCap: 80000000000, Description: "FMCG with global brands", FoundedYear: 1992, Employees: 300, TotalShares: 800000000},
 	{Symbol: "BNL", Name: "Bottlers Nepal Limited", Sector: "Manufacturing", MarketCap: 60000000000, Description: "Bottled beverages producer", FoundedYear: 1979, Employees: 450, TotalShares: 600000000},
 	{Symbol: "SHIVM", Name: "Shivam Cements Limited", Sector: "Manufacturing", MarketCap: 50000000000, Description: "Cement manufacturer", FoundedYear: 2003, Employees: 1100, TotalShares: 500000000},
-	// Real Estate
+
 	{Symbol: "DLFNP", Name: "Nepal Housing Development Co.", Sector: "Real Estate", MarketCap: 40000000000, Description: "Real estate developer", FoundedYear: 2008, Employees: 500, TotalShares: 400000000},
 }
 
@@ -116,7 +115,6 @@ func (h *AdminHandler) SeedStockData(c *gin.Context) {
 
 	companyMap := make(map[string]string)
 
-	// Step 1: Create companies
 	for _, nc := range nepaliCompanies {
 		existing, err := h.stockRepo.GetCompanyBySymbol(nc.Symbol)
 		if err == nil && existing != nil {
@@ -133,7 +131,7 @@ func (h *AdminHandler) SeedStockData(c *gin.Context) {
 			FoundedYear:     nc.FoundedYear,
 			Employees:       nc.Employees,
 			TotalShares:     nc.TotalShares,
-			AvailableShares: nc.TotalShares, // All shares available initially
+			AvailableShares: nc.TotalShares, 
 			IsActive:        true,
 		}
 
@@ -146,7 +144,6 @@ func (h *AdminHandler) SeedStockData(c *gin.Context) {
 		companiesCreated++
 	}
 
-	// Step 2: Create initial stock price of 100 for each company
 	initialPrice := decimal.NewFromInt(100)
 	for _, nc := range nepaliCompanies {
 		companyID, exists := companyMap[nc.Symbol]
@@ -172,7 +169,7 @@ func (h *AdminHandler) SeedStockData(c *gin.Context) {
 		pricesCreated++
 	}
 
-	// Step 3: Create 25 market events per company
+
 	for _, nc := range nepaliCompanies {
 		companyID, exists := companyMap[nc.Symbol]
 		if !exists {

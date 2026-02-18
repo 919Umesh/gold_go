@@ -27,17 +27,12 @@ func main() {
 	slog.Info("Setting up Supabase Database (Seeding Data)")
 	slog.Info("NOTE: Run the SQL migration in supabase/migrations/001_complete_schema.sql first via Supabase SQL Editor")
 
-	// Seed data
 	if err := setupCompaniesData(client); err != nil {
 		log.Fatalf("Failed to setup companies data: %v", err)
 	}
 }
 
-// ===============================================
-// DATA SETUP
-// ===============================================
 
-// Company data for 25 companies
 var companiesData = []struct {
 	symbol      string
 	name        string
@@ -46,39 +41,39 @@ var companiesData = []struct {
 	description string
 	foundedYear int
 	employees   int
-	totalShares int64 // Total shares issued by company
+	totalShares int64 
 }{
-	// Banking (higher market cap = more shares)
+
 	{"NABIL", "Nabil Bank Limited", "Banking", 180000000000, "Leading private sector bank in Nepal", 1984, 3500, 1800000000},
 	{"GBIME", "Global IME Bank Limited", "Banking", 160000000000, "Largest commercial bank by network", 2007, 4200, 1600000000},
 	{"NICA", "Nepal Investment Mega Bank", "Banking", 150000000000, "Merged large commercial bank", 1986, 4000, 1500000000},
 	{"NMB", "NMB Bank Limited", "Banking", 140000000000, "Corporate-focused commercial bank", 1996, 3200, 1400000000},
 	{"HBL", "Himalayan Bank Limited", "Banking", 130000000000, "Joint venture bank with strong presence", 1993, 2800, 1300000000},
-	// IT
+
 	{"NTC", "Nepal Telecom", "Information Technology", 200000000000, "Largest telecom & IT service provider", 2004, 5000, 2000000000},
 	{"NITC", "Nepal IT Corporation", "Information Technology", 90000000000, "Government-backed IT service company", 1998, 1500, 900000000},
 	{"F1SOFT", "F1Soft International", "Information Technology", 70000000000, "Digital payment and fintech company", 2004, 1200, 700000000},
 	{"ESewa", "eSewa Digital Services", "Information Technology", 60000000000, "Fintech wallet operator", 2009, 900, 600000000},
 	{"IMS", "IMS Software Solutions", "Information Technology", 30000000000, "IT consulting and development", 2005, 600, 300000000},
-	// Hydropower
+
 	{"HYDRO1", "Upper Tamakoshi Hydropower", "Hydropower", 120000000000, "Large hydropower producer", 2007, 900, 1200000000},
 	{"BPC", "Butwal Power Company", "Hydropower", 55000000000, "Integrated power producer", 1966, 600, 550000000},
 	{"CHCL", "Chilime Hydropower", "Hydropower", 60000000000, "Hydropower generation", 1995, 450, 600000000},
 	{"API", "Api Power Company", "Hydropower", 40000000000, "Hydropower & energy developer", 2003, 350, 400000000},
 	{"RSHP", "Rosuwa Shyamkhola Hydro Power", "Hydropower", 35000000000, "Small-medium hydropower", 2010, 280, 350000000},
-	// Insurance
+
 	{"NLIC", "Nepal Life Insurance Company", "Insurance", 130000000000, "Largest life insurance provider", 2001, 1200, 1300000000},
 	{"SICL", "Shikhar Insurance Company", "Insurance", 45000000000, "Leading non-life insurance provider", 2004, 800, 450000000},
 	{"NMBHL", "NMB Health Insurance", "Insurance", 35000000000, "Health insurance specialist", 2010, 700, 350000000},
-	// Pharma
+
 	{"APOLLONP", "Apollo Nepal Hospitals", "Pharma", 50000000000, "Hospital & healthcare chain", 2015, 1500, 500000000},
 	{"MHPL", "Medical Health Products Limited", "Pharma", 40000000000, "Pharmaceutical manufacturer", 2008, 900, 400000000},
-	// Manufacturing
+	
 	{"HDL", "Himalayan Distillery Limited", "Manufacturing", 90000000000, "Distillery & beverages producer", 1985, 700, 900000000},
 	{"UNL", "Unilever Nepal Limited", "Manufacturing", 80000000000, "FMCG with global brands", 1992, 300, 800000000},
 	{"BNL", "Bottlers Nepal Limited", "Manufacturing", 60000000000, "Bottled beverages producer", 1979, 450, 600000000},
 	{"SHIVM", "Shivam Cements Limited", "Manufacturing", 50000000000, "Cement manufacturer", 2003, 1100, 500000000},
-	// Real Estate
+	
 	{"DLFNP", "Nepal Housing Development Co.", "Real Estate", 40000000000, "Real estate developer", 2008, 500, 400000000},
 }
 
@@ -120,7 +115,6 @@ func setupCompaniesData(client *supabase.Client) error {
 	fmt.Println("Starting Data Setup (Supabase)")
 	fmt.Println(strings.Repeat("=", 80))
 
-	// Step 1: Create or fetch companies
 	fmt.Println("\nStep 1: Creating/fetching companies...")
 
 	createdCompanies := make([]models.Company, 0)
@@ -128,18 +122,18 @@ func setupCompaniesData(client *supabase.Client) error {
 	for _, comp := range companiesData {
 		mCap := decimal.NewFromFloat(comp.marketCap)
 
-		// SELECT * FROM companies WHERE symbol = $1
+	
 		var existingCompany models.Company
 		err := client.ExecuteQueryRow("SELECT * FROM companies WHERE symbol = $1", &existingCompany, comp.symbol)
 
 		if err == nil {
-			// Company exists
+			
 			createdCompanies = append(createdCompanies, existingCompany)
 			fmt.Printf("Found existing: %s (%s) - %d total shares\n", existingCompany.Name, existingCompany.Sector, existingCompany.TotalShares)
 			continue
 		}
 
-		// INSERT INTO companies (...) VALUES (...) RETURNING *
+		
 		var company models.Company
 		err = client.ExecuteInsert(
 			"INSERT INTO companies (symbol, name, sector, market_cap, description, founded_year, employees, total_shares, available_shares, is_active) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *",
@@ -159,14 +153,12 @@ func setupCompaniesData(client *supabase.Client) error {
 		return fmt.Errorf("failed to create companies")
 	}
 
-	// Step 2: Create initial stock price of 100 for each company
 	fmt.Println("\nStep 2: Creating initial stock price (100) for each company...")
 	totalPricesCreated := 0
 
 	for _, company := range createdCompanies {
 		initialPrice := decimal.NewFromInt(100)
 
-		// INSERT INTO stock_prices (...) VALUES (...) RETURNING *
 		err := client.ExecuteInsert(
 			"INSERT INTO stock_prices (company_id, open_price, high_price, low_price, close_price, volume, timestamp, timeframe) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *",
 			nil,
@@ -181,17 +173,14 @@ func setupCompaniesData(client *supabase.Client) error {
 		}
 	}
 
-	// Step 3: Create 25 market events per company
 	fmt.Println("\nStep 3: Creating 25 market events per company...")
 	totalEvents := 0
 	for _, company := range createdCompanies {
 		for i := 0; i < 25; i++ {
 			evType := eventTypes[i%len(eventTypes)]
 			impact := evType.impact + (rand.Float64()-0.5)*1.0
-			// Spread events across future dates (1 to 365 days from now)
 			eventDate := time.Now().Add(time.Duration(rand.Intn(365)+1) * 24 * time.Hour)
 
-			// INSERT INTO market_events (...) VALUES (...) RETURNING *
 			err := client.ExecuteInsert(
 				"INSERT INTO market_events (company_id, event_type, title, description, impact_percentage, event_date) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *",
 				nil,

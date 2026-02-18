@@ -72,7 +72,7 @@ func (s *service) ListCompaniesWithTotal(limit, offset int) ([]models.Company, i
 	}
 	total, err := s.repo.GetTotalCompaniesCount()
 	if err != nil {
-		return companies, 0, nil // Return companies even if count fails
+		return companies, 0, nil 
 	}
 	return companies, total, nil
 }

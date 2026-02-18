@@ -94,7 +94,6 @@ func (s *service) Login(email, password string) (*models.User, string, error) {
 		return nil, "", ErrInvalidCredentials
 	}
 
-	// Cache the user for future lookups
 	cacheMu.Lock()
 	userCache[email] = user
 	cacheMu.Unlock()
@@ -125,7 +124,6 @@ func (s *service) UpdateProfile(userID string, updates map[string]interface{}) (
 		return nil, fmt.Errorf("profile update failed: %w", err)
 	}
 
-	// Invalidate cache for this user
 	cacheMu.Lock()
 	delete(userCache, user.Email)
 	cacheMu.Unlock()
@@ -169,7 +167,6 @@ func (s *service) UploadProfileImage(userID string, file multipart.File, filenam
 		return nil, fmt.Errorf("failed to update user profile with image: %w", err)
 	}
 
-	// Invalidate cache
 	cacheMu.Lock()
 	delete(userCache, user.Email)
 	cacheMu.Unlock()
