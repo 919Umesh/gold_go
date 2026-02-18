@@ -13,7 +13,7 @@ import (
 
 const (
 	TableUsers         = "users"
-	BucketUserProfiles = "user-profiles"
+	BucketUserProfiles = "profiles"
 )
 
 type Repository interface {
@@ -23,6 +23,7 @@ type Repository interface {
 	ExistsByEmail(email string) (bool, error)
 	Update(user *models.User) error
 	UploadProfileImage(file multipart.File, filename string) (string, error)
+	DeleteProfileImage(imageURL string) error
 }
 
 type repository struct {
@@ -33,14 +34,12 @@ func NewRepository(client *supabase.Client) Repository {
 	return &repository{client: client}
 }
 
-
 func (r *repository) Create(user *models.User) error {
 	query := `INSERT INTO users (full_name, email, phone, password_hash, kyc_status, role)
 			  VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`
 	return r.client.ExecuteInsert(query, user,
 		user.FullName, user.Email, user.Phone, user.PasswordHash, user.KYCStatus, user.Role)
 }
-
 
 func (r *repository) FindByEmail(email string) (*models.User, error) {
 	var user models.User
@@ -62,11 +61,10 @@ func (r *repository) FindByID(id string) (*models.User, error) {
 	return &user, nil
 }
 
-
 func (r *repository) ExistsByEmail(email string) (bool, error) {
 	_, err := r.FindByEmail(email)
 	if err != nil {
-		return false, nil 
+		return false, nil
 	}
 	return true, nil
 }
@@ -78,10 +76,9 @@ func (r *repository) Update(user *models.User) error {
 		user.FullName, user.Phone, user.KYCStatus, user.Role, user.ProfileImageID, user.ID)
 }
 
-
 func (r *repository) UploadProfileImage(f multipart.File, filename string) (string, error) {
 
-	path := fmt.Sprintf("profiles/%s_%s", uuid.New().String(), filename)
+	path := fmt.Sprintf("profiles/%s/%s", uuid.New().String(), filename)
 
 	uploadURL := fmt.Sprintf("%s/object/%s/%s", r.client.StorageURL(), BucketUserProfiles, path)
 
@@ -90,10 +87,8 @@ func (r *repository) UploadProfileImage(f multipart.File, filename string) (stri
 		return "", fmt.Errorf("failed to create upload request: %w", err)
 	}
 
-
 	r.client.SetHeaders(req)
 	req.Header.Set("Content-Type", "image/*")
-
 
 	resp, err := r.client.HTTPClient.Do(req)
 	if err != nil {
@@ -108,4 +103,27 @@ func (r *repository) UploadProfileImage(f multipart.File, filename string) (stri
 	}
 	publicURL := fmt.Sprintf("%s/object/public/%s/%s", r.client.StorageURL(), BucketUserProfiles, path)
 	return publicURL, nil
+}
+func (r *repository) DeleteProfileImage(imageURL string) error {
+	fmt.Println("Deleting profile image:", imageURL)
+	req, err := http.NewRequest("DELETE", imageURL, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create delete request: %w", err)
+	}
+
+	r.client.SetHeaders(req)
+	req.Header.Del("Content-Type")
+
+	resp, err := r.client.HTTPClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("delete request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		respBody, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("delete error (status %d): %s", resp.StatusCode, string(respBody))
+	}
+
+	return nil
 }

@@ -46,13 +46,11 @@ func (r *Router) setupRoutes() {
 	walletRepo := wallet.NewRepository(r.client)
 	tradingRepo := trading.NewRepository(r.client)
 
-
 	authService := auth.NewService(authRepo, r.cfg.JWTSecret)
 	stockService := stock.NewService(stockRepo)
 	mlService := ml.NewService(stockRepo)
 	walletService := wallet.NewService(walletRepo, r.workerPool)
 	tradingService := trading.NewService(tradingRepo, stockRepo)
-
 
 	authHandler := auth.NewHandler(authService)
 	stockHandler := NewStockHandler(stockService)
