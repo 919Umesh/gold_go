@@ -55,12 +55,12 @@ func (r *repository) GetByUserID(userID string) (*models.Wallet, error) {
 }
 
 func (r *repository) Create(wallet *models.Wallet) error {
+
 	query := `INSERT INTO virtual_wallets (user_id, balance, total_invested, total_profit_loss, fiat_balance, locked, version)
 			  VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`
 	return r.client.ExecuteInsert(query, wallet,
 		wallet.UserID, 0, 0, 0, wallet.FiatBalance.InexactFloat64(), wallet.Locked, wallet.Version)
 }
-
 
 func (r *repository) Update(wallet *models.Wallet) error {
 	query := `UPDATE virtual_wallets SET fiat_balance = $1, locked = $2, version = $3
@@ -68,7 +68,6 @@ func (r *repository) Update(wallet *models.Wallet) error {
 	return r.client.ExecuteUpdate(query, wallet,
 		wallet.FiatBalance.InexactFloat64(), wallet.Locked, wallet.Version, wallet.ID)
 }
-
 
 func (r *repository) CreateTransaction(transaction *models.Transaction) error {
 	query := `INSERT INTO transactions (user_id, type, amount, status, reference_id)
@@ -78,13 +77,11 @@ func (r *repository) CreateTransaction(transaction *models.Transaction) error {
 		string(transaction.Status), transaction.ReferenceID)
 }
 
-
 func (r *repository) UpdateTransaction(transaction *models.Transaction) error {
 	query := "UPDATE transactions SET status = $1 WHERE id = $2 RETURNING *"
 	return r.client.ExecuteUpdate(query, transaction,
 		string(transaction.Status), transaction.ID)
 }
-
 
 func (r *repository) GetUserTransaction(userID string) ([]models.Transaction, error) {
 	var transactions []models.Transaction
