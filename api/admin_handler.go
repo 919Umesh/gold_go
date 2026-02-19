@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/919Umesh/stock_market_sim/internal/market"
 	"github.com/919Umesh/stock_market_sim/internal/stock"
 	"github.com/919Umesh/stock_market_sim/models"
 	"github.com/919Umesh/stock_market_sim/pkg/apperr"
@@ -16,10 +17,14 @@ import (
 
 type AdminHandler struct {
 	stockRepo stock.Repository
+	marketSim *market.Simulator
 }
 
-func NewAdminHandler(stockRepo stock.Repository) *AdminHandler {
-	return &AdminHandler{stockRepo: stockRepo}
+func NewAdminHandler(stockRepo stock.Repository, marketSim *market.Simulator) *AdminHandler {
+	return &AdminHandler{
+		stockRepo: stockRepo,
+		marketSim: marketSim,
+	}
 }
 
 type NepaliCompany struct {
@@ -30,7 +35,7 @@ type NepaliCompany struct {
 	Description string
 	FoundedYear int
 	Employees   int
-	TotalShares int64 
+	TotalShares int64
 }
 
 var nepaliCompanies = []NepaliCompany{
@@ -51,14 +56,14 @@ var nepaliCompanies = []NepaliCompany{
 	{Symbol: "CHCL", Name: "Chilime Hydropower", Sector: "Hydropower", MarketCap: 60000000000, Description: "Hydropower generation", FoundedYear: 1995, Employees: 450, TotalShares: 600000000},
 	{Symbol: "API", Name: "Api Power Company", Sector: "Hydropower", MarketCap: 40000000000, Description: "Hydropower & energy developer", FoundedYear: 2003, Employees: 350, TotalShares: 400000000},
 	{Symbol: "RSHP", Name: "Rosuwa Shyamkhola Hydro Power", Sector: "Hydropower", MarketCap: 35000000000, Description: "Small-medium hydropower", FoundedYear: 2010, Employees: 280, TotalShares: 350000000},
-	
+
 	{Symbol: "NLIC", Name: "Nepal Life Insurance Company", Sector: "Insurance", MarketCap: 130000000000, Description: "Largest life insurance provider", FoundedYear: 2001, Employees: 1200, TotalShares: 1300000000},
 	{Symbol: "SICL", Name: "Shikhar Insurance Company", Sector: "Insurance", MarketCap: 45000000000, Description: "Leading non-life insurance provider", FoundedYear: 2004, Employees: 800, TotalShares: 450000000},
 	{Symbol: "NMBHL", Name: "NMB Health Insurance", Sector: "Insurance", MarketCap: 35000000000, Description: "Health insurance specialist", FoundedYear: 2010, Employees: 700, TotalShares: 350000000},
-	
+
 	{Symbol: "APOLLONP", Name: "Apollo Nepal Hospitals", Sector: "Pharma", MarketCap: 50000000000, Description: "Hospital & healthcare chain", FoundedYear: 2015, Employees: 1500, TotalShares: 500000000},
 	{Symbol: "MHPL", Name: "Medical Health Products Limited", Sector: "Pharma", MarketCap: 40000000000, Description: "Pharmaceutical manufacturer", FoundedYear: 2008, Employees: 900, TotalShares: 400000000},
-	
+
 	{Symbol: "HDL", Name: "Himalayan Distillery Limited", Sector: "Manufacturing", MarketCap: 90000000000, Description: "Distillery & beverages producer", FoundedYear: 1985, Employees: 700, TotalShares: 900000000},
 	{Symbol: "UNL", Name: "Unilever Nepal Limited", Sector: "Manufacturing", MarketCap: 80000000000, Description: "FMCG with global brands", FoundedYear: 1992, Employees: 300, TotalShares: 800000000},
 	{Symbol: "BNL", Name: "Bottlers Nepal Limited", Sector: "Manufacturing", MarketCap: 60000000000, Description: "Bottled beverages producer", FoundedYear: 1979, Employees: 450, TotalShares: 600000000},
@@ -131,7 +136,7 @@ func (h *AdminHandler) SeedStockData(c *gin.Context) {
 			FoundedYear:     nc.FoundedYear,
 			Employees:       nc.Employees,
 			TotalShares:     nc.TotalShares,
-			AvailableShares: nc.TotalShares, 
+			AvailableShares: nc.TotalShares,
 			IsActive:        true,
 		}
 
@@ -169,7 +174,6 @@ func (h *AdminHandler) SeedStockData(c *gin.Context) {
 		pricesCreated++
 	}
 
-
 	for _, nc := range nepaliCompanies {
 		companyID, exists := companyMap[nc.Symbol]
 		if !exists {
@@ -205,5 +209,15 @@ func (h *AdminHandler) SeedStockData(c *gin.Context) {
 		"prices_created":    pricesCreated,
 		"events_created":    eventsCreated,
 		"notes":             "All companies start at ₹100. No test users or transactions created. Users register via API, wallet starts at ₹0.",
+	})
+}
+
+func (h *AdminHandler) TriggerMarketUpdate(c *gin.Context) {
+	slog.Info("Admin triggered a manual market price update")
+	h.marketSim.UpdateMarket()
+
+	c.JSON(http.StatusOK, gin.H{
+		"status":  "success",
+		"message": "Market prices updated successfully.",
 	})
 }

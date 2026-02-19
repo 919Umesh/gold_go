@@ -51,7 +51,6 @@ func NewRepository(client *supabase.Client) Repository {
 	return &repository{client: client}
 }
 
-
 func (r *repository) CreateCompany(company *models.Company) error {
 	query := `INSERT INTO companies (symbol, name, sector, market_cap, description, founded_year, employees, total_shares, available_shares, is_active)
 			  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`
@@ -66,7 +65,6 @@ func (r *repository) CreateCompany(company *models.Company) error {
 		company.Description, company.FoundedYear, company.Employees,
 		company.TotalShares, company.AvailableShares, company.IsActive)
 }
-
 
 func (r *repository) GetCompanyByID(companyID string) (*models.Company, error) {
 	var company models.Company
@@ -87,7 +85,6 @@ func (r *repository) GetCompanyBySymbol(symbol string) (*models.Company, error) 
 	}
 	return &company, nil
 }
-
 
 func (r *repository) ListCompanies(limit, offset int) ([]models.Company, error) {
 	var companies []models.Company
@@ -115,7 +112,6 @@ func (r *repository) ListCompaniesBySector(sector string, limit, offset int) ([]
 	return companies, nil
 }
 
-
 func (r *repository) SearchCompanies(q string, limit int) ([]models.Company, error) {
 	var companies []models.Company
 	pattern := fmt.Sprintf("*%s*", q)
@@ -130,7 +126,6 @@ func (r *repository) SearchCompanies(q string, limit int) ([]models.Company, err
 	return companies, nil
 }
 
-
 func (r *repository) UpdateCompany(company *models.Company) error {
 	query := `UPDATE companies SET name = $1, sector = $2, market_cap = $3, description = $4,
 			  founded_year = $5, employees = $6, is_active = $7 WHERE id = $8 RETURNING *`
@@ -138,7 +133,6 @@ func (r *repository) UpdateCompany(company *models.Company) error {
 		company.Name, company.Sector, company.MarketCap.InexactFloat64(), company.Description,
 		company.FoundedYear, company.Employees, company.IsActive, company.ID)
 }
-
 
 func (r *repository) UpdateCompanyShares(companyID string, availableShares int64) error {
 	query := `UPDATE companies SET available_shares = $1 WHERE id = $2`
@@ -180,12 +174,19 @@ func (r *repository) UpdateStockPriceVolume(priceID string, volumeIncrease int64
 	return r.client.ExecuteUpdate(updateQuery, nil, newVolume, priceID)
 }
 
-
 func (r *repository) GetPriceHistory(companyID string, timeframe string, from, to time.Time, limit int) ([]models.StockPrice, error) {
 	var prices []models.StockPrice
-	query := "SELECT * FROM stock_prices WHERE company_id = $1 AND timeframe = $2 AND timestamp >= $3 ORDER BY timestamp DESC LIMIT $4"
-	err := r.client.ExecuteQuery(query, &prices,
-		companyID, timeframe, from.Format(time.RFC3339), limit)
+	var query string
+	var err error
+
+	if timeframe == "all" || timeframe == "" {
+		query = "SELECT * FROM stock_prices WHERE company_id = $1 AND timestamp >= $2 ORDER BY timestamp DESC LIMIT $3"
+		err = r.client.ExecuteQuery(query, &prices, companyID, from.Format(time.RFC3339), limit)
+	} else {
+		query = "SELECT * FROM stock_prices WHERE company_id = $1 AND timeframe = $2 AND timestamp >= $3 ORDER BY timestamp DESC LIMIT $4"
+		err = r.client.ExecuteQuery(query, &prices, companyID, timeframe, from.Format(time.RFC3339), limit)
+	}
+
 	if err != nil {
 		return nil, err
 	}
@@ -217,7 +218,6 @@ func (r *repository) GetPriceAtTime(companyID string, timestamp time.Time) (*mod
 	return &prices[0], nil
 }
 
-
 func (r *repository) getCompanyChangePct(companyID string) (decimal.Decimal, error) {
 	latest, err := r.GetLatestPrice(companyID)
 	if err != nil {
@@ -225,7 +225,6 @@ func (r *repository) getCompanyChangePct(companyID string) (decimal.Decimal, err
 	}
 	return latest.CalculateChange(), nil
 }
-
 
 func (r *repository) GetTopGainers(limit int) ([]models.Company, error) {
 	companies, err := r.ListCompanies(100, 0)
@@ -258,7 +257,6 @@ func (r *repository) GetTopGainers(limit int) ([]models.Company, error) {
 	return result, nil
 }
 
-
 func (r *repository) GetTopLosers(limit int) ([]models.Company, error) {
 	companies, err := r.ListCompanies(100, 0)
 	if err != nil {
@@ -289,7 +287,6 @@ func (r *repository) GetTopLosers(limit int) ([]models.Company, error) {
 	}
 	return result, nil
 }
-
 
 func (r *repository) GetMostActive(limit int) ([]models.Company, error) {
 	companies, err := r.ListCompanies(100, 0)
@@ -326,7 +323,6 @@ func (r *repository) GetMostActive(limit int) ([]models.Company, error) {
 	return result, nil
 }
 
-
 func (r *repository) CreateMarketEvent(event *models.MarketEvent) error {
 	query := `INSERT INTO market_events (company_id, event_type, title, description, impact_percentage, event_date)
 			  VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`
@@ -334,7 +330,6 @@ func (r *repository) CreateMarketEvent(event *models.MarketEvent) error {
 		event.CompanyID, event.EventType, event.Title, event.Description,
 		event.ImpactPercentage, event.EventDate.Format(time.RFC3339))
 }
-
 
 func (r *repository) GetUpcomingEvents(companyID string, limit int) ([]models.MarketEvent, error) {
 	now := time.Now().Format(time.RFC3339)
@@ -359,7 +354,6 @@ func (r *repository) GetAllSectors() ([]string, error) {
 		return nil, err
 	}
 
-
 	sectorMap := make(map[string]bool)
 	for _, c := range companies {
 		if c.Sector != "" {
@@ -375,7 +369,6 @@ func (r *repository) GetAllSectors() ([]string, error) {
 	return sectors, nil
 }
 
-
 func (r *repository) GetTotalCompaniesCount() (int, error) {
 	var companies []models.Company
 	query := "SELECT id FROM companies WHERE is_active = $1"
@@ -385,7 +378,6 @@ func (r *repository) GetTotalCompaniesCount() (int, error) {
 	}
 	return len(companies), nil
 }
-
 
 func (r *repository) GetTotalCompaniesBySectorCount(sector string) (int, error) {
 	var companies []models.Company

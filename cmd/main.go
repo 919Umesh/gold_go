@@ -10,8 +10,6 @@ import (
 
 	"github.com/919Umesh/stock_market_sim/api"
 	"github.com/919Umesh/stock_market_sim/config"
-	"github.com/919Umesh/stock_market_sim/internal/market"
-	"github.com/919Umesh/stock_market_sim/internal/stock"
 	"github.com/919Umesh/stock_market_sim/internal/supabase"
 	"github.com/919Umesh/stock_market_sim/pkg/logger"
 	"github.com/919Umesh/stock_market_sim/pkg/queue"
@@ -38,11 +36,6 @@ func main() {
 	workerPool.Start()
 	slog.Info("Worker pool started", "workers", cfg.WorkerCount)
 
-	stockRepo := stock.NewRepository(supabaseClient)
-	marketSim := market.NewSimulator(stockRepo)
-	marketSim.Start(6 * time.Hour)
-	slog.Info("Market simulator started", "interval", "6h")
-
 	router := api.NewRouter(supabaseClient, cfg, workerPool)
 
 	serverAddr := ":" + cfg.ServerPort
@@ -66,7 +59,6 @@ func main() {
 	done := make(chan struct{})
 	go func() {
 		workerPool.Stop()
-		marketSim.Stop()
 		close(done)
 	}()
 

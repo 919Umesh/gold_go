@@ -5,6 +5,7 @@ import (
 
 	"github.com/919Umesh/stock_market_sim/config"
 	"github.com/919Umesh/stock_market_sim/internal/auth"
+	"github.com/919Umesh/stock_market_sim/internal/market"
 	"github.com/919Umesh/stock_market_sim/internal/ml"
 	"github.com/919Umesh/stock_market_sim/internal/stock"
 	"github.com/919Umesh/stock_market_sim/internal/supabase"
@@ -20,14 +21,19 @@ type Router struct {
 	cfg        *config.Config
 	engine     *gin.Engine
 	workerPool *queue.WorkerPool
+	marketSim  *market.Simulator
 }
 
 func NewRouter(client *supabase.Client, cfg *config.Config, wp *queue.WorkerPool) *Router {
+	stockRepo := stock.NewRepository(client)
+	marketSim := market.NewSimulator(stockRepo)
+
 	router := &Router{
 		client:     client,
 		cfg:        cfg,
 		engine:     gin.Default(),
 		workerPool: wp,
+		marketSim:  marketSim,
 	}
 
 	router.engine.Use(cors.Default())
@@ -57,7 +63,7 @@ func (r *Router) setupRoutes() {
 	predictionHandler := NewPredictionHandler(mlService)
 	walletHandler := wallet.NewHandler(walletService)
 	tradingHandler := NewTradingHandler(tradingService)
-	adminHandler := NewAdminHandler(stockRepo)
+	adminHandler := NewAdminHandler(stockRepo, r.marketSim)
 
 	v1 := r.engine.Group("/api/v1")
 	{
@@ -126,6 +132,7 @@ func (r *Router) setupRoutes() {
 		{
 			admin.PUT("/users/:user_id/kyc", authHandler.UpdateKYC)
 			admin.POST("/seed-stocks", adminHandler.SeedStockData)
+			admin.POST("/market-update", adminHandler.TriggerMarketUpdate)
 		}
 	}
 }

@@ -1,10 +1,13 @@
 package auth
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"mime/multipart"
 	"net/http"
+	"strings"
 
 	"github.com/919Umesh/stock_market_sim/internal/supabase"
 	"github.com/919Umesh/stock_market_sim/models"
@@ -104,15 +107,34 @@ func (r *repository) UploadProfileImage(f multipart.File, filename string) (stri
 	publicURL := fmt.Sprintf("%s/object/public/%s/%s", r.client.StorageURL(), BucketUserProfiles, path)
 	return publicURL, nil
 }
+
 func (r *repository) DeleteProfileImage(imageURL string) error {
-	fmt.Println("Deleting profile image:", imageURL)
-	req, err := http.NewRequest("DELETE", imageURL, nil)
+	searchStr := fmt.Sprintf("/object/public/%s/", BucketUserProfiles)
+	idx := strings.Index(imageURL, searchStr)
+	if idx == -1 {
+		return fmt.Errorf("invalid image URL format")
+	}
+
+	filePath := imageURL[idx+len(searchStr):]
+	fmt.Println("Deleting profile image at path:", filePath)
+
+	deleteURL := fmt.Sprintf("%s/object/%s", r.client.StorageURL(), BucketUserProfiles)
+
+	payload := map[string][]string{
+		"prefixes": {filePath},
+	}
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("failed to marshal delete payload: %w", err)
+	}
+
+	req, err := http.NewRequest("DELETE", deleteURL, bytes.NewBuffer(body))
 	if err != nil {
 		return fmt.Errorf("failed to create delete request: %w", err)
 	}
 
 	r.client.SetHeaders(req)
-	req.Header.Del("Content-Type")
+	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := r.client.HTTPClient.Do(req)
 	if err != nil {

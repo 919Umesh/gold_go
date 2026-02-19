@@ -157,12 +157,12 @@ func (s *service) UploadProfileImage(userID string, file multipart.File, filenam
 		return nil, fmt.Errorf("user not found: %w", err)
 	}
 
-	// if user.ProfileImageID != "" {
-	// 	err := s.repo.DeleteProfileImage(user.ProfileImageID)
-	// 	if err != nil {
-	// 		return nil, fmt.Errorf("failed to delete old profile image: %w", err)
-	// 	}
-	// }
+	if user.ProfileImageID != "" {
+		err := s.repo.DeleteProfileImage(user.ProfileImageID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to delete old profile image: %w", err)
+		}
+	}
 
 	fileID, err := s.repo.UploadProfileImage(file, filename)
 	if err != nil {
