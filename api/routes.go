@@ -39,7 +39,15 @@ func NewRouter(client *supabase.Client, cfg *config.Config, wp *queue.WorkerPool
 		priceEngine: priceEngine,
 	}
 
-	router.engine.Use(cors.Default())
+	// global CORS settings – allow the frontend on localhost:3000 and any other origins you need
+	router.engine.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{"http://localhost:3000"},
+		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization"},
+		ExposeHeaders:    []string{"Content-Length"},
+		AllowCredentials: true,
+		// Allow all subdomains or additional origins by adding them to the slice above (including http://localhost:8080 if you run client there)
+	}))
 
 	router.setupRoutes()
 	return router
