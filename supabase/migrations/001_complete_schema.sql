@@ -12,6 +12,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 -- Drop tables first (CASCADE automatically removes triggers, indexes, policies)
 -- Then drop the function
 -- =====================================================
+DROP TABLE IF EXISTS market_index_history CASCADE;
 DROP TABLE IF EXISTS stock_transactions CASCADE;
 DROP TABLE IF EXISTS transactions CASCADE;
 DROP TABLE IF EXISTS user_portfolios CASCADE;
@@ -55,8 +56,8 @@ CREATE TABLE companies (
     description      TEXT,
     founded_year     INTEGER,
     employees        INTEGER,
-    total_shares     BIGINT        NOT NULL DEFAULT 10000000,  -- Total shares issued
-    available_shares BIGINT        NOT NULL DEFAULT 10000000,  -- Shares available for trading
+    total_shares     BIGINT        NOT NULL DEFAULT 10000000,
+    available_shares BIGINT        NOT NULL DEFAULT 10000000,
     is_active        BOOLEAN       NOT NULL DEFAULT TRUE,
     created_at       TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
     updated_at       TIMESTAMPTZ   NOT NULL DEFAULT NOW()
@@ -69,7 +70,7 @@ CREATE INDEX idx_companies_available_shares ON companies(available_shares);
 
 -- =====================================================
 -- STOCK_PRICES TABLE
--- Purpose: Store historical stock price data
+-- Purpose: Store historical stock price data (OHLCV candles)
 -- =====================================================
 CREATE TABLE stock_prices (
     id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -80,13 +81,15 @@ CREATE TABLE stock_prices (
     close_price DOUBLE PRECISION NOT NULL,
     volume      BIGINT        NOT NULL DEFAULT 0,
     timestamp   TIMESTAMPTZ   NOT NULL,
-    timeframe   VARCHAR(10)   NOT NULL DEFAULT '1D',      -- 1D, 1W, 1M, etc
+    timeframe   VARCHAR(10)   NOT NULL DEFAULT '1D',      -- 1m, 1D, 1W, 1M
     created_at  TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
     updated_at  TIMESTAMPTZ   NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX idx_stock_prices_company_time ON stock_prices(company_id, timestamp DESC);
 CREATE INDEX idx_stock_prices_company_id ON stock_prices(company_id);
+CREATE INDEX idx_stock_prices_company_timeframe ON stock_prices(company_id, timeframe, timestamp DESC);
+CREATE INDEX idx_stock_prices_timeframe ON stock_prices(timeframe);
 
 -- =====================================================
 -- MARKET_EVENTS TABLE
@@ -98,7 +101,7 @@ CREATE TABLE market_events (
     event_type        VARCHAR(50)   NOT NULL,              -- earnings, news, dividend, merger, ipo, split
     title             VARCHAR(255)  NOT NULL,
     description       TEXT,
-    impact_percentage DOUBLE PRECISION NOT NULL DEFAULT 0, -- Positive or negative market impact
+    impact_percentage DOUBLE PRECISION NOT NULL DEFAULT 0,
     event_date        TIMESTAMPTZ   NOT NULL,
     created_at        TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
     updated_at        TIMESTAMPTZ   NOT NULL DEFAULT NOW()
@@ -109,15 +112,14 @@ CREATE INDEX idx_market_events_company_id ON market_events(company_id);
 -- =====================================================
 -- VIRTUAL_WALLETS TABLE
 -- Purpose: Store user trading wallets (combines balance and fiat_balance)
--- Unified wallet for both trading balance and deposited funds
 -- =====================================================
 CREATE TABLE virtual_wallets (
     id                UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id           UUID          NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
-    balance           DOUBLE PRECISION NOT NULL DEFAULT 0,          -- Available balance for trading
-    total_invested    DOUBLE PRECISION NOT NULL DEFAULT 0,          -- Total amount invested in stocks
-    total_profit_loss DOUBLE PRECISION NOT NULL DEFAULT 0,          -- Total profit/loss from trading
-    fiat_balance      DOUBLE PRECISION DEFAULT 0,                   -- Original deposited fiat (for reference)
+    balance           DOUBLE PRECISION NOT NULL DEFAULT 0,
+    total_invested    DOUBLE PRECISION NOT NULL DEFAULT 0,
+    total_profit_loss DOUBLE PRECISION NOT NULL DEFAULT 0,
+    fiat_balance      DOUBLE PRECISION DEFAULT 0,
     locked            BOOLEAN       DEFAULT FALSE,
     version           INTEGER       DEFAULT 1,
     created_at        TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
@@ -139,8 +141,8 @@ CREATE TABLE user_portfolios (
     total_invested DOUBLE PRECISION NOT NULL DEFAULT 0,
     created_at     TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
     updated_at     TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
-    
-    UNIQUE(user_id, company_id)  -- One portfolio entry per user per company
+
+    UNIQUE(user_id, company_id)
 );
 
 CREATE INDEX idx_user_portfolios_user_company ON user_portfolios(user_id, company_id);
@@ -155,7 +157,7 @@ CREATE TABLE transactions (
     user_id      UUID          NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     type         VARCHAR(50)   NOT NULL,              -- topup, refund
     amount       DOUBLE PRECISION NOT NULL,
-    status       VARCHAR(50)   NOT NULL DEFAULT 'pending',  -- pending, success, failed
+    status       VARCHAR(50)   NOT NULL DEFAULT 'pending',
     reference_id VARCHAR(100)  NOT NULL,
     created_at   TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
     updated_at   TIMESTAMPTZ   NOT NULL DEFAULT NOW()
@@ -175,7 +177,7 @@ CREATE TABLE stock_transactions (
     quantity        INTEGER       NOT NULL,
     price_per_share DOUBLE PRECISION NOT NULL,
     total_amount    DOUBLE PRECISION NOT NULL,
-    status          VARCHAR(50)   NOT NULL DEFAULT 'pending',  -- pending, completed, failed, cancelled
+    status          VARCHAR(50)   NOT NULL DEFAULT 'pending',
     reference_id    VARCHAR(100),
     created_at      TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
     updated_at      TIMESTAMPTZ   NOT NULL DEFAULT NOW()
@@ -184,6 +186,32 @@ CREATE TABLE stock_transactions (
 CREATE INDEX idx_stock_transactions_user_id ON stock_transactions(user_id);
 CREATE INDEX idx_stock_transactions_company ON stock_transactions(company_id);
 CREATE INDEX idx_stock_transactions_user_company ON stock_transactions(user_id, company_id);
+CREATE INDEX idx_stock_transactions_created ON stock_transactions(created_at DESC);
+CREATE INDEX idx_stock_transactions_company_created ON stock_transactions(company_id, created_at DESC);
+
+-- =====================================================
+-- MARKET_INDEX_HISTORY TABLE
+-- Purpose: Track historical market index values over time
+-- Enables charting the overall market performance (like NEPSE index chart)
+-- =====================================================
+CREATE TABLE market_index_history (
+    id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    index_value     DOUBLE PRECISION NOT NULL,
+    change          DOUBLE PRECISION NOT NULL DEFAULT 0,
+    change_percent  DOUBLE PRECISION NOT NULL DEFAULT 0,
+    total_turnover  DOUBLE PRECISION NOT NULL DEFAULT 0,
+    total_volume    BIGINT NOT NULL DEFAULT 0,
+    total_market_cap DOUBLE PRECISION NOT NULL DEFAULT 0,
+    advances        INTEGER NOT NULL DEFAULT 0,
+    declines        INTEGER NOT NULL DEFAULT 0,
+    unchanged       INTEGER NOT NULL DEFAULT 0,
+    total_companies INTEGER NOT NULL DEFAULT 0,
+    previous_close  DOUBLE PRECISION NOT NULL DEFAULT 0,
+    timestamp       TIMESTAMPTZ NOT NULL,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_market_index_history_timestamp ON market_index_history(timestamp DESC);
 
 -- =====================================================
 -- AUTO-UPDATE TRIGGER FOR updated_at COLUMN
@@ -196,37 +224,36 @@ BEGIN
 END;
 $$ LANGUAGE 'plpgsql';
 
--- Apply trigger to all tables
-CREATE TRIGGER update_users_updated_at 
-    BEFORE UPDATE ON users 
+CREATE TRIGGER update_users_updated_at
+    BEFORE UPDATE ON users
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER update_companies_updated_at 
-    BEFORE UPDATE ON companies 
+CREATE TRIGGER update_companies_updated_at
+    BEFORE UPDATE ON companies
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER update_stock_prices_updated_at 
-    BEFORE UPDATE ON stock_prices 
+CREATE TRIGGER update_stock_prices_updated_at
+    BEFORE UPDATE ON stock_prices
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER update_market_events_updated_at 
-    BEFORE UPDATE ON market_events 
+CREATE TRIGGER update_market_events_updated_at
+    BEFORE UPDATE ON market_events
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER update_virtual_wallets_updated_at 
-    BEFORE UPDATE ON virtual_wallets 
+CREATE TRIGGER update_virtual_wallets_updated_at
+    BEFORE UPDATE ON virtual_wallets
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER update_user_portfolios_updated_at 
-    BEFORE UPDATE ON user_portfolios 
+CREATE TRIGGER update_user_portfolios_updated_at
+    BEFORE UPDATE ON user_portfolios
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER update_transactions_updated_at 
-    BEFORE UPDATE ON transactions 
+CREATE TRIGGER update_transactions_updated_at
+    BEFORE UPDATE ON transactions
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER update_stock_transactions_updated_at 
-    BEFORE UPDATE ON stock_transactions 
+CREATE TRIGGER update_stock_transactions_updated_at
+    BEFORE UPDATE ON stock_transactions
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- =====================================================
@@ -240,11 +267,13 @@ ALTER TABLE virtual_wallets ENABLE ROW LEVEL SECURITY;
 ALTER TABLE user_portfolios ENABLE ROW LEVEL SECURITY;
 ALTER TABLE transactions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE stock_transactions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE market_index_history ENABLE ROW LEVEL SECURITY;
 
 -- Allow public read on market data
 CREATE POLICY "Allow public read on companies" ON companies FOR SELECT USING (true);
 CREATE POLICY "Allow public read on stock_prices" ON stock_prices FOR SELECT USING (true);
 CREATE POLICY "Allow public read on market_events" ON market_events FOR SELECT USING (true);
+CREATE POLICY "Allow public read on market_index_history" ON market_index_history FOR SELECT USING (true);
 
 -- Allow all operations (service role bypasses RLS)
 CREATE POLICY "Allow all on users" ON users FOR ALL USING (true) WITH CHECK (true);
@@ -255,18 +284,20 @@ CREATE POLICY "Allow all on stock_transactions" ON stock_transactions FOR ALL US
 CREATE POLICY "Allow all on companies_write" ON companies FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all on stock_prices_write" ON stock_prices FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all on market_events_write" ON market_events FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow all on market_index_history_write" ON market_index_history FOR ALL USING (true) WITH CHECK (true);
 
 -- =====================================================
 -- COMMENTS FOR DOCUMENTATION
 -- =====================================================
 COMMENT ON TABLE users IS 'User accounts with authentication';
 COMMENT ON TABLE companies IS 'Stock market companies with market information';
-COMMENT ON TABLE stock_prices IS 'Historical stock price data';
+COMMENT ON TABLE stock_prices IS 'Historical stock price data (OHLCV candles)';
 COMMENT ON TABLE market_events IS 'Company events (earnings, dividends, news, etc)';
 COMMENT ON TABLE virtual_wallets IS 'User trading wallets with balance and investment tracking';
 COMMENT ON TABLE user_portfolios IS 'User stock holdings';
 COMMENT ON TABLE transactions IS 'Wallet top-up and refund transactions';
 COMMENT ON TABLE stock_transactions IS 'Buy/sell trading history';
+COMMENT ON TABLE market_index_history IS 'Historical market index values for charting overall market performance';
 
 COMMENT ON COLUMN companies.total_shares IS 'Total shares issued by company';
 COMMENT ON COLUMN companies.available_shares IS 'Shares available for trading (decreases when users buy)';
@@ -276,6 +307,10 @@ COMMENT ON COLUMN virtual_wallets.total_profit_loss IS 'Total profit/loss from a
 COMMENT ON COLUMN virtual_wallets.fiat_balance IS 'Original deposited fiat amount (for reference/reconciliation)';
 COMMENT ON COLUMN user_portfolios.average_price IS 'Weighted average buy price per share';
 COMMENT ON COLUMN user_portfolios.total_invested IS 'Total amount invested in this position';
+COMMENT ON COLUMN market_index_history.index_value IS 'Calculated index value (total_market_cap / base_divisor)';
+COMMENT ON COLUMN market_index_history.total_turnover IS 'Total trading value for the period';
+COMMENT ON COLUMN market_index_history.advances IS 'Number of stocks that went up';
+COMMENT ON COLUMN market_index_history.declines IS 'Number of stocks that went down';
 
 -- =====================================================
 -- MIGRATION NOTES
@@ -284,7 +319,9 @@ COMMENT ON COLUMN user_portfolios.total_invested IS 'Total amount invested in th
 -- 2. The virtual_wallets table combines balance and fiat_balance in ONE table
 -- 3. All foreign keys use ON DELETE CASCADE for data integrity
 -- 4. Unique constraints prevent duplicate records
--- 5. Indexes are optimized for common query patterns
+-- 5. Indexes are optimized for common query patterns (including timeframe-based candle queries)
 -- 6. RLS policies allow the backend service role full access
 -- 7. AUTO-UPDATE triggers keep updated_at column current
 -- 8. Run this migration ONCE for fresh database setup
+-- 9. market_index_history tracks overall market performance over time
+-- 10. stock_prices supports multiple timeframes: 1m (per-trade), 1D, 1W, 1M

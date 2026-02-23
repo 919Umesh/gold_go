@@ -1,9 +1,11 @@
 package api
 
 import (
+	"io"
 	"net/http"
 	"strconv"
 
+	"github.com/919Umesh/stock_market_sim/internal/market"
 	"github.com/919Umesh/stock_market_sim/internal/stock"
 	"github.com/919Umesh/stock_market_sim/pkg/apperr"
 	"github.com/gin-gonic/gin"
@@ -11,11 +13,17 @@ import (
 )
 
 type StockHandler struct {
-	service stock.Service
+	service     stock.Service
+	priceEngine *market.PriceEngine
+	eventHub    *market.EventHub
 }
 
-func NewStockHandler(service stock.Service) *StockHandler {
-	return &StockHandler{service: service}
+func NewStockHandler(service stock.Service, priceEngine *market.PriceEngine, eventHub *market.EventHub) *StockHandler {
+	return &StockHandler{
+		service:     service,
+		priceEngine: priceEngine,
+		eventHub:    eventHub,
+	}
 }
 
 func (h *StockHandler) GetCompany(c *gin.Context) {
@@ -44,7 +52,6 @@ func (h *StockHandler) ListCompanies(c *gin.Context) {
 	if limit > 100 {
 		limit = 100
 	}
-
 
 	if offset < 0 {
 		offset = 0
@@ -86,7 +93,6 @@ func (h *StockHandler) GetCompaniesBySector(c *gin.Context) {
 	sector := c.Param("sector")
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "50"))
 	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
-
 
 	if limit <= 0 {
 		limit = 50
@@ -144,8 +150,17 @@ func (h *StockHandler) GetPriceHistory(c *gin.Context) {
 	if days <= 0 {
 		days = 30
 	}
-	if days > 365 {
-		days = 365
+	if days > 365*5 {
+		days = 365 * 5
+	}
+
+	// Validate timeframe: only allow known values
+	// "all" returns all timeframes, "1D" is daily candles, etc.
+	validTimeframes := map[string]bool{
+		"1D": true, "1W": true, "1M": true, "all": true,
+	}
+	if !validTimeframes[timeframe] {
+		timeframe = "1D"
 	}
 
 	prices, err := h.service.GetPriceHistory(symbol, timeframe, days)
@@ -157,6 +172,8 @@ func (h *StockHandler) GetPriceHistory(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"symbol":    symbol,
 		"timeframe": timeframe,
+		"days":      days,
+		"count":     len(prices),
 		"prices":    prices,
 	})
 }
@@ -219,7 +236,6 @@ func (h *StockHandler) GetUpcomingEvents(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"events": events})
 }
 
-
 func (h *StockHandler) GetAllSectors(c *gin.Context) {
 	sectors, err := h.service.GetAllSectors()
 	if err != nil {
@@ -233,7 +249,6 @@ func (h *StockHandler) GetAllSectors(c *gin.Context) {
 		"count":   len(sectors),
 	})
 }
-
 
 func (h *StockHandler) GetSectorStats(c *gin.Context) {
 	sector := c.Param("sector")
@@ -282,5 +297,151 @@ func (h *StockHandler) GetSectorStats(c *gin.Context) {
 			"avg_founded_year": avgYear,
 		},
 		"top_5_companies": topCompanies,
+	})
+}
+
+// =====================================================
+// LIVE TRADING DATA
+// Returns real-time trading data for all stocks
+// Format: Symbol | LTP | %Change | Open | High | Low | Qty | PClose | Diff
+// =====================================================
+
+func (h *StockHandler) GetLiveTradingData(c *gin.Context) {
+	if h.priceEngine == nil {
+		apperr.RespondWithMessage(c, http.StatusInternalServerError, "Price engine not available")
+		return
+	}
+
+	data, err := h.priceEngine.GetLiveTradingData()
+	if err != nil {
+		apperr.RespondWithMessage(c, http.StatusInternalServerError, "Failed to fetch live trading data")
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"live_trading": data,
+		"count":        len(data),
+	})
+}
+
+// =====================================================
+// CANDLESTICK / OHLCV DATA
+// Returns candle data for charting (like the price chart in the screenshot)
+// =====================================================
+
+func (h *StockHandler) GetCandlestickData(c *gin.Context) {
+	symbol := c.Param("symbol")
+	if symbol == "" {
+		apperr.RespondWithMessage(c, http.StatusBadRequest, "Symbol parameter required")
+		return
+	}
+
+	timeframe := c.DefaultQuery("timeframe", "1D")
+	days, _ := strconv.Atoi(c.DefaultQuery("days", "30"))
+	if days <= 0 {
+		days = 30
+	}
+	if days > 365 {
+		days = 365
+	}
+
+	if h.priceEngine == nil {
+		apperr.RespondWithMessage(c, http.StatusInternalServerError, "Price engine not available")
+		return
+	}
+
+	candles, err := h.priceEngine.GetCandlestickData(symbol, timeframe, days)
+	if err != nil {
+		apperr.RespondWithMessage(c, http.StatusNotFound, err.Error())
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"symbol":    symbol,
+		"timeframe": timeframe,
+		"days":      days,
+		"candles":   candles,
+		"count":     len(candles),
+	})
+}
+
+// =====================================================
+// MARKET INDEX
+// Returns overall market index (like NEPSE index)
+// Shows total market value, advances, declines, turnover
+// =====================================================
+
+func (h *StockHandler) GetMarketIndex(c *gin.Context) {
+	if h.priceEngine == nil {
+		apperr.RespondWithMessage(c, http.StatusInternalServerError, "Price engine not available")
+		return
+	}
+
+	index, err := h.priceEngine.GetMarketIndex()
+	if err != nil {
+		apperr.RespondWithMessage(c, http.StatusInternalServerError, "Failed to calculate market index")
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"market_index": index,
+	})
+}
+
+// =====================================================
+// MARKET SUMMARY
+// Comprehensive market overview with index, gainers, losers,
+// most active, and sector breakdown
+// =====================================================
+
+func (h *StockHandler) GetMarketSummary(c *gin.Context) {
+	if h.priceEngine == nil {
+		apperr.RespondWithMessage(c, http.StatusInternalServerError, "Price engine not available")
+		return
+	}
+
+	summary, err := h.priceEngine.GetMarketSummary()
+	if err != nil {
+		apperr.RespondWithMessage(c, http.StatusInternalServerError, "Failed to get market summary")
+		return
+	}
+
+	c.JSON(http.StatusOK, summary)
+}
+
+// =====================================================
+// SSE STREAM
+// Server-Sent Events endpoint for real-time price updates
+// Clients connect and receive live trade/price events
+// =====================================================
+
+func (h *StockHandler) StreamPrices(c *gin.Context) {
+	if h.eventHub == nil {
+		apperr.RespondWithMessage(c, http.StatusInternalServerError, "Event hub not available")
+		return
+	}
+
+	// Set SSE headers
+	c.Header("Content-Type", "text/event-stream")
+	c.Header("Cache-Control", "no-cache")
+	c.Header("Connection", "keep-alive")
+	c.Header("Access-Control-Allow-Origin", "*")
+
+	// Subscribe to events
+	ch := h.eventHub.Subscribe()
+	defer h.eventHub.Unsubscribe(ch)
+
+	// Stream events to client
+	c.Stream(func(w io.Writer) bool {
+		select {
+		case msg, ok := <-ch:
+			if !ok {
+				return false
+			}
+			c.SSEvent("message", msg)
+			return true
+		case <-c.Request.Context().Done():
+			return false
+		}
 	})
 }

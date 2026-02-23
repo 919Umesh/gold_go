@@ -72,7 +72,7 @@ func (s *service) ListCompaniesWithTotal(limit, offset int) ([]models.Company, i
 	}
 	total, err := s.repo.GetTotalCompaniesCount()
 	if err != nil {
-		return companies, 0, nil 
+		return companies, 0, nil
 	}
 	return companies, total, nil
 }
@@ -128,6 +128,12 @@ func (s *service) GetPriceHistory(symbol string, timeframe string, days int) ([]
 	to := time.Now()
 	from := to.AddDate(0, 0, -days)
 
+	// Default to daily candles
+	if timeframe == "" {
+		timeframe = "1D"
+	}
+
+	// "all" fetches all timeframes (mostly 1D records); otherwise filter by specific timeframe
 	return s.repo.GetPriceHistory(company.ID, timeframe, from, to, 1000)
 }
 

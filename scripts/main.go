@@ -32,7 +32,6 @@ func main() {
 	}
 }
 
-
 var companiesData = []struct {
 	symbol      string
 	name        string
@@ -41,7 +40,7 @@ var companiesData = []struct {
 	description string
 	foundedYear int
 	employees   int
-	totalShares int64 
+	totalShares int64
 }{
 
 	{"NABIL", "Nabil Bank Limited", "Banking", 180000000000, "Leading private sector bank in Nepal", 1984, 3500, 1800000000},
@@ -68,12 +67,12 @@ var companiesData = []struct {
 
 	{"APOLLONP", "Apollo Nepal Hospitals", "Pharma", 50000000000, "Hospital & healthcare chain", 2015, 1500, 500000000},
 	{"MHPL", "Medical Health Products Limited", "Pharma", 40000000000, "Pharmaceutical manufacturer", 2008, 900, 400000000},
-	
+
 	{"HDL", "Himalayan Distillery Limited", "Manufacturing", 90000000000, "Distillery & beverages producer", 1985, 700, 900000000},
 	{"UNL", "Unilever Nepal Limited", "Manufacturing", 80000000000, "FMCG with global brands", 1992, 300, 800000000},
 	{"BNL", "Bottlers Nepal Limited", "Manufacturing", 60000000000, "Bottled beverages producer", 1979, 450, 600000000},
 	{"SHIVM", "Shivam Cements Limited", "Manufacturing", 50000000000, "Cement manufacturer", 2003, 1100, 500000000},
-	
+
 	{"DLFNP", "Nepal Housing Development Co.", "Real Estate", 40000000000, "Real estate developer", 2008, 500, 400000000},
 }
 
@@ -122,18 +121,16 @@ func setupCompaniesData(client *supabase.Client) error {
 	for _, comp := range companiesData {
 		mCap := decimal.NewFromFloat(comp.marketCap)
 
-	
 		var existingCompany models.Company
 		err := client.ExecuteQueryRow("SELECT * FROM companies WHERE symbol = $1", &existingCompany, comp.symbol)
 
 		if err == nil {
-			
+
 			createdCompanies = append(createdCompanies, existingCompany)
 			fmt.Printf("Found existing: %s (%s) - %d total shares\n", existingCompany.Name, existingCompany.Sector, existingCompany.TotalShares)
 			continue
 		}
 
-		
 		var company models.Company
 		err = client.ExecuteInsert(
 			"INSERT INTO companies (symbol, name, sector, market_cap, description, founded_year, employees, total_shares, available_shares, is_active) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *",
@@ -204,7 +201,7 @@ func setupCompaniesData(client *supabase.Client) error {
 	fmt.Println("   - No test users, transactions, or historical prices created")
 	fmt.Println("   - Users register via API, wallet starts with 0 balance")
 	fmt.Println("   - Users must top up wallet before buying stocks")
-	fmt.Println("   - Stock prices start at 100, market simulator will update them")
+	fmt.Println("   - Stock prices start at 100, prices change via buy/sell trades (order-driven)")
 	fmt.Println("   - Each company has total_shares and available_shares")
 	fmt.Println("   - Users can only buy shares that are available in the market")
 	fmt.Println("   - When buying, available_shares decreases; when selling, it increases")

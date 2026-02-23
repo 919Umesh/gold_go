@@ -41,6 +41,10 @@ type Repository interface {
 
 	CreateMarketEvent(event *models.MarketEvent) error
 	GetUpcomingEvents(companyID string, limit int) ([]models.MarketEvent, error)
+
+	UpsertDailyPrice(price *models.StockPrice) error
+	UpdateCompanyMarketCap(companyID string, marketCap decimal.Decimal) error
+	GetPreviousDayClose(companyID string) (*models.StockPrice, error)
 }
 
 type repository struct {
@@ -180,8 +184,9 @@ func (r *repository) GetPriceHistory(companyID string, timeframe string, from, t
 	var err error
 
 	if timeframe == "all" || timeframe == "" {
-		query = "SELECT * FROM stock_prices WHERE company_id = $1 AND timestamp >= $2 ORDER BY timestamp DESC LIMIT $3"
-		err = r.client.ExecuteQuery(query, &prices, companyID, from.Format(time.RFC3339), limit)
+		// "all" returns daily (1D) candles — the primary meaningful data
+		query = "SELECT * FROM stock_prices WHERE company_id = $1 AND timeframe = $2 AND timestamp >= $3 ORDER BY timestamp DESC LIMIT $4"
+		err = r.client.ExecuteQuery(query, &prices, companyID, "1D", from.Format(time.RFC3339), limit)
 	} else {
 		query = "SELECT * FROM stock_prices WHERE company_id = $1 AND timeframe = $2 AND timestamp >= $3 ORDER BY timestamp DESC LIMIT $4"
 		err = r.client.ExecuteQuery(query, &prices, companyID, timeframe, from.Format(time.RFC3339), limit)
@@ -387,4 +392,47 @@ func (r *repository) GetTotalCompaniesBySectorCount(sector string) (int, error) 
 		return 0, err
 	}
 	return len(companies), nil
+}
+
+// UpsertDailyPrice creates or updates the 1D candle for a given day.
+// If a 1D record already exists for that company on the same day, update it.
+// Otherwise create a new one.
+func (r *repository) UpsertDailyPrice(price *models.StockPrice) error {
+	// Look for existing 1D record for today
+	dayStart := time.Date(price.Timestamp.Year(), price.Timestamp.Month(), price.Timestamp.Day(), 0, 0, 0, 0, price.Timestamp.Location())
+	dayEnd := dayStart.Add(24 * time.Hour)
+
+	var prices []models.StockPrice
+	query := "SELECT * FROM stock_prices WHERE company_id = $1 AND timeframe = $2 AND timestamp >= $3 AND timestamp < $4 LIMIT 1"
+	err := r.client.ExecuteQuery(query, &prices, price.CompanyID, "1D", dayStart.Format(time.RFC3339), dayEnd.Format(time.RFC3339))
+
+	if err == nil && len(prices) > 0 {
+		// Update existing daily candle
+		existing := prices[0]
+		updateQuery := `UPDATE stock_prices SET high_price = $1, low_price = $2, close_price = $3, volume = $4 WHERE id = $5`
+		return r.client.ExecuteUpdate(updateQuery, nil,
+			price.HighPrice.InexactFloat64(), price.LowPrice.InexactFloat64(),
+			price.ClosePrice.InexactFloat64(), price.Volume, existing.ID)
+	}
+
+	// Create new daily candle
+	return r.CreateStockPrice(price)
+}
+
+// UpdateCompanyMarketCap updates market cap for a company after price changes
+func (r *repository) UpdateCompanyMarketCap(companyID string, marketCap decimal.Decimal) error {
+	query := `UPDATE companies SET market_cap = $1 WHERE id = $2`
+	return r.client.ExecuteUpdate(query, nil, marketCap.InexactFloat64(), companyID)
+}
+
+// GetPreviousDayClose returns the last closing price from before today
+func (r *repository) GetPreviousDayClose(companyID string) (*models.StockPrice, error) {
+	today := time.Now().Truncate(24 * time.Hour)
+	var prices []models.StockPrice
+	query := "SELECT * FROM stock_prices WHERE company_id = $1 AND timestamp < $2 ORDER BY timestamp DESC LIMIT 1"
+	err := r.client.ExecuteQuery(query, &prices, companyID, today.Format(time.RFC3339))
+	if err != nil || len(prices) == 0 {
+		return nil, fmt.Errorf("no previous day close found for company %s", companyID)
+	}
+	return &prices[0], nil
 }

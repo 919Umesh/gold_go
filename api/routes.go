@@ -17,23 +17,26 @@ import (
 )
 
 type Router struct {
-	client     *supabase.Client
-	cfg        *config.Config
-	engine     *gin.Engine
-	workerPool *queue.WorkerPool
-	marketSim  *market.Simulator
+	client      *supabase.Client
+	cfg         *config.Config
+	engine      *gin.Engine
+	workerPool  *queue.WorkerPool
+	eventHub    *market.EventHub
+	priceEngine *market.PriceEngine
 }
 
 func NewRouter(client *supabase.Client, cfg *config.Config, wp *queue.WorkerPool) *Router {
 	stockRepo := stock.NewRepository(client)
-	marketSim := market.NewSimulator(stockRepo)
+	eventHub := market.NewEventHub()
+	priceEngine := market.NewPriceEngine(stockRepo, eventHub)
 
 	router := &Router{
-		client:     client,
-		cfg:        cfg,
-		engine:     gin.Default(),
-		workerPool: wp,
-		marketSim:  marketSim,
+		client:      client,
+		cfg:         cfg,
+		engine:      gin.Default(),
+		workerPool:  wp,
+		eventHub:    eventHub,
+		priceEngine: priceEngine,
 	}
 
 	router.engine.Use(cors.Default())
@@ -56,14 +59,14 @@ func (r *Router) setupRoutes() {
 	stockService := stock.NewService(stockRepo)
 	mlService := ml.NewService(stockRepo)
 	walletService := wallet.NewService(walletRepo, r.workerPool)
-	tradingService := trading.NewService(tradingRepo, stockRepo)
+	tradingService := trading.NewService(tradingRepo, stockRepo, r.priceEngine)
 
 	authHandler := auth.NewHandler(authService)
-	stockHandler := NewStockHandler(stockService)
+	stockHandler := NewStockHandler(stockService, r.priceEngine, r.eventHub)
 	predictionHandler := NewPredictionHandler(mlService)
 	walletHandler := wallet.NewHandler(walletService)
 	tradingHandler := NewTradingHandler(tradingService)
-	adminHandler := NewAdminHandler(stockRepo, r.marketSim)
+	adminHandler := NewAdminHandler(stockRepo)
 
 	v1 := r.engine.Group("/api/v1")
 	{
@@ -81,10 +84,26 @@ func (r *Router) setupRoutes() {
 			stockRoutes.GET("/top-gainers", stockHandler.GetTopGainers)
 			stockRoutes.GET("/top-losers", stockHandler.GetTopLosers)
 			stockRoutes.GET("/most-active", stockHandler.GetMostActive)
+
+			// New: Live trading data (like NEPSE live board)
+			stockRoutes.GET("/live-trading", stockHandler.GetLiveTradingData)
+
+			// New: Market index (overall market value)
+			stockRoutes.GET("/market-index", stockHandler.GetMarketIndex)
+
+			// New: Comprehensive market summary
+			stockRoutes.GET("/market-summary", stockHandler.GetMarketSummary)
+
+			// New: SSE stream for real-time price updates
+			stockRoutes.GET("/stream", stockHandler.StreamPrices)
+
 			stockRoutes.GET("/:symbol", stockHandler.GetCompany)
 			stockRoutes.GET("/:symbol/price", stockHandler.GetCurrentPrice)
 			stockRoutes.GET("/:symbol/history", stockHandler.GetPriceHistory)
 			stockRoutes.GET("/:symbol/events", stockHandler.GetUpcomingEvents)
+
+			// New: Candlestick OHLCV data for charting
+			stockRoutes.GET("/:symbol/candles", stockHandler.GetCandlestickData)
 		}
 
 		sectorRoutes := v1.Group("/sectors")
@@ -96,7 +115,9 @@ func (r *Router) setupRoutes() {
 
 		predictionRoutes := v1.Group("/prediction")
 		{
+			predictionRoutes.GET("/algorithms", predictionHandler.ListAlgorithms)
 			predictionRoutes.GET("/:symbol", predictionHandler.GetPrediction)
+			predictionRoutes.GET("/:symbol/compare", predictionHandler.CompareAlgorithms)
 		}
 
 		protected := v1.Group("")
@@ -132,7 +153,6 @@ func (r *Router) setupRoutes() {
 		{
 			admin.PUT("/users/:user_id/kyc", authHandler.UpdateKYC)
 			admin.POST("/seed-stocks", adminHandler.SeedStockData)
-			admin.POST("/market-update", adminHandler.TriggerMarketUpdate)
 		}
 	}
 }

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/919Umesh/stock_market_sim/internal/market"
 	"github.com/919Umesh/stock_market_sim/internal/stock"
 	"github.com/919Umesh/stock_market_sim/models"
 
@@ -43,24 +44,29 @@ type PortfolioItemSummary struct {
 }
 
 type TradeResult struct {
-	Success       bool            `json:"success"`
-	Message       string          `json:"message"`
-	TransactionID string          `json:"transaction_id,omitempty"`
-	Quantity      int             `json:"quantity"`
-	PricePerShare decimal.Decimal `json:"price_per_share"`
-	TotalAmount   decimal.Decimal `json:"total_amount"`
-	NewBalance    decimal.Decimal `json:"new_balance"`
+	Success        bool            `json:"success"`
+	Message        string          `json:"message"`
+	TransactionID  string          `json:"transaction_id,omitempty"`
+	Quantity       int             `json:"quantity"`
+	PricePerShare  decimal.Decimal `json:"price_per_share"`
+	TotalAmount    decimal.Decimal `json:"total_amount"`
+	NewBalance     decimal.Decimal `json:"new_balance"`
+	NewMarketPrice decimal.Decimal `json:"new_market_price,omitempty"`
+	PriceImpact    decimal.Decimal `json:"price_impact,omitempty"`
+	PriceImpactPct decimal.Decimal `json:"price_impact_pct,omitempty"`
 }
 
 type service struct {
-	repo      Repository
-	stockRepo stock.Repository
+	repo        Repository
+	stockRepo   stock.Repository
+	priceEngine *market.PriceEngine
 }
 
-func NewService(repo Repository, stockRepo stock.Repository) Service {
+func NewService(repo Repository, stockRepo stock.Repository, priceEngine *market.PriceEngine) Service {
 	return &service{
-		repo:      repo,
-		stockRepo: stockRepo,
+		repo:        repo,
+		stockRepo:   stockRepo,
+		priceEngine: priceEngine,
 	}
 }
 
@@ -72,7 +78,7 @@ func (s *service) CreateWallet(userID string) (*models.VirtualWallet, error) {
 
 	wallet := &models.VirtualWallet{
 		UserID:          userID,
-		Balance:         decimal.Zero, 
+		Balance:         decimal.Zero,
 		TotalInvested:   decimal.Zero,
 		TotalProfitLoss: decimal.Zero,
 	}
@@ -204,19 +210,41 @@ func (s *service) BuyStock(userID, symbol string, quantity int) (*TradeResult, e
 		fmt.Printf("Warning: failed to update available shares: %v\n", err)
 	}
 
-	if err := s.stockRepo.UpdateStockPriceVolume(price.ID, int64(quantity)); err != nil {
-		fmt.Printf("Warning: failed to update volume: %v\n", err)
+	// Process price impact through PriceEngine (order-driven pricing)
+	// The buy creates upward pressure on the stock price
+	var newMarketPrice, priceImpact, priceImpactPct decimal.Decimal
+	if s.priceEngine != nil {
+		// Update company's available shares for accurate impact calculation
+		updatedCompany := *company
+		updatedCompany.AvailableShares = newAvailableShares
+
+		impact, impactErr := s.priceEngine.ProcessTrade(&updatedCompany, quantity, price.ClosePrice, true)
+		if impactErr != nil {
+			fmt.Printf("Warning: failed to process price impact: %v\n", impactErr)
+		} else if impact != nil {
+			newMarketPrice = impact.NewPrice
+			priceImpact = impact.PriceChange
+			priceImpactPct = impact.PriceChangePct
+		}
+	} else {
+		// Fallback: just update volume if no price engine
+		if err := s.stockRepo.UpdateStockPriceVolume(price.ID, int64(quantity)); err != nil {
+			fmt.Printf("Warning: failed to update volume: %v\n", err)
+		}
 	}
 
 	wallet, _ := s.repo.GetVirtualWallet(userID)
 
 	return &TradeResult{
-		Success:       true,
-		Message:       "Stock purchased successfully",
-		Quantity:      quantity,
-		PricePerShare: price.ClosePrice,
-		TotalAmount:   totalAmount,
-		NewBalance:    wallet.Balance,
+		Success:        true,
+		Message:        "Stock purchased successfully",
+		Quantity:       quantity,
+		PricePerShare:  price.ClosePrice,
+		TotalAmount:    totalAmount,
+		NewBalance:     wallet.Balance,
+		NewMarketPrice: newMarketPrice,
+		PriceImpact:    priceImpact,
+		PriceImpactPct: priceImpactPct,
 	}, nil
 }
 
@@ -264,19 +292,39 @@ func (s *service) SellStock(userID, symbol string, quantity int) (*TradeResult, 
 		fmt.Printf("Warning: failed to update available shares: %v\n", err)
 	}
 
-	if err := s.stockRepo.UpdateStockPriceVolume(price.ID, int64(quantity)); err != nil {
-		fmt.Printf("Warning: failed to update volume: %v\n", err)
+	// Process price impact through PriceEngine (order-driven pricing)
+	// The sell creates downward pressure on the stock price
+	var newMarketPrice, priceImpact, priceImpactPct decimal.Decimal
+	if s.priceEngine != nil {
+		updatedCompany := *company
+		updatedCompany.AvailableShares = newAvailableShares
+
+		impact, impactErr := s.priceEngine.ProcessTrade(&updatedCompany, quantity, price.ClosePrice, false)
+		if impactErr != nil {
+			fmt.Printf("Warning: failed to process price impact: %v\n", impactErr)
+		} else if impact != nil {
+			newMarketPrice = impact.NewPrice
+			priceImpact = impact.PriceChange
+			priceImpactPct = impact.PriceChangePct
+		}
+	} else {
+		if err := s.stockRepo.UpdateStockPriceVolume(price.ID, int64(quantity)); err != nil {
+			fmt.Printf("Warning: failed to update volume: %v\n", err)
+		}
 	}
 
 	wallet, _ := s.repo.GetVirtualWallet(userID)
 
 	return &TradeResult{
-		Success:       true,
-		Message:       "Stock sold successfully",
-		Quantity:      quantity,
-		PricePerShare: price.ClosePrice,
-		TotalAmount:   totalAmount,
-		NewBalance:    wallet.Balance,
+		Success:        true,
+		Message:        "Stock sold successfully",
+		Quantity:       quantity,
+		PricePerShare:  price.ClosePrice,
+		TotalAmount:    totalAmount,
+		NewBalance:     wallet.Balance,
+		NewMarketPrice: newMarketPrice,
+		PriceImpact:    priceImpact,
+		PriceImpactPct: priceImpactPct,
 	}, nil
 }
 

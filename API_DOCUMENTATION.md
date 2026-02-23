@@ -1,1322 +1,32 @@
-# Gold Go - Stock Market Simulation API Documentation
+# Stock Market Simulator — Complete API Documentation
 
-## Base URL
-```
-http://localhost:8080/api/v1
-```
+**Base URL:** `http://localhost:8080/api/v1`
+
+All protected endpoints require `Authorization: Bearer <JWT_TOKEN>` header.
+
+---
 
 ## Table of Contents
-1. [Authentication](#authentication)
-2. [Stock Management](#stock-management)
-3. [Sector Information](#sector-information)
-4. [Stock Predictions](#stock-predictions)
-5. [Wallet Management](#wallet-management)
-6. [Trading Operations](#trading-operations)
-7. [Admin Operations](#admin-operations)
-8. [Health Check](#health-check)
+
+1. [Health Check](#1-health-check)
+2. [Authentication](#2-authentication)
+3. [Stocks & Market Data](#3-stocks--market-data)
+4. [Live Trading & Real-Time](#4-live-trading--real-time)
+5. [Sectors](#5-sectors)
+6. [Predictions](#6-predictions)
+7. [Wallet (Fiat)](#7-wallet-fiat)
+8. [Trading](#8-trading)
+9. [Admin](#9-admin)
 
 ---
 
-## Authentication
+## 1. Health Check
 
-### 1. Register User
-**POST** `/api/v1/auth/register`
+### GET `/health`
 
-Register a new user account.
+Check if the server is running.
 
-**Request Body:**
-```json
-{
-  "full_name": "John Doe",
-  "email": "john.doe@example.com",
-  "phone": "9841234567",
-  "role": "user",
-  "password": "securePassword123"
-}
-```
-
-**Validation Rules:**
-- `full_name`: Required, min 2, max 100 characters
-- `email`: Required, valid email format
-- `phone`: Required, min 10, max 15 characters
-- `role`: Required, min 3, max 10 characters (e.g., "user", "admin")
-- `password`: Required, minimum 6 characters
-
-**Response (201 Created):**
-```json
-{
-  "message": "user registered successfully",
-  "user": {
-    "id": "uuid-string",
-    "full_name": "John Doe",
-    "email": "john.doe@example.com",
-    "phone": "9841234567",
-    "kyc_status": "pending",
-    "role": "user",
-    "profile_image_id": "",
-    "created_at": "2026-02-17T10:30:00Z",
-    "updated_at": "2026-02-17T10:30:00Z"
-  }
-}
-```
-
-**Error Responses:**
-- `400 Bad Request`: Invalid input data
-- `409 Conflict`: User already exists
-- `500 Internal Server Error`: Registration failed
-
----
-
-### 2. Login
-**POST** `/api/v1/auth/login`
-
-Authenticate a user and receive a JWT token.
-
-**Request Body:**
-```json
-{
-  "email": "john.doe@example.com",
-  "password": "securePassword123"
-}
-```
-
-**Response (200 OK):**
-```json
-{
-  "message": "login successful",
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "user": {
-    "id": "uuid-string",
-    "full_name": "John Doe",
-    "email": "john.doe@example.com",
-    "phone": "9841234567",
-    "kyc_status": "verified",
-    "role": "user",
-    "profile_image_id": "",
-    "created_at": "2026-02-17T10:30:00Z",
-    "updated_at": "2026-02-17T10:30:00Z"
-  }
-}
-```
-
-**Error Responses:**
-- `400 Bad Request`: Invalid input data
-- `401 Unauthorized`: Invalid credentials
-
----
-
-### 3. Get Profile
-**GET** `/api/v1/auth/profile`
-
-Get the authenticated user's profile.
-
-**Headers:**
-```
-Authorization: Bearer <jwt_token>
-```
-
-**Response (200 OK):**
-```json
-{
-  "user": {
-    "id": "uuid-string",
-    "full_name": "John Doe",
-    "email": "john.doe@example.com",
-    "phone": "9841234567",
-    "kyc_status": "verified",
-    "role": "user",
-    "profile_image_id": "image-id",
-    "created_at": "2026-02-17T10:30:00Z",
-    "updated_at": "2026-02-17T10:30:00Z"
-  }
-}
-```
-
-**Error Responses:**
-- `401 Unauthorized`: User not authenticated
-- `404 Not Found`: User not found
-- `500 Internal Server Error`: Invalid user ID type
-
----
-
-### 4. Update Profile
-**PUT** `/api/v1/auth/profile/update`
-
-Update the authenticated user's profile information.
-
-**Headers:**
-```
-Authorization: Bearer <jwt_token>
-```
-
-**Request Body:**
-```json
-{
-  "full_name": "John Doe Updated",
-  "phone": "9841234568"
-}
-```
-
-**Validation Rules:**
-- `full_name`: Optional, min 2, max 100 characters
-- `phone`: Optional, min 10, max 15 characters
-
-**Response (200 OK):**
-```json
-{
-  "message": "profile updated successfully",
-  "user": {
-    "id": "uuid-string",
-    "full_name": "John Doe Updated",
-    "email": "john.doe@example.com",
-    "phone": "9841234568",
-    "kyc_status": "verified",
-    "role": "user",
-    "profile_image_id": "",
-    "created_at": "2026-02-17T10:30:00Z",
-    "updated_at": "2026-02-17T12:00:00Z"
-  }
-}
-```
-
-**Error Responses:**
-- `400 Bad Request`: No fields to update or invalid data
-- `401 Unauthorized`: User not authenticated
-- `500 Internal Server Error`: Profile update failed
-
----
-
-### 5. Upload Profile Image
-**POST** `/api/v1/auth/profile/image`
-
-Upload a profile image for the authenticated user.
-
-**Headers:**
-```
-Authorization: Bearer <jwt_token>
-Content-Type: multipart/form-data
-```
-
-**Request Body (Form Data):**
-- `image`: Image file (max 5MB)
-
-**Response (200 OK):**
-```json
-{
-  "message": "profile image uploaded successfully",
-  "user": {
-    "id": "uuid-string",
-    "full_name": "John Doe",
-    "email": "john.doe@example.com",
-    "phone": "9841234567",
-    "kyc_status": "verified",
-    "role": "user",
-    "profile_image_id": "uploaded-image-id",
-    "created_at": "2026-02-17T10:30:00Z",
-    "updated_at": "2026-02-17T12:30:00Z"
-  }
-}
-```
-
-**Error Responses:**
-- `400 Bad Request`: Image file is required or image too large (max 5MB)
-- `401 Unauthorized`: User not authenticated
-- `500 Internal Server Error`: Failed to upload image
-
----
-
-## Stock Management
-
-### 6. List Companies
-**GET** `/api/v1/stocks`
-
-Get a paginated list of all companies.
-
-**Query Parameters:**
-- `limit` (optional): Number of results per page (default: 50, max: 100)
-- `offset` (optional): Number of results to skip (default: 0)
-
-**Example:**
-```
-GET /api/v1/stocks?limit=20&offset=0
-```
-
-**Response (200 OK):**
-```json
-{
-  "companies": [
-    {
-      "id": "uuid-string",
-      "symbol": "NABIL",
-      "name": "Nabil Bank Limited",
-      "sector": "Banking",
-      "market_cap": "180000000000",
-      "description": "Leading private sector bank in Nepal",
-      "founded_year": 1984,
-      "employees": 3500,
-      "total_shares": 1800000000,
-      "available_shares": 1500000000,
-      "is_active": true,
-      "created_at": "2026-01-01T00:00:00Z",
-      "updated_at": "2026-02-17T00:00:00Z"
-    }
-  ],
-  "limit": 20,
-  "offset": 0,
-  "count": 20,
-  "total": 150
-}
-```
-
-**Error Responses:**
-- `500 Internal Server Error`: Failed to fetch companies
-
----
-
-### 7. Search Companies
-**GET** `/api/v1/stocks/search`
-
-Search for companies by name or symbol.
-
-**Query Parameters:**
-- `q` (required): Search query string
-
-**Example:**
-```
-GET /api/v1/stocks/search?q=nabil
-```
-
-**Response (200 OK):**
-```json
-{
-  "companies": [
-    {
-      "id": "uuid-string",
-      "symbol": "NABIL",
-      "name": "Nabil Bank Limited",
-      "sector": "Banking",
-      "market_cap": "180000000000",
-      "description": "Leading private sector bank in Nepal",
-      "founded_year": 1984,
-      "employees": 3500,
-      "total_shares": 1800000000,
-      "available_shares": 1500000000,
-      "is_active": true,
-      "created_at": "2026-01-01T00:00:00Z",
-      "updated_at": "2026-02-17T00:00:00Z"
-    }
-  ]
-}
-```
-
-**Error Responses:**
-- `400 Bad Request`: Search query required
-- `500 Internal Server Error`: Search failed
-
----
-
-### 8. Get Company Details
-**GET** `/api/v1/stocks/:symbol`
-
-Get detailed information about a specific company.
-
-**Path Parameters:**
-- `symbol`: Company stock symbol (e.g., NABIL)
-
-**Example:**
-```
-GET /api/v1/stocks/NABIL
-```
-
-**Response (200 OK):**
-```json
-{
-  "company": {
-    "id": "uuid-string",
-    "symbol": "NABIL",
-    "name": "Nabil Bank Limited",
-    "sector": "Banking",
-    "market_cap": "180000000000",
-    "description": "Leading private sector bank in Nepal",
-    "founded_year": 1984,
-    "employees": 3500,
-    "total_shares": 1800000000,
-    "available_shares": 1500000000,
-    "is_active": true,
-    "created_at": "2026-01-01T00:00:00Z",
-    "updated_at": "2026-02-17T00:00:00Z"
-  }
-}
-```
-
-**Error Responses:**
-- `400 Bad Request`: Symbol parameter required
-- `404 Not Found`: Company not found
-
----
-
-### 9. Get Current Stock Price
-**GET** `/api/v1/stocks/:symbol/price`
-
-Get the current price information for a stock.
-
-**Path Parameters:**
-- `symbol`: Company stock symbol
-
-**Example:**
-```
-GET /api/v1/stocks/NABIL/price
-```
-
-**Response (200 OK):**
-```json
-{
-  "price": {
-    "id": "uuid-string",
-    "company_id": "company-uuid",
-    "open_price": "950.50",
-    "high_price": "975.00",
-    "low_price": "945.00",
-    "close_price": "970.00",
-    "volume": 125000,
-    "timestamp": "2026-02-17T16:00:00Z",
-    "timeframe": "1D",
-    "created_at": "2026-02-17T16:00:00Z",
-    "company": {
-      "id": "company-uuid",
-      "symbol": "NABIL",
-      "name": "Nabil Bank Limited"
-    }
-  }
-}
-```
-
-**Error Responses:**
-- `400 Bad Request`: Symbol parameter required
-- `404 Not Found`: Price not found
-
----
-
-### 10. Get Price History
-**GET** `/api/v1/stocks/:symbol/history`
-
-Get historical price data for a stock.
-
-**Path Parameters:**
-- `symbol`: Company stock symbol
-
-**Query Parameters:**
-- `timeframe` (optional): Time interval (default: "1D")
-- `days` (optional): Number of days to retrieve (default: 30, max: 365)
-
-**Example:**
-```
-GET /api/v1/stocks/NABIL/history?timeframe=1D&days=30
-```
-
-**Response (200 OK):**
-```json
-{
-  "symbol": "NABIL",
-  "timeframe": "1D",
-  "prices": [
-    {
-      "id": "uuid-string",
-      "company_id": "company-uuid",
-      "open_price": "950.50",
-      "high_price": "975.00",
-      "low_price": "945.00",
-      "close_price": "970.00",
-      "volume": 125000,
-      "timestamp": "2026-02-17T00:00:00Z",
-      "timeframe": "1D",
-      "created_at": "2026-02-17T16:00:00Z"
-    }
-  ]
-}
-```
-
-**Error Responses:**
-- `400 Bad Request`: Symbol parameter required
-- `404 Not Found`: Price history not found
-
----
-
-### 11. Get Market Overview
-**GET** `/api/v1/stocks/market-overview`
-
-Get overall market statistics and overview.
-
-**Response (200 OK):**
-```json
-{
-  "total_companies": 150,
-  "total_market_cap": "5000000000000",
-  "total_volume": 5000000,
-  "total_trades": 12500,
-  "advancing": 85,
-  "declining": 50,
-  "unchanged": 15,
-  "avg_change_percentage": "1.25"
-}
-```
-
-**Error Responses:**
-- `500 Internal Server Error`: Failed to fetch market overview
-
----
-
-### 12. Get Top Gainers
-**GET** `/api/v1/stocks/top-gainers`
-
-Get the list of stocks with the highest price gains.
-
-**Query Parameters:**
-- `limit` (optional): Number of results (default: 10)
-
-**Example:**
-```
-GET /api/v1/stocks/top-gainers?limit=5
-```
-
-**Response (200 OK):**
-```json
-{
-  "gainers": [
-    {
-      "company": {
-        "id": "uuid-string",
-        "symbol": "NABIL",
-        "name": "Nabil Bank Limited",
-        "sector": "Banking"
-      },
-      "current_price": "970.00",
-      "change": "45.50",
-      "change_percentage": "4.92"
-    }
-  ]
-}
-```
-
-**Error Responses:**
-- `500 Internal Server Error`: Failed to fetch top gainers
-
----
-
-### 13. Get Top Losers
-**GET** `/api/v1/stocks/top-losers`
-
-Get the list of stocks with the highest price losses.
-
-**Query Parameters:**
-- `limit` (optional): Number of results (default: 10)
-
-**Example:**
-```
-GET /api/v1/stocks/top-losers?limit=5
-```
-
-**Response (200 OK):**
-```json
-{
-  "losers": [
-    {
-      "company": {
-        "id": "uuid-string",
-        "symbol": "EXAMPLE",
-        "name": "Example Company",
-        "sector": "Technology"
-      },
-      "current_price": "450.00",
-      "change": "-25.50",
-      "change_percentage": "-5.36"
-    }
-  ]
-}
-```
-
-**Error Responses:**
-- `500 Internal Server Error`: Failed to fetch top losers
-
----
-
-### 14. Get Most Active Stocks
-**GET** `/api/v1/stocks/most-active`
-
-Get stocks with the highest trading volume.
-
-**Query Parameters:**
-- `limit` (optional): Number of results (default: 10)
-
-**Example:**
-```
-GET /api/v1/stocks/most-active?limit=10
-```
-
-**Response (200 OK):**
-```json
-{
-  "active": [
-    {
-      "company": {
-        "id": "uuid-string",
-        "symbol": "NABIL",
-        "name": "Nabil Bank Limited",
-        "sector": "Banking"
-      },
-      "current_price": "970.00",
-      "volume": 250000,
-      "change_percentage": "2.50"
-    }
-  ]
-}
-```
-
-**Error Responses:**
-- `500 Internal Server Error`: Failed to fetch most active
-
----
-
-### 15. Get Upcoming Events
-**GET** `/api/v1/stocks/:symbol/events`
-
-Get upcoming market events for a specific company.
-
-**Path Parameters:**
-- `symbol`: Company stock symbol
-
-**Example:**
-```
-GET /api/v1/stocks/NABIL/events
-```
-
-**Response (200 OK):**
-```json
-{
-  "events": [
-    {
-      "id": "uuid-string",
-      "company_id": "company-uuid",
-      "event_type": "earnings",
-      "title": "Q1 Financial Results",
-      "description": "Strong quarterly earnings with revenue growth",
-      "impact_percentage": 3.5,
-      "event_date": "2026-03-15T00:00:00Z",
-      "created_at": "2026-02-10T00:00:00Z"
-    },
-    {
-      "id": "uuid-string",
-      "company_id": "company-uuid",
-      "event_type": "dividend",
-      "title": "Annual Dividend Announcement",
-      "description": "Annual dividend payout to shareholders",
-      "impact_percentage": 2.0,
-      "event_date": "2026-04-01T00:00:00Z",
-      "created_at": "2026-02-12T00:00:00Z"
-    }
-  ]
-}
-```
-
-**Event Types:**
-- `earnings`: Earnings reports
-- `news`: General news
-- `dividend`: Dividend announcements
-- `merger`: Merger/acquisition news
-- `ipo`: IPO/FPO announcements
-- `split`: Stock split announcements
-
-**Error Responses:**
-- `404 Not Found`: Events not available
-
----
-
-## Sector Information
-
-### 16. Get All Sectors
-**GET** `/api/v1/sectors`
-
-Get a list of all available sectors.
-
-**Response (200 OK):**
-```json
-{
-  "message": "sectors retrieved successfully",
-  "sectors": [
-    "Banking",
-    "Information Technology",
-    "Hydropower",
-    "Insurance",
-    "Pharma",
-    "Manufacturing",
-    "Real Estate"
-  ],
-  "count": 7
-}
-```
-
-**Error Responses:**
-- `500 Internal Server Error`: Failed to fetch sectors
-
----
-
-### 17. Get Companies by Sector
-**GET** `/api/v1/sectors/:sector/companies`
-
-Get all companies in a specific sector.
-
-**Path Parameters:**
-- `sector`: Sector name (e.g., Banking, Technology)
-
-**Query Parameters:**
-- `limit` (optional): Number of results per page (default: 50, max: 100)
-- `offset` (optional): Number of results to skip (default: 0)
-
-**Example:**
-```
-GET /api/v1/sectors/Banking/companies?limit=10&offset=0
-```
-
-**Response (200 OK):**
-```json
-{
-  "sector": "Banking",
-  "companies": [
-    {
-      "id": "uuid-string",
-      "symbol": "NABIL",
-      "name": "Nabil Bank Limited",
-      "sector": "Banking",
-      "market_cap": "180000000000",
-      "description": "Leading private sector bank in Nepal",
-      "founded_year": 1984,
-      "employees": 3500,
-      "total_shares": 1800000000,
-      "available_shares": 1500000000,
-      "is_active": true
-    }
-  ],
-  "limit": 10,
-  "offset": 0,
-  "count": 10,
-  "total": 25
-}
-```
-
-**Error Responses:**
-- `500 Internal Server Error`: Failed to fetch companies
-
----
-
-### 18. Get Sector Statistics
-**GET** `/api/v1/sectors/:sector/stats`
-
-Get statistical information about a specific sector.
-
-**Path Parameters:**
-- `sector`: Sector name
-
-**Example:**
-```
-GET /api/v1/sectors/Banking/stats
-```
-
-**Response (200 OK):**
-```json
-{
-  "message": "sector statistics",
-  "sector": "Banking",
-  "statistics": {
-    "company_count": 25,
-    "total_market_cap": "2500000000000",
-    "avg_market_cap": "100000000000",
-    "total_employees": 45000,
-    "avg_employees": 1800,
-    "avg_founded_year": 1995
-  },
-  "top_5_companies": [
-    {
-      "id": "uuid-string",
-      "symbol": "NABIL",
-      "name": "Nabil Bank Limited",
-      "sector": "Banking",
-      "market_cap": "180000000000",
-      "description": "Leading private sector bank in Nepal",
-      "founded_year": 1984,
-      "employees": 3500
-    }
-  ]
-}
-```
-
-**Error Responses:**
-- `404 Not Found`: No companies found in this sector
-- `500 Internal Server Error`: Failed to fetch sector stats
-
----
-
-## Stock Predictions
-
-### 19. Get Stock Price Prediction
-**GET** `/api/v1/prediction/:symbol`
-
-Get AI/ML-based price prediction for a stock.
-
-**Path Parameters:**
-- `symbol`: Company stock symbol
-
-**Example:**
-```
-GET /api/v1/prediction/NABIL
-```
-
-**Response (200 OK):**
-```json
-{
-  "prediction": {
-    "id": "uuid-string",
-    "company_id": "company-uuid",
-    "predicted_price": 985.50,
-    "confidence_score": 0.85,
-    "prediction_date": "2026-02-17T00:00:00Z",
-    "target_date": "2026-02-18T00:00:00Z",
-    "model_used": "linear_regression",
-    "created_at": "2026-02-17T08:00:00Z"
-  }
-}
-```
-
-**Error Responses:**
-- `400 Bad Request`: Symbol is required
-- `500 Internal Server Error`: Failed to predict price
-
----
-
-## Wallet Management
-
-### 20. Get Wallet
-**GET** `/api/v1/wallet`
-
-Get the authenticated user's wallet information.
-
-**Headers:**
-```
-Authorization: Bearer <jwt_token>
-```
-
-**Response (200 OK):**
-```json
-{
-  "wallet": {
-    "id": "uuid-string",
-    "user_id": "user-uuid",
-    "fiat_balance": "50000.00",
-    "locked_amount": "0.00",
-    "is_active": true,
-    "created_at": "2026-01-01T00:00:00Z",
-    "updated_at": "2026-02-17T00:00:00Z"
-  }
-}
-```
-
-**Error Responses:**
-- `401 Unauthorized`: User not authenticated
-- `500 Internal Server Error`: Failed to fetch wallet
-
----
-
-### 21. Top Up Wallet
-**POST** `/api/v1/wallet/topup`
-
-Add funds to the user's wallet.
-
-**Headers:**
-```
-Authorization: Bearer <jwt_token>
-```
-
-**Request Body:**
-```json
-{
-  "amount": 10000.00
-}
-```
-
-**Validation Rules:**
-- `amount`: Required, must be greater than 0
-
-**Response (200 OK):**
-```json
-{
-  "message": "top-up successful",
-  "wallet": {
-    "id": "uuid-string",
-    "user_id": "user-uuid",
-    "fiat_balance": "60000.00",
-    "locked_amount": "0.00",
-    "is_active": true,
-    "created_at": "2026-01-01T00:00:00Z",
-    "updated_at": "2026-02-17T10:00:00Z"
-  },
-  "transaction": {
-    "id": "transaction-uuid",
-    "user_id": "user-uuid",
-    "type": "topup",
-    "amount": "10000.00",
-    "status": "success",
-    "reference_id": "topup_xxxxx-xxxx-xxxx",
-    "created_at": "2026-02-17T10:00:00Z",
-    "updated_at": "2026-02-17T10:00:00Z"
-  }
-}
-```
-
-**Error Responses:**
-- `400 Bad Request`: Invalid amount
-- `401 Unauthorized`: User not authenticated
-- `423 Locked`: Wallet is locked
-- `500 Internal Server Error`: Top-up failed
-
----
-
-### 22. Get User Transactions
-**GET** `/api/v1/transaction`
-
-Get all wallet transactions for the authenticated user.
-
-**Headers:**
-```
-Authorization: Bearer <jwt_token>
-```
-
-**Response (200 OK):**
-```json
-{
-  "message": "user transactions retrieved successfully",
-  "data": [
-    {
-      "id": "transaction-uuid",
-      "user_id": "user-uuid",
-      "type": "topup",
-      "amount": "10000.00",
-      "status": "success",
-      "reference_id": "topup_xxxxx-xxxx-xxxx",
-      "created_at": "2026-02-17T10:00:00Z",
-      "updated_at": "2026-02-17T10:00:00Z"
-    },
-    {
-      "id": "transaction-uuid-2",
-      "user_id": "user-uuid",
-      "type": "topup",
-      "amount": "50000.00",
-      "status": "success",
-      "reference_id": "topup_yyyyy-yyyy-yyyy",
-      "created_at": "2026-01-15T12:00:00Z",
-      "updated_at": "2026-01-15T12:00:00Z"
-    }
-  ]
-}
-```
-
-**Transaction Types:**
-- `topup`: Wallet top-up
-- `refund`: Refund to wallet
-
-**Transaction Status:**
-- `pending`: Transaction pending
-- `success`: Transaction completed successfully
-- `failed`: Transaction failed
-
-**Error Responses:**
-- `401 Unauthorized`: User not authenticated
-- `500 Internal Server Error`: Failed to fetch transactions
-
----
-
-## Trading Operations
-
-### 23. Get Trading Wallet
-**GET** `/api/v1/trading/wallet`
-
-Get the trading wallet for the authenticated user.
-
-**Headers:**
-```
-Authorization: Bearer <jwt_token>
-```
-
-**Response (200 OK):**
-```json
-{
-  "wallet": {
-    "id": "uuid-string",
-    "user_id": "user-uuid",
-    "balance": "45000.00",
-    "total_invested": "5000.00",
-    "total_profit_loss": "250.00",
-    "created_at": "2026-01-01T00:00:00Z",
-    "updated_at": "2026-02-17T00:00:00Z"
-  }
-}
-```
-
-**Error Responses:**
-- `401 Unauthorized`: User not authenticated
-- `500 Internal Server Error`: Failed to get wallet
-
----
-
-### 24. Get Portfolio
-**GET** `/api/v1/trading/portfolio`
-
-Get the user's stock portfolio with current values.
-
-**Headers:**
-```
-Authorization: Bearer <jwt_token>
-```
-
-**Response (200 OK):**
-```json
-{
-  "portfolio": [
-    {
-      "id": "portfolio-uuid",
-      "user_id": "user-uuid",
-      "company_id": "company-uuid",
-      "quantity": 10,
-      "average_price": "950.00",
-      "total_invested": "9500.00",
-      "current_price": "970.00",
-      "current_value": "9700.00",
-      "profit_loss": "200.00",
-      "profit_loss_percentage": "2.11",
-      "created_at": "2026-02-10T00:00:00Z",
-      "updated_at": "2026-02-17T00:00:00Z",
-      "company": {
-        "id": "company-uuid",
-        "symbol": "NABIL",
-        "name": "Nabil Bank Limited",
-        "sector": "Banking"
-      }
-    }
-  ],
-  "summary": {
-    "total_invested": "9500.00",
-    "current_value": "9700.00",
-    "total_profit_loss": "200.00",
-    "total_profit_loss_percentage": "2.11"
-  }
-}
-```
-
-**Error Responses:**
-- `401 Unauthorized`: User not authenticated
-- `500 Internal Server Error`: Failed to get portfolio
-
----
-
-### 25. Buy Stock
-**POST** `/api/v1/trading/buy`
-
-Purchase stocks for the authenticated user.
-
-**Headers:**
-```
-Authorization: Bearer <jwt_token>
-```
-
-**Request Body:**
-```json
-{
-  "symbol": "NABIL",
-  "quantity": 10
-}
-```
-
-**Validation Rules:**
-- `symbol`: Required
-- `quantity`: Required, minimum 1
-
-**Response (200 OK):**
-```json
-{
-  "success": true,
-  "message": "Stock purchased successfully",
-  "transaction": {
-    "id": "transaction-uuid",
-    "user_id": "user-uuid",
-    "company_id": "company-uuid",
-    "type": "buy",
-    "quantity": 10,
-    "price_per_share": "970.00",
-    "total_amount": "9700.00",
-    "status": "completed",
-    "reference_id": "BUY_xxxxx-xxxx-xxxx",
-    "created_at": "2026-02-17T10:30:00Z"
-  },
-  "portfolio": {
-    "id": "portfolio-uuid",
-    "user_id": "user-uuid",
-    "company_id": "company-uuid",
-    "quantity": 10,
-    "average_price": "970.00",
-    "total_invested": "9700.00",
-    "created_at": "2026-02-17T10:30:00Z",
-    "updated_at": "2026-02-17T10:30:00Z"
-  },
-  "wallet_balance": "40300.00"
-}
-```
-
-**Error Responses:**
-- `400 Bad Request`: Invalid input or insufficient funds/shares
-- `401 Unauthorized`: User not authenticated
-- `500 Internal Server Error`: Purchase failed
-
----
-
-### 26. Sell Stock
-**POST** `/api/v1/trading/sell`
-
-Sell stocks from the user's portfolio.
-
-**Headers:**
-```
-Authorization: Bearer <jwt_token>
-```
-
-**Request Body:**
-```json
-{
-  "symbol": "NABIL",
-  "quantity": 5
-}
-```
-
-**Validation Rules:**
-- `symbol`: Required
-- `quantity`: Required, minimum 1
-
-**Response (200 OK):**
-```json
-{
-  "success": true,
-  "message": "Stock sold successfully",
-  "transaction": {
-    "id": "transaction-uuid",
-    "user_id": "user-uuid",
-    "company_id": "company-uuid",
-    "type": "sell",
-    "quantity": 5,
-    "price_per_share": "980.00",
-    "total_amount": "4900.00",
-    "status": "completed",
-    "reference_id": "SELL_xxxxx-xxxx-xxxx",
-    "created_at": "2026-02-17T11:00:00Z"
-  },
-  "portfolio": {
-    "id": "portfolio-uuid",
-    "user_id": "user-uuid",
-    "company_id": "company-uuid",
-    "quantity": 5,
-    "average_price": "970.00",
-    "total_invested": "4850.00",
-    "created_at": "2026-02-17T10:30:00Z",
-    "updated_at": "2026-02-17T11:00:00Z"
-  },
-  "wallet_balance": "45200.00",
-  "profit_loss": "50.00"
-}
-```
-
-**Error Responses:**
-- `400 Bad Request`: Invalid input or insufficient stocks
-- `401 Unauthorized`: User not authenticated
-- `500 Internal Server Error`: Sale failed
-
----
-
-### 27. Get Transaction History
-**GET** `/api/v1/trading/transactions`
-
-Get the trading transaction history for the authenticated user.
-
-**Headers:**
-```
-Authorization: Bearer <jwt_token>
-```
-
-**Query Parameters:**
-- `limit` (optional): Number of results per page (default: 50)
-- `offset` (optional): Number of results to skip (default: 0)
-
-**Example:**
-```
-GET /api/v1/trading/transactions?limit=20&offset=0
-```
-
-**Response (200 OK):**
-```json
-{
-  "transactions": [
-    {
-      "id": "transaction-uuid",
-      "user_id": "user-uuid",
-      "company_id": "company-uuid",
-      "type": "buy",
-      "quantity": 10,
-      "price_per_share": "970.00",
-      "total_amount": "9700.00",
-      "status": "completed",
-      "reference_id": "BUY_xxxxx-xxxx-xxxx",
-      "created_at": "2026-02-17T10:30:00Z",
-      "company": {
-        "id": "company-uuid",
-        "symbol": "NABIL",
-        "name": "Nabil Bank Limited",
-        "sector": "Banking"
-      }
-    },
-    {
-      "id": "transaction-uuid-2",
-      "user_id": "user-uuid",
-      "company_id": "company-uuid",
-      "type": "sell",
-      "quantity": 5,
-      "price_per_share": "980.00",
-      "total_amount": "4900.00",
-      "status": "completed",
-      "reference_id": "SELL_xxxxx-xxxx-xxxx",
-      "created_at": "2026-02-17T11:00:00Z",
-      "company": {
-        "id": "company-uuid",
-        "symbol": "NABIL",
-        "name": "Nabil Bank Limited",
-        "sector": "Banking"
-      }
-    }
-  ],
-  "limit": 20,
-  "offset": 0
-}
-```
-
-**Transaction Types:**
-- `buy`: Stock purchase
-- `sell`: Stock sale
-
-**Transaction Status:**
-- `pending`: Transaction pending
-- `completed`: Transaction completed
-- `failed`: Transaction failed
-- `cancelled`: Transaction cancelled
-
-**Error Responses:**
-- `401 Unauthorized`: User not authenticated
-- `500 Internal Server Error`: Failed to get transactions
-
----
-
-## Admin Operations
-
-### 28. Update User KYC Status
-**PUT** `/api/v1/admin/users/:user_id/kyc`
-
-Update the KYC status and role of a user (Admin only).
-
-**Headers:**
-```
-Authorization: Bearer <jwt_token>
-```
-
-**Path Parameters:**
-- `user_id`: User ID to update
-
-**Request Body:**
-```json
-{
-  "kyc_status": "verified",
-  "role": "user"
-}
-```
-
-**Validation Rules:**
-- `kyc_status`: Required, must be one of: pending, verified, rejected, under_review
-- `role`: Required, must be one of: user, admin
-
-**Response (200 OK):**
-```json
-{
-  "message": "KYC status updated successfully",
-  "user": {
-    "id": "user-uuid",
-    "full_name": "John Doe",
-    "email": "john.doe@example.com",
-    "phone": "9841234567",
-    "kyc_status": "verified",
-    "role": "user",
-    "profile_image_id": "",
-    "created_at": "2026-02-17T10:30:00Z",
-    "updated_at": "2026-02-17T14:00:00Z"
-  }
-}
-```
-
-**KYC Status Values:**
-- `pending`: KYC pending review
-- `verified`: KYC verified
-- `rejected`: KYC rejected
-- `under_review`: KYC under review
-
-**Error Responses:**
-- `400 Bad Request`: Invalid input data
-- `401 Unauthorized`: User not authenticated
-- `403 Forbidden`: Not authorized (not an admin)
-- `500 Internal Server Error`: KYC update failed
-
----
-
-### 29. Seed Stock Data
-**POST** `/api/v1/admin/seed-stocks`
-
-Seed initial stock data into the database (Admin only).
-
-**Headers:**
-```
-Authorization: Bearer <jwt_token>
-```
-
-**Request Body:**
-```json
-{}
-```
-
-**Response (200 OK):**
-```json
-{
-  "message": "Stock data seeded successfully",
-  "companies_added": 25,
-  "prices_added": 750,
-  "events_added": 125
-}
-```
-
-**Error Responses:**
-- `401 Unauthorized`: User not authenticated
-- `403 Forbidden`: Not authorized (not an admin)
-- `500 Internal Server Error`: Seeding failed
-
----
-
-## Health Check
-
-### 30. Health Check
-**GET** `/health`
-
-Check if the API server is running.
-
-**Response (200 OK):**
+**Response** `200 OK`
 ```json
 {
   "status": "ok"
@@ -1325,94 +35,1549 @@ Check if the API server is running.
 
 ---
 
-## Error Response Format
+## 2. Authentication
 
-All error responses follow this general format:
+### POST `/api/v1/auth/register`
 
+Register a new user account.
+
+**Request Body**
 ```json
 {
-  "error": "Error message description"
+  "full_name": "Ram Sharma",
+  "email": "ram@example.com",
+  "phone": "9841234567",
+  "role": "user",
+  "password": "securepass123"
 }
 ```
 
-Or for validation errors:
+| Field     | Type   | Required | Validation           |
+|-----------|--------|----------|----------------------|
+| full_name | string | Yes      | min=2, max=100       |
+| email     | string | Yes      | valid email          |
+| phone     | string | Yes      | min=10, max=15       |
+| role      | string | Yes      | min=3, max=10        |
+| password  | string | Yes      | min=6                |
 
+**Response** `201 Created`
 ```json
 {
-  "error": "Field validation error details"
+  "message": "user registered successfully",
+  "user": {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "full_name": "Ram Sharma",
+    "email": "ram@example.com",
+    "phone": "9841234567",
+    "kyc_status": "pending",
+    "role": "user",
+    "created_at": "2026-02-23T10:00:00Z",
+    "updated_at": "2026-02-23T10:00:00Z"
+  }
+}
+```
+
+**Error** `409 Conflict`
+```json
+{
+  "error": "user already exists"
 }
 ```
 
 ---
+
+### POST `/api/v1/auth/login`
+
+Login and receive a JWT token.
+
+**Request Body**
+```json
+{
+  "email": "ram@example.com",
+  "password": "securepass123"
+}
+```
+
+**Response** `200 OK`
+```json
+{
+  "message": "login successful",
+  "token": "eyJhbGciOiJIUzI1NiIs...",
+  "user": {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "full_name": "Ram Sharma",
+    "email": "ram@example.com",
+    "phone": "9841234567",
+    "kyc_status": "pending",
+    "role": "user",
+    "created_at": "2026-02-23T10:00:00Z",
+    "updated_at": "2026-02-23T10:00:00Z"
+  }
+}
+```
+
+**Error** `401 Unauthorized`
+```json
+{
+  "error": "invalid credentials"
+}
+```
+
+---
+
+### GET `/api/v1/auth/profile` 🔒
+
+Get the authenticated user's profile.
+
+**Headers:** `Authorization: Bearer <token>`
+
+**Response** `200 OK`
+```json
+{
+  "user": {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "full_name": "Ram Sharma",
+    "email": "ram@example.com",
+    "phone": "9841234567",
+    "kyc_status": "pending",
+    "role": "user",
+    "profile_image_id": "",
+    "created_at": "2026-02-23T10:00:00Z",
+    "updated_at": "2026-02-23T10:00:00Z"
+  }
+}
+```
+
+---
+
+### PUT `/api/v1/auth/profile/update` 🔒
+
+Update user profile fields.
+
+**Headers:** `Authorization: Bearer <token>`
+
+**Request Body**
+```json
+{
+  "full_name": "Ram Kumar Sharma",
+  "phone": "9841234568"
+}
+```
+
+| Field     | Type   | Required | Validation           |
+|-----------|--------|----------|----------------------|
+| full_name | string | No       | min=2, max=100       |
+| phone     | string | No       | min=10, max=15       |
+
+**Response** `200 OK`
+```json
+{
+  "message": "profile updated successfully",
+  "user": {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "full_name": "Ram Kumar Sharma",
+    "email": "ram@example.com",
+    "phone": "9841234568",
+    "kyc_status": "pending",
+    "role": "user",
+    "created_at": "2026-02-23T10:00:00Z",
+    "updated_at": "2026-02-23T10:05:00Z"
+  }
+}
+```
+
+---
+
+### POST `/api/v1/auth/profile/image` 🔒
+
+Upload a profile image.
+
+**Headers:** `Authorization: Bearer <token>`
+
+**Request:** `multipart/form-data`
+
+| Field | Type | Required | Validation    |
+|-------|------|----------|---------------|
+| image | file | Yes      | max 5MB       |
+
+**Response** `200 OK`
+```json
+{
+  "message": "profile image uploaded successfully",
+  "image_id": "img_abc123"
+}
+```
+
+---
+
+## 3. Stocks & Market Data
+
+### GET `/api/v1/stocks`
+
+List all active companies with pagination.
+
+**Query Parameters**
+
+| Param  | Type | Default | Max |
+|--------|------|---------|-----|
+| limit  | int  | 50      | 100 |
+| offset | int  | 0       | -   |
+
+**Response** `200 OK`
+```json
+{
+  "companies": [
+    {
+      "id": "uuid-1",
+      "symbol": "NABIL",
+      "name": "Nabil Bank Limited",
+      "sector": "Banking",
+      "market_cap": 180000000000,
+      "description": "Leading private sector bank in Nepal",
+      "founded_year": 1984,
+      "employees": 3500,
+      "total_shares": 1800000000,
+      "available_shares": 1799999000,
+      "is_active": true,
+      "created_at": "2026-02-23T10:00:00Z",
+      "updated_at": "2026-02-23T10:00:00Z"
+    }
+  ],
+  "limit": 50,
+  "offset": 0,
+  "count": 25,
+  "total": 25
+}
+```
+
+---
+
+### GET `/api/v1/stocks/search`
+
+Search companies by symbol or name.
+
+**Query Parameters**
+
+| Param | Type   | Required |
+|-------|--------|----------|
+| q     | string | Yes      |
+
+**Response** `200 OK`
+```json
+{
+  "companies": [
+    {
+      "id": "uuid-1",
+      "symbol": "NABIL",
+      "name": "Nabil Bank Limited",
+      "sector": "Banking",
+      "market_cap": 180000000000,
+      "total_shares": 1800000000,
+      "available_shares": 1799999000,
+      "is_active": true
+    }
+  ]
+}
+```
+
+---
+
+### GET `/api/v1/stocks/:symbol`
+
+Get a single company by symbol.
+
+**URL Parameters:** `symbol` — Company ticker (e.g., `NABIL`)
+
+**Response** `200 OK`
+```json
+{
+  "company": {
+    "id": "uuid-1",
+    "symbol": "NABIL",
+    "name": "Nabil Bank Limited",
+    "sector": "Banking",
+    "market_cap": 180000000000,
+    "description": "Leading private sector bank in Nepal",
+    "founded_year": 1984,
+    "employees": 3500,
+    "total_shares": 1800000000,
+    "available_shares": 1799999000,
+    "is_active": true,
+    "created_at": "2026-02-23T10:00:00Z",
+    "updated_at": "2026-02-23T10:00:00Z"
+  }
+}
+```
+
+---
+
+### GET `/api/v1/stocks/:symbol/price`
+
+Get the current (latest) price for a stock.
+
+**URL Parameters:** `symbol` — Company ticker
+
+**Response** `200 OK`
+```json
+{
+  "price": {
+    "id": "uuid-price",
+    "company_id": "uuid-1",
+    "open_price": "100.00",
+    "high_price": "102.50",
+    "low_price": "99.50",
+    "close_price": "101.25",
+    "volume": 15000,
+    "timestamp": "2026-02-23T10:30:00Z",
+    "timeframe": "1m"
+  }
+}
+```
+
+---
+
+### GET `/api/v1/stocks/:symbol/history`
+
+Get historical price data for charting.
+
+**URL Parameters:** `symbol` — Company ticker
+
+**Query Parameters**
+
+| Param     | Type   | Default | Allowed Values       |
+|-----------|--------|---------|----------------------|
+| timeframe | string | 1D      | 1D, 1W, 1M, all     |
+| days      | int    | 30      | 1–1825 (5 years)     |
+
+**Response** `200 OK`
+```json
+{
+  "symbol": "NABIL",
+  "timeframe": "1D",
+  "days": 30,
+  "count": 22,
+  "prices": [
+    {
+      "id": "uuid-price",
+      "company_id": "uuid-1",
+      "open_price": "100.00",
+      "high_price": "102.50",
+      "low_price": "99.50",
+      "close_price": "101.25",
+      "volume": 15000,
+      "timestamp": "2026-02-23T00:00:00Z",
+      "timeframe": "1D"
+    }
+  ]
+}
+```
+
+---
+
+### GET `/api/v1/stocks/:symbol/events`
+
+Get upcoming market events for a company.
+
+**URL Parameters:** `symbol` — Company ticker
+
+**Response** `200 OK`
+```json
+{
+  "events": [
+    {
+      "id": "uuid-event",
+      "company_id": "uuid-1",
+      "event_type": "earnings",
+      "title": "Q1 Financial Results",
+      "description": "Strong quarterly earnings with revenue growth",
+      "impact_percentage": 3.5,
+      "event_date": "2026-06-15T00:00:00Z"
+    }
+  ]
+}
+```
+
+---
+
+### GET `/api/v1/stocks/:symbol/candles`
+
+Get candlestick (OHLCV) data for charting. Returns data sorted ascending by timestamp.
+
+**URL Parameters:** `symbol` — Company ticker
+
+**Query Parameters**
+
+| Param     | Type   | Default | Max |
+|-----------|--------|---------|-----|
+| timeframe | string | 1D      | -   |
+| days      | int    | 30      | 365 |
+
+**Response** `200 OK`
+```json
+{
+  "symbol": "NABIL",
+  "timeframe": "1D",
+  "days": 30,
+  "count": 22,
+  "candles": [
+    {
+      "timestamp": "2026-02-01T00:00:00Z",
+      "open": "100.00",
+      "high": "102.50",
+      "low": "99.50",
+      "close": "101.25",
+      "volume": 15000
+    },
+    {
+      "timestamp": "2026-02-02T00:00:00Z",
+      "open": "101.25",
+      "high": "103.00",
+      "low": "100.80",
+      "close": "102.10",
+      "volume": 12000
+    }
+  ]
+}
+```
+
+---
+
+### GET `/api/v1/stocks/market-overview`
+
+Get a basic market overview with top gainers, losers, and most active.
+
+**Response** `200 OK`
+```json
+{
+  "total_companies": 25,
+  "top_gainers": [
+    {
+      "id": "uuid-1",
+      "symbol": "NABIL",
+      "name": "Nabil Bank Limited",
+      "sector": "Banking",
+      "market_cap": 180000000000,
+      "current_price": "105.20",
+      "previous_price": "100.00",
+      "change": "5.20",
+      "change_percent": "5.20"
+    }
+  ],
+  "top_losers": [],
+  "most_active": []
+}
+```
+
+---
+
+### GET `/api/v1/stocks/top-gainers`
+
+Get stocks with the highest positive price change.
+
+**Query Parameters**
+
+| Param | Type | Default |
+|-------|------|---------|
+| limit | int  | 10      |
+
+**Response** `200 OK`
+```json
+{
+  "gainers": [
+    {
+      "id": "uuid-1",
+      "symbol": "NABIL",
+      "name": "Nabil Bank Limited",
+      "sector": "Banking",
+      "market_cap": 180000000000,
+      "current_price": "105.20",
+      "previous_price": "100.00",
+      "change": "5.20",
+      "change_percent": "5.20"
+    }
+  ]
+}
+```
+
+---
+
+### GET `/api/v1/stocks/top-losers`
+
+Get stocks with the largest negative price change.
+
+**Query Parameters**
+
+| Param | Type | Default |
+|-------|------|---------|
+| limit | int  | 10      |
+
+**Response** `200 OK`
+```json
+{
+  "losers": [
+    {
+      "id": "uuid-2",
+      "symbol": "IMS",
+      "name": "IMS Software Solutions",
+      "sector": "Information Technology",
+      "market_cap": 30000000000,
+      "current_price": "97.50",
+      "previous_price": "100.00",
+      "change": "-2.50",
+      "change_percent": "-2.50"
+    }
+  ]
+}
+```
+
+---
+
+### GET `/api/v1/stocks/most-active`
+
+Get stocks with the highest trading volume.
+
+**Query Parameters**
+
+| Param | Type | Default |
+|-------|------|---------|
+| limit | int  | 10      |
+
+**Response** `200 OK`
+```json
+{
+  "active": [
+    {
+      "id": "uuid-1",
+      "symbol": "NABIL",
+      "name": "Nabil Bank Limited",
+      "sector": "Banking",
+      "market_cap": 180000000000,
+      "total_shares": 1800000000,
+      "available_shares": 1799999000,
+      "is_active": true
+    }
+  ]
+}
+```
+
+---
+
+## 4. Live Trading & Real-Time
+
+### GET `/api/v1/stocks/live-trading`
+
+Get live trading board data for all companies (like NEPSE live board).
+
+**Response** `200 OK`
+```json
+{
+  "live_trading": [
+    {
+      "symbol": "NABIL",
+      "company_id": "uuid-1",
+      "company_name": "Nabil Bank Limited",
+      "sector": "Banking",
+      "ltp": "101.25",
+      "change_percent": "1.25",
+      "open": "100.00",
+      "high": "102.50",
+      "low": "99.50",
+      "volume": 15000,
+      "previous_close": "100.00",
+      "difference": "1.25",
+      "turnover": "1518750.00",
+      "last_updated": "2026-02-23T11:30:00Z"
+    },
+    {
+      "symbol": "GBIME",
+      "company_id": "uuid-2",
+      "company_name": "Global IME Bank Limited",
+      "sector": "Banking",
+      "ltp": "98.50",
+      "change_percent": "-1.50",
+      "open": "100.00",
+      "high": "100.50",
+      "low": "98.00",
+      "volume": 8000,
+      "previous_close": "100.00",
+      "difference": "-1.50",
+      "turnover": "788000.00",
+      "last_updated": "2026-02-23T11:25:00Z"
+    }
+  ],
+  "count": 25
+}
+```
+
+---
+
+### GET `/api/v1/stocks/market-index`
+
+Get the overall market index value (like NEPSE index).
+
+**Response** `200 OK`
+```json
+{
+  "market_index": {
+    "index_value": "2250.50",
+    "change": "15.30",
+    "change_percent": "0.68",
+    "total_turnover": "45000000.00",
+    "total_volume": 350000,
+    "total_market_cap": "2250500000000.00",
+    "advances": 15,
+    "declines": 8,
+    "unchanged": 2,
+    "total_companies": 25,
+    "previous_close": "2235.20",
+    "timestamp": "2026-02-23T11:30:00Z"
+  }
+}
+```
+
+---
+
+### GET `/api/v1/stocks/market-summary`
+
+Get a comprehensive market overview including index, top gainers, top losers, most active, and sector breakdown.
+
+**Response** `200 OK`
+```json
+{
+  "index": {
+    "index_value": "2250.50",
+    "change": "15.30",
+    "change_percent": "0.68",
+    "total_turnover": "45000000.00",
+    "total_volume": 350000,
+    "total_market_cap": "2250500000000.00",
+    "advances": 15,
+    "declines": 8,
+    "unchanged": 2,
+    "total_companies": 25,
+    "previous_close": "2235.20",
+    "timestamp": "2026-02-23T11:30:00Z"
+  },
+  "top_gainers": [
+    {
+      "symbol": "NABIL",
+      "company_name": "Nabil Bank Limited",
+      "ltp": "105.20",
+      "change_percent": "5.20",
+      "volume": 25000,
+      "turnover": "2630000.00"
+    }
+  ],
+  "top_losers": [
+    {
+      "symbol": "IMS",
+      "company_name": "IMS Software Solutions",
+      "ltp": "97.50",
+      "change_percent": "-2.50",
+      "volume": 5000,
+      "turnover": "487500.00"
+    }
+  ],
+  "most_active": [
+    {
+      "symbol": "NABIL",
+      "company_name": "Nabil Bank Limited",
+      "ltp": "105.20",
+      "volume": 25000,
+      "turnover": "2630000.00"
+    }
+  ],
+  "sector_summary": [
+    {
+      "sector": "Banking",
+      "change": "3.50",
+      "change_percent": "0.70",
+      "turnover": "15000000.00",
+      "volume": 120000,
+      "company_count": 5,
+      "advances": 3,
+      "declines": 2
+    },
+    {
+      "sector": "Information Technology",
+      "change": "-1.20",
+      "change_percent": "-0.24",
+      "turnover": "8000000.00",
+      "volume": 60000,
+      "company_count": 5,
+      "advances": 2,
+      "declines": 3
+    }
+  ],
+  "as_of": "2026-02-23T11:30:00Z"
+}
+```
+
+---
+
+### GET `/api/v1/stocks/stream`
+
+Server-Sent Events (SSE) stream for real-time price updates. Connect and receive live events as trades happen.
+
+**Headers:** `Accept: text/event-stream`
+
+**Response:** `200 OK` (streaming `text/event-stream`)
+
+Each event is a JSON object:
+
+**Trade Event:**
+```
+event: message
+data: {"type":"trade","data":{"symbol":"NABIL","company_name":"Nabil Bank Limited","trade_type":"buy","quantity":100,"price":"101.25","total_amount":"10125.00","price_impact":"0.35","new_price":"101.60","timestamp":"2026-02-23T11:31:00Z"}}
+```
+
+**Price Update Event:**
+```
+event: message
+data: {"type":"price_update","data":{"symbol":"NABIL","company_id":"uuid-1","company_name":"Nabil Bank Limited","ltp":"101.60","change_percent":"1.60","open":"100.00","high":"102.50","low":"99.50","volume":15100,"previous_close":"100.00","difference":"1.60","turnover":"1534160.00","last_updated":"2026-02-23T11:31:00Z"}}
+```
+
+---
+
+## 5. Sectors
+
+### GET `/api/v1/sectors`
+
+Get all available sectors.
+
+**Response** `200 OK`
+```json
+{
+  "message": "sectors retrieved successfully",
+  "sectors": [
+    "Banking",
+    "Hydropower",
+    "Information Technology",
+    "Insurance",
+    "Manufacturing",
+    "Pharma",
+    "Real Estate"
+  ],
+  "count": 7
+}
+```
+
+---
+
+### GET `/api/v1/sectors/:sector/companies`
+
+Get companies in a specific sector.
+
+**URL Parameters:** `sector` — Sector name (e.g., `Banking`)
+
+**Query Parameters**
+
+| Param  | Type | Default | Max |
+|--------|------|---------|-----|
+| limit  | int  | 50      | 100 |
+| offset | int  | 0       | -   |
+
+**Response** `200 OK`
+```json
+{
+  "sector": "Banking",
+  "companies": [
+    {
+      "id": "uuid-1",
+      "symbol": "NABIL",
+      "name": "Nabil Bank Limited",
+      "sector": "Banking",
+      "market_cap": 180000000000,
+      "total_shares": 1800000000,
+      "available_shares": 1799999000,
+      "is_active": true
+    }
+  ],
+  "limit": 50,
+  "offset": 0,
+  "count": 5,
+  "total": 5
+}
+```
+
+---
+
+### GET `/api/v1/sectors/:sector/stats`
+
+Get statistics for a specific sector.
+
+**URL Parameters:** `sector` — Sector name
+
+**Response** `200 OK`
+```json
+{
+  "message": "sector statistics",
+  "sector": "Banking",
+  "statistics": {
+    "company_count": 5,
+    "total_market_cap": "760000000000",
+    "avg_market_cap": "152000000000",
+    "total_employees": 17700,
+    "avg_employees": 3540,
+    "avg_founded_year": 1993
+  },
+  "top_5_companies": [
+    {
+      "symbol": "NABIL",
+      "name": "Nabil Bank Limited",
+      "market_cap": 180000000000
+    }
+  ]
+}
+```
+
+---
+
+## 6. Predictions (ML Algorithms)
+
+This module implements **7 classical ML/statistical algorithms** for stock price prediction:
+
+| # | Algorithm | Type | Description |
+|---|-----------|------|-------------|
+| 1 | **Linear Regression** | Statistical | Fits a straight line using least squares |
+| 2 | **Exponential Moving Average (EMA)** | Technical Analysis | Exponentially weighted recent prices |
+| 3 | **Holt's Linear Trend** | Time Series | Double Exponential Smoothing (level + trend) |
+| 4 | **K-Nearest Neighbors (KNN)** | Machine Learning | Pattern-matching on similar price windows |
+| 5 | **Auto-Regressive AR(3)** | Time Series | Foundation of ARIMA; uses past 3 values |
+| 6 | **Weighted Moving Average (WMA)** | Technical Analysis | Linearly weighted moving average |
+| 7 | **Ensemble** | Ensemble | Inverse-RMSE weighted combination of all models |
+
+---
+
+### GET `/api/v1/prediction/algorithms`
+
+List all available prediction algorithms.
+
+**Response** `200 OK`
+```json
+{
+  "algorithms": [
+    {
+      "key": "linear_regression",
+      "name": "Linear Regression",
+      "description": "Simple linear regression fits a straight line to historical prices using least squares. Classic statistical method.",
+      "type": "Statistical"
+    },
+    {
+      "key": "ema",
+      "name": "Exponential Moving Average (EMA)",
+      "description": "Applies exponentially decreasing weights to older observations. Widely used in technical analysis.",
+      "type": "Technical Analysis"
+    },
+    {
+      "key": "holt",
+      "name": "Holt's Linear Trend (Double Exponential Smoothing)",
+      "description": "Extension of exponential smoothing that captures both level and trend in time series data.",
+      "type": "Time Series"
+    },
+    {
+      "key": "knn",
+      "name": "K-Nearest Neighbors (KNN) Regression",
+      "description": "Non-parametric method that predicts based on the K most similar historical price patterns.",
+      "type": "Machine Learning"
+    },
+    {
+      "key": "ar",
+      "name": "Auto-Regressive AR(3) Model",
+      "description": "Models the next value as a linear combination of previous values. Foundation of ARIMA.",
+      "type": "Time Series"
+    },
+    {
+      "key": "wma",
+      "name": "Weighted Moving Average (WMA)",
+      "description": "Moving average with linearly increasing weights, giving more importance to recent prices.",
+      "type": "Technical Analysis"
+    },
+    {
+      "key": "ensemble",
+      "name": "Ensemble (Weighted Average)",
+      "description": "Combines predictions from all models using inverse-RMSE weighted averaging.",
+      "type": "Ensemble"
+    }
+  ],
+  "total": 7
+}
+```
+
+---
+
+### GET `/api/v1/prediction/:symbol`
+
+Get ML-based stock price prediction. Defaults to **Ensemble** (all models combined). Use `?algorithm=` to select a specific algorithm.
+
+**URL Parameters:** `symbol` — Company ticker (e.g., `NABIL`)
+
+**Query Parameters (optional):**
+
+| Parameter | Type | Default | Options |
+|-----------|------|---------|---------|
+| `algorithm` | string | `ensemble` | `linear_regression`, `ema`, `holt`, `knn`, `ar`, `wma`, `ensemble` |
+
+**Example:** `GET /api/v1/prediction/NABIL?algorithm=knn`
+
+**Response** `200 OK`
+```json
+{
+  "prediction": {
+    "symbol": "NABIL",
+    "current_price": "1250.00",
+    "predicted_price": "1267.35",
+    "predicted_change": "17.35",
+    "predicted_change_pct": "1.39",
+    "rmse": 12.4532,
+    "mae": 9.8721,
+    "algorithm": "K-Nearest Neighbors (KNN-5, window=5)",
+    "datapoints": 45
+  }
+}
+```
+
+**Example with Ensemble:** `GET /api/v1/prediction/NABIL`
+
+```json
+{
+  "prediction": {
+    "symbol": "NABIL",
+    "current_price": "1250.00",
+    "predicted_price": "1262.18",
+    "predicted_change": "12.18",
+    "predicted_change_pct": "0.97",
+    "rmse": 0,
+    "mae": 0,
+    "algorithm": "Ensemble (Weighted Average of All Models)",
+    "datapoints": 45
+  }
+}
+```
+
+---
+
+### GET `/api/v1/prediction/:symbol/compare`
+
+Run **all 7 algorithms** on a stock and return a side-by-side comparison with the best model identified.
+
+**URL Parameters:** `symbol` — Company ticker (e.g., `NABIL`)
+
+**Response** `200 OK`
+```json
+{
+  "comparison": {
+    "symbol": "NABIL",
+    "current_price": "1250.00",
+    "datapoints": 45,
+    "best_model": "Holt's Linear Trend (Double Exponential Smoothing)",
+    "ensemble": {
+      "symbol": "NABIL",
+      "current_price": "1250.00",
+      "predicted_price": "1262.18",
+      "predicted_change": "12.18",
+      "predicted_change_pct": "0.97",
+      "rmse": 0,
+      "mae": 0,
+      "algorithm": "Ensemble (Weighted Average of All Models)",
+      "datapoints": 45
+    },
+    "models": [
+      {
+        "symbol": "NABIL",
+        "current_price": "1250.00",
+        "predicted_price": "1270.50",
+        "predicted_change": "20.50",
+        "predicted_change_pct": "1.64",
+        "rmse": 15.2341,
+        "mae": 12.1023,
+        "algorithm": "Linear Regression",
+        "datapoints": 45
+      },
+      {
+        "symbol": "NABIL",
+        "current_price": "1250.00",
+        "predicted_price": "1255.20",
+        "predicted_change": "5.20",
+        "predicted_change_pct": "0.42",
+        "rmse": 8.5612,
+        "mae": 6.4321,
+        "algorithm": "Exponential Moving Average (EMA-5)",
+        "datapoints": 45
+      },
+      {
+        "symbol": "NABIL",
+        "current_price": "1250.00",
+        "predicted_price": "1263.40",
+        "predicted_change": "13.40",
+        "predicted_change_pct": "1.07",
+        "rmse": 7.2134,
+        "mae": 5.8912,
+        "algorithm": "Holt's Linear Trend (Double Exponential Smoothing)",
+        "datapoints": 45
+      },
+      {
+        "symbol": "NABIL",
+        "current_price": "1250.00",
+        "predicted_price": "1267.35",
+        "predicted_change": "17.35",
+        "predicted_change_pct": "1.39",
+        "rmse": 12.4532,
+        "mae": 9.8721,
+        "algorithm": "K-Nearest Neighbors (KNN-5, window=5)",
+        "datapoints": 45
+      },
+      {
+        "symbol": "NABIL",
+        "current_price": "1250.00",
+        "predicted_price": "1258.90",
+        "predicted_change": "8.90",
+        "predicted_change_pct": "0.71",
+        "rmse": 10.3456,
+        "mae": 8.1234,
+        "algorithm": "Auto-Regressive AR(3)",
+        "datapoints": 45
+      },
+      {
+        "symbol": "NABIL",
+        "current_price": "1250.00",
+        "predicted_price": "1254.10",
+        "predicted_change": "4.10",
+        "predicted_change_pct": "0.33",
+        "rmse": 9.1234,
+        "mae": 7.0123,
+        "algorithm": "Weighted Moving Average (WMA-5)",
+        "datapoints": 45
+      }
+    ],
+    "model_details": [
+      {
+        "algorithm": "Linear Regression",
+        "predicted": 1270.50,
+        "rmse": 15.2341,
+        "mae": 12.1023,
+        "weight": 0.0982
+      },
+      {
+        "algorithm": "Exponential Moving Average (EMA-5)",
+        "predicted": 1255.20,
+        "rmse": 8.5612,
+        "mae": 6.4321,
+        "weight": 0.1748
+      },
+      {
+        "algorithm": "Holt's Linear Trend",
+        "predicted": 1263.40,
+        "rmse": 7.2134,
+        "mae": 5.8912,
+        "weight": 0.2074
+      },
+      {
+        "algorithm": "KNN Regression",
+        "predicted": 1267.35,
+        "rmse": 12.4532,
+        "mae": 9.8721,
+        "weight": 0.1201
+      },
+      {
+        "algorithm": "Auto-Regressive AR(3)",
+        "predicted": 1258.90,
+        "rmse": 10.3456,
+        "mae": 8.1234,
+        "weight": 0.1446
+      },
+      {
+        "algorithm": "Weighted Moving Average",
+        "predicted": 1254.10,
+        "rmse": 9.1234,
+        "mae": 7.0123,
+        "weight": 0.1639
+      }
+    ]
+  }
+}
+```
+
+---
+
+## 7. Wallet (Fiat)
+
+### GET `/api/v1/wallet` 🔒
+
+Get the user's fiat wallet (for top-ups and deposits).
+
+**Headers:** `Authorization: Bearer <token>`
+
+**Response** `200 OK`
+```json
+{
+  "wallet": {
+    "id": "uuid-wallet",
+    "user_id": "uuid-user",
+    "fiat_balance": "50000.00",
+    "locked": false,
+    "version": 1,
+    "created_at": "2026-02-23T10:00:00Z",
+    "updated_at": "2026-02-23T10:00:00Z"
+  }
+}
+```
+
+---
+
+### POST `/api/v1/wallet/topup` 🔒
+
+Add funds to the fiat wallet. The amount is added to both `fiat_balance` and `balance` (available for trading).
+
+**Headers:** `Authorization: Bearer <token>`
+
+**Request Body**
+```json
+{
+  "amount": 50000
+}
+```
+
+| Field  | Type  | Required | Validation |
+|--------|-------|----------|------------|
+| amount | float | Yes      | gt=0       |
+
+**Response** `200 OK`
+```json
+{
+  "message": "top-up successful",
+  "wallet": {
+    "id": "uuid-wallet",
+    "user_id": "uuid-user",
+    "fiat_balance": "50000.00",
+    "locked": false,
+    "version": 1
+  },
+  "transaction": {
+    "id": "uuid-tx",
+    "user_id": "uuid-user",
+    "type": "topup",
+    "amount": "50000.00",
+    "status": "success",
+    "reference_id": "topup_abc123",
+    "created_at": "2026-02-23T10:05:00Z"
+  }
+}
+```
+
+**Error** `423 Locked`
+```json
+{
+  "error": "wallet is locked"
+}
+```
+
+---
+
+### GET `/api/v1/transaction` 🔒
+
+Get the user's fiat wallet transaction history (top-ups, refunds).
+
+**Headers:** `Authorization: Bearer <token>`
+
+**Response** `200 OK`
+```json
+{
+  "message": "user transactions retrieved successfully",
+  "data": [
+    {
+      "id": "uuid-tx",
+      "user_id": "uuid-user",
+      "type": "topup",
+      "amount": "50000.00",
+      "status": "success",
+      "reference_id": "topup_abc123",
+      "created_at": "2026-02-23T10:05:00Z"
+    }
+  ]
+}
+```
+
+---
+
+## 8. Trading
+
+### GET `/api/v1/trading/wallet` 🔒
+
+Get the user's trading wallet (balance, invested amount, profit/loss).
+
+**Headers:** `Authorization: Bearer <token>`
+
+**Response** `200 OK`
+```json
+{
+  "wallet": {
+    "id": "uuid-vwallet",
+    "user_id": "uuid-user",
+    "balance": "40000.00",
+    "total_invested": "10000.00",
+    "total_profit_loss": "250.00",
+    "fiat_balance": "50000.00",
+    "locked": false,
+    "version": 1,
+    "created_at": "2026-02-23T10:00:00Z",
+    "updated_at": "2026-02-23T11:00:00Z"
+  }
+}
+```
+
+---
+
+### GET `/api/v1/trading/portfolio` 🔒
+
+Get the user's stock portfolio with current values and profit/loss.
+
+**Headers:** `Authorization: Bearer <token>`
+
+**Response** `200 OK`
+```json
+{
+  "total_value": "10250.00",
+  "total_invested": "10000.00",
+  "total_profit_loss": "250.00",
+  "profit_loss_pct": "2.50",
+  "items": [
+    {
+      "id": "uuid-portfolio-item",
+      "user_id": "uuid-user",
+      "company_id": "uuid-1",
+      "quantity": 100,
+      "average_price": "100.00",
+      "total_invested": "10000.00",
+      "current_price": "102.50",
+      "current_value": "10250.00",
+      "profit_loss": "250.00",
+      "profit_loss_pct": "2.50",
+      "company_name": "Nabil Bank Limited",
+      "company_symbol": "NABIL",
+      "company_sector": "Banking"
+    }
+  ]
+}
+```
+
+---
+
+### POST `/api/v1/trading/buy` 🔒
+
+Buy shares of a stock. Price impact is calculated via the PriceEngine — buying creates upward pressure on the stock price.
+
+**Headers:** `Authorization: Bearer <token>`
+
+**Request Body**
+```json
+{
+  "symbol": "NABIL",
+  "quantity": 100
+}
+```
+
+| Field    | Type   | Required | Validation |
+|----------|--------|----------|------------|
+| symbol   | string | Yes      | -          |
+| quantity | int    | Yes      | min=1      |
+
+**Response** `200 OK`
+```json
+{
+  "success": true,
+  "message": "Stock purchased successfully",
+  "quantity": 100,
+  "price_per_share": "100.00",
+  "total_amount": "10000.00",
+  "new_balance": "40000.00",
+  "new_market_price": "100.35",
+  "price_impact": "0.35",
+  "price_impact_pct": "0.35"
+}
+```
+
+**Error** `400 Bad Request` — Insufficient balance
+```json
+{
+  "success": false,
+  "message": "insufficient balance",
+  "quantity": 0,
+  "price_per_share": "0",
+  "total_amount": "0",
+  "new_balance": "0"
+}
+```
+
+**Error** `400 Bad Request` — Insufficient shares
+```json
+{
+  "success": false,
+  "message": "Insufficient shares available. Only 500 shares in market",
+  "quantity": 0,
+  "price_per_share": "0",
+  "total_amount": "0",
+  "new_balance": "0"
+}
+```
+
+---
+
+### POST `/api/v1/trading/sell` 🔒
+
+Sell shares of a stock. Selling creates downward pressure on the stock price.
+
+**Headers:** `Authorization: Bearer <token>`
+
+**Request Body**
+```json
+{
+  "symbol": "NABIL",
+  "quantity": 50
+}
+```
+
+| Field    | Type   | Required | Validation |
+|----------|--------|----------|------------|
+| symbol   | string | Yes      | -          |
+| quantity | int    | Yes      | min=1      |
+
+**Response** `200 OK`
+```json
+{
+  "success": true,
+  "message": "Stock sold successfully",
+  "quantity": 50,
+  "price_per_share": "102.50",
+  "total_amount": "5125.00",
+  "new_balance": "45125.00",
+  "new_market_price": "102.15",
+  "price_impact": "-0.35",
+  "price_impact_pct": "-0.34"
+}
+```
+
+**Error** `400 Bad Request` — Not enough shares
+```json
+{
+  "success": false,
+  "message": "insufficient shares",
+  "quantity": 0,
+  "price_per_share": "0",
+  "total_amount": "0",
+  "new_balance": "0"
+}
+```
+
+---
+
+### GET `/api/v1/trading/transactions` 🔒
+
+Get the user's stock trading transaction history (buy/sell).
+
+**Headers:** `Authorization: Bearer <token>`
+
+**Query Parameters**
+
+| Param  | Type | Default |
+|--------|------|---------|
+| limit  | int  | 50      |
+| offset | int  | 0       |
+
+**Response** `200 OK`
+```json
+{
+  "transactions": [
+    {
+      "id": "uuid-stx",
+      "user_id": "uuid-user",
+      "company_id": "uuid-1",
+      "type": "buy",
+      "quantity": 100,
+      "price_per_share": "100.00",
+      "total_amount": "10000.00",
+      "status": "completed",
+      "reference_id": "",
+      "created_at": "2026-02-23T11:00:00Z",
+      "updated_at": "2026-02-23T11:00:00Z"
+    },
+    {
+      "id": "uuid-stx-2",
+      "user_id": "uuid-user",
+      "company_id": "uuid-1",
+      "type": "sell",
+      "quantity": 50,
+      "price_per_share": "102.50",
+      "total_amount": "5125.00",
+      "status": "completed",
+      "reference_id": "",
+      "created_at": "2026-02-23T11:30:00Z",
+      "updated_at": "2026-02-23T11:30:00Z"
+    }
+  ],
+  "limit": 50,
+  "offset": 0
+}
+```
+
+---
+
+## 9. Admin
+
+All admin endpoints require JWT token with `role: admin`.
+
+### PUT `/api/v1/admin/users/:user_id/kyc` 🔒 👑
+
+Update a user's KYC status and role.
+
+**Headers:** `Authorization: Bearer <admin_token>`
+
+**URL Parameters:** `user_id` — Target user UUID
+
+**Request Body**
+```json
+{
+  "kyc_status": "verified",
+  "role": "user"
+}
+```
+
+| Field      | Type   | Required | Allowed Values                         |
+|------------|--------|----------|----------------------------------------|
+| kyc_status | string | Yes      | pending, verified, rejected, under_review |
+| role       | string | Yes      | user, admin                            |
+
+**Response** `200 OK`
+```json
+{
+  "message": "KYC status updated successfully",
+  "user": {
+    "id": "uuid-user",
+    "full_name": "Ram Sharma",
+    "email": "ram@example.com",
+    "kyc_status": "verified",
+    "role": "user"
+  }
+}
+```
+
+---
+
+### POST `/api/v1/admin/seed-stocks` 🔒 👑
+
+Seed the database with 25 Nepali companies, initial prices (Rs 100), and 25 market events per company. Only works on an empty database.
+
+**Headers:** `Authorization: Bearer <admin_token>`
+
+**Request Body:** None
+
+**Response** `200 OK`
+```json
+{
+  "success": true,
+  "message": "Database seeded successfully",
+  "companies_created": 25,
+  "prices_created": 25,
+  "events_created": 625,
+  "notes": "All companies start at ₹100. No test users or transactions created. Users register via API, wallet starts at ₹0."
+}
+```
+
+**Error** `400 Bad Request` — Already seeded
+```json
+{
+  "error": "Database already seeded. Delete existing data via Supabase dashboard if re-seeding needed."
+}
+```
+
+---
+
+## Price Engine — How Order-Driven Pricing Works
+
+Prices are **not random**. They change based on actual buy/sell trades:
+
+| Action | Effect |
+|--------|--------|
+| **Buy** | Price goes **UP** (demand pressure) |
+| **Sell** | Price goes **DOWN** (supply pressure) |
+
+**Formula:**
+```
+impact = BaseSensitivity × √(tradeQuantity / availableShares)
+newPrice = currentPrice × (1 + direction × impact + microNoise)
+```
+
+**Constants:**
+- `BaseSensitivity = 0.5`
+- `MicroNoiseRange = ±0.1%`
+- `Circuit Breaker = ±10%` daily (like NEPSE)
+- `MinPrice = Rs 1.00`
+
+**Example:** Buying 1,000 shares of a stock with 1,000,000 available shares:
+```
+impact = 0.5 × √(1000 / 1000000) = 0.5 × 0.0316 = 0.0158 (1.58%)
+```
+
+---
+
+## Seeded Companies (25)
+
+| Symbol    | Name                           | Sector               |
+|-----------|--------------------------------|-----------------------|
+| NABIL     | Nabil Bank Limited             | Banking               |
+| GBIME     | Global IME Bank Limited        | Banking               |
+| NICA      | Nepal Investment Mega Bank     | Banking               |
+| NMB       | NMB Bank Limited               | Banking               |
+| HBL       | Himalayan Bank Limited         | Banking               |
+| NTC       | Nepal Telecom                  | Information Technology|
+| NITC      | Nepal IT Corporation           | Information Technology|
+| F1SOFT    | F1Soft International           | Information Technology|
+| ESewa     | eSewa Digital Services         | Information Technology|
+| IMS       | IMS Software Solutions         | Information Technology|
+| HYDRO1    | Upper Tamakoshi Hydropower     | Hydropower            |
+| BPC       | Butwal Power Company           | Hydropower            |
+| CHCL      | Chilime Hydropower             | Hydropower            |
+| API       | Api Power Company              | Hydropower            |
+| RSHP      | Rosuwa Shyamkhola Hydro Power  | Hydropower            |
+| NLIC      | Nepal Life Insurance Company   | Insurance             |
+| SICL      | Shikhar Insurance Company      | Insurance             |
+| NMBHL     | NMB Health Insurance           | Insurance             |
+| APOLLONP  | Apollo Nepal Hospitals         | Pharma                |
+| MHPL      | Medical Health Products Limited| Pharma                |
+| HDL       | Himalayan Distillery Limited   | Manufacturing         |
+| UNL       | Unilever Nepal Limited         | Manufacturing         |
+| BNL       | Bottlers Nepal Limited         | Manufacturing         |
+| SHIVM     | Shivam Cements Limited         | Manufacturing         |
+| DLFNP     | Nepal Housing Development Co.  | Real Estate           |
+
+---
+
+## Error Response Format
+
+All errors follow this format:
+```json
+{
+  "error": "error message here"
+}
+```
 
 ## Authentication
 
-Most endpoints require authentication using JWT tokens. Include the token in the Authorization header:
-
+JWT token is returned on login. Include it in all 🔒 endpoints:
 ```
-Authorization: Bearer <your_jwt_token>
+Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 ```
 
-To obtain a token, use the `/api/v1/auth/login` endpoint.
-
----
-
-## Data Types
-
-### Decimal Values
-All monetary values and prices are returned as string representations of decimal numbers to maintain precision:
+Token is validated by middleware. If expired or invalid:
 ```json
 {
-  "price": "970.50",
-  "balance": "50000.00"
+  "error": "unauthorized"
 }
 ```
 
-### Dates
-All dates follow ISO 8601 format:
-```json
-{
-  "created_at": "2026-02-17T10:30:00Z"
-}
-```
+## Setup Steps
 
----
-
-## Rate Limiting
-
-Currently, there are no rate limits implemented. This may change in future versions.
-
----
-
-## Pagination
-
-Endpoints that return lists support pagination through `limit` and `offset` query parameters:
-- `limit`: Number of items to return (default and maximum values vary by endpoint)
-- `offset`: Number of items to skip
-
-Example:
-```
-GET /api/v1/stocks?limit=20&offset=40
-```
-
----
-
-## Support
-
-For questions or issues, please contact the development team or refer to the project repository.
-
----
-
-## Changelog
-
-**Version 1.0.0** (Current)
-- Initial API release
-- Complete authentication system
-- Stock management and trading features
-- Wallet management
-- Admin operations
-- Market predictions using ML
-
----
-
-*Last Updated: February 17, 2026*
+1. **Run SQL migration** — Copy and paste `supabase/migrations/001_complete_schema.sql` into Supabase SQL Editor and execute
+2. **Set environment variables** — `SUPABASE_URL`, `SUPABASE_KEY`, `JWT_SECRET`
+3. **Seed data** — Either run `go run scripts/main.go` or call `POST /api/v1/admin/seed-stocks` with an admin token
+4. **Start server** — `go run cmd/main.go`

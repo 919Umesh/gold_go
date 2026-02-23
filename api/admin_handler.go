@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/919Umesh/stock_market_sim/internal/market"
 	"github.com/919Umesh/stock_market_sim/internal/stock"
 	"github.com/919Umesh/stock_market_sim/models"
 	"github.com/919Umesh/stock_market_sim/pkg/apperr"
@@ -17,13 +16,11 @@ import (
 
 type AdminHandler struct {
 	stockRepo stock.Repository
-	marketSim *market.Simulator
 }
 
-func NewAdminHandler(stockRepo stock.Repository, marketSim *market.Simulator) *AdminHandler {
+func NewAdminHandler(stockRepo stock.Repository) *AdminHandler {
 	return &AdminHandler{
 		stockRepo: stockRepo,
-		marketSim: marketSim,
 	}
 }
 
@@ -209,15 +206,5 @@ func (h *AdminHandler) SeedStockData(c *gin.Context) {
 		"prices_created":    pricesCreated,
 		"events_created":    eventsCreated,
 		"notes":             "All companies start at ₹100. No test users or transactions created. Users register via API, wallet starts at ₹0.",
-	})
-}
-
-func (h *AdminHandler) TriggerMarketUpdate(c *gin.Context) {
-	slog.Info("Admin triggered a manual market price update")
-	h.marketSim.UpdateMarket()
-
-	c.JSON(http.StatusOK, gin.H{
-		"status":  "success",
-		"message": "Market prices updated successfully.",
 	})
 }

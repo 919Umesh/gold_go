@@ -41,7 +41,6 @@ func NewRepository(client *supabase.Client) Repository {
 	return &repository{client: client}
 }
 
-
 func (r *repository) CreateVirtualWallet(wallet *models.VirtualWallet) error {
 	query := `INSERT INTO virtual_wallets (user_id, balance, total_invested, total_profit_loss)
 			  VALUES ($1, $2, $3, $4) RETURNING *`
@@ -68,7 +67,6 @@ func (r *repository) UpdateVirtualWallet(wallet *models.VirtualWallet) error {
 		wallet.TotalProfitLoss.InexactFloat64(), wallet.ID)
 }
 
-
 func (r *repository) GetPortfolio(userID string) ([]models.UserPortfolio, error) {
 	var portfolio []models.UserPortfolio
 	query := "SELECT * FROM user_portfolios WHERE user_id = $1 AND quantity > $2"
@@ -82,7 +80,6 @@ func (r *repository) GetPortfolio(userID string) ([]models.UserPortfolio, error)
 	return portfolio, nil
 }
 
-
 func (r *repository) GetPortfolioItem(userID, companyID string) (*models.UserPortfolio, error) {
 	var item models.UserPortfolio
 	query := "SELECT * FROM user_portfolios WHERE user_id = $1 AND company_id = $2"
@@ -93,7 +90,6 @@ func (r *repository) GetPortfolioItem(userID, companyID string) (*models.UserPor
 	return &item, nil
 }
 
-
 func (r *repository) CreatePortfolioItem(item *models.UserPortfolio) error {
 	query := `INSERT INTO user_portfolios (user_id, company_id, quantity, average_price, total_invested)
 			  VALUES ($1, $2, $3, $4, $5) RETURNING *`
@@ -102,7 +98,6 @@ func (r *repository) CreatePortfolioItem(item *models.UserPortfolio) error {
 		item.AvgBuyPrice.InexactFloat64(), item.TotalInvested.InexactFloat64())
 }
 
-
 func (r *repository) UpdatePortfolioItem(item *models.UserPortfolio) error {
 	query := `UPDATE user_portfolios SET quantity = $1, average_price = $2, total_invested = $3
 			  WHERE id = $4 RETURNING *`
@@ -110,12 +105,10 @@ func (r *repository) UpdatePortfolioItem(item *models.UserPortfolio) error {
 		item.Quantity, item.AvgBuyPrice.InexactFloat64(), item.TotalInvested.InexactFloat64(), item.ID)
 }
 
-
 func (r *repository) DeletePortfolioItem(userID, companyID string) error {
 	query := "DELETE FROM user_portfolios WHERE user_id = $1 AND company_id = $2"
 	return r.client.ExecuteDelete(query, userID, companyID)
 }
-
 
 func (r *repository) CreateTransaction(tx *models.StockTransaction) error {
 	query := `INSERT INTO stock_transactions (user_id, company_id, type, quantity, price_per_share, total_amount, status, reference_id)
@@ -125,7 +118,6 @@ func (r *repository) CreateTransaction(tx *models.StockTransaction) error {
 		tx.PricePerShare.InexactFloat64(), tx.TotalAmount.InexactFloat64(),
 		tx.Status, tx.ReferenceID)
 }
-
 
 func (r *repository) GetUserTransactions(userID string, limit, offset int) ([]models.StockTransaction, error) {
 	var transactions []models.StockTransaction
@@ -140,7 +132,6 @@ func (r *repository) GetUserTransactions(userID string, limit, offset int) ([]mo
 	return transactions, nil
 }
 
-
 func (r *repository) GetTransactionsByCompany(userID, companyID string, limit int) ([]models.StockTransaction, error) {
 	var transactions []models.StockTransaction
 	query := "SELECT * FROM stock_transactions WHERE user_id = $1 AND company_id = $2 ORDER BY created_at DESC LIMIT $3"
@@ -153,7 +144,6 @@ func (r *repository) GetTransactionsByCompany(userID, companyID string, limit in
 	}
 	return transactions, nil
 }
-
 
 func (r *repository) ExecuteBuy(userID, companyID string, quantity int, pricePerShare decimal.Decimal) error {
 	totalAmount := pricePerShare.Mul(decimal.NewFromInt(int64(quantity)))
@@ -235,10 +225,7 @@ func (r *repository) ExecuteSell(userID, companyID string, quantity int, pricePe
 
 	newQuantity := item.Quantity - quantity
 
-	if item.Quantity == 0 {
-		return fmt.Errorf("invalid portfolio state: quantity is 0")
-	}
-
+	// Calculate cost basis of sold shares (proportional to quantity sold)
 	soldInvestment := item.TotalInvested.Div(decimal.NewFromInt(int64(item.Quantity))).Mul(decimal.NewFromInt(int64(quantity)))
 	newTotalInvested := item.TotalInvested.Sub(soldInvestment)
 
