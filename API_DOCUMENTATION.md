@@ -726,7 +726,7 @@ Server-Sent Events (SSE) stream for real-time price updates. Connect and receive
 Each event is a JSON object:
 
 **Trade Event:**
-```
+``` 
 event: message
 data: {"type":"trade","data":{"symbol":"NABIL","company_name":"Nabil Bank Limited","trade_type":"buy","quantity":100,"price":"101.25","total_amount":"10125.00","price_impact":"0.35","new_price":"101.60","timestamp":"2026-02-23T11:31:00Z"}}
 ```
