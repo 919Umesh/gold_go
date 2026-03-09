@@ -49,7 +49,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/internal_ipo.CreateCompanyRequest"
+                            "$ref": "#/definitions/ipo.CreateCompanyRequest"
                         }
                     }
                 ],
@@ -103,7 +103,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/internal_ipo.LaunchIPORequest"
+                            "$ref": "#/definitions/ipo.LaunchIPORequest"
                         }
                     }
                 ],
@@ -213,7 +213,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/internal_auth.UpdateKYCAdmin"
+                            "$ref": "#/definitions/auth.UpdateKYCAdmin"
                         }
                     }
                 ],
@@ -262,7 +262,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/internal_auth.LoginRequest"
+                            "$ref": "#/definitions/auth.LoginRequest"
                         }
                     }
                 ],
@@ -270,7 +270,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/internal_auth.LoginResponse"
+                            "$ref": "#/definitions/auth.LoginResponse"
                         }
                     },
                     "400": {
@@ -297,10 +297,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Get current authenticated user profile",
-                "consumes": [
-                    "application/json"
-                ],
+                "description": "Get current authenticated user profile (includes profile_image_url)",
                 "produces": [
                     "application/json"
                 ],
@@ -340,7 +337,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Upload profile image for current user (max 5MB)",
+                "description": "Upload profile image (max 5MB). Deletes old image from Supabase bucket and replaces with new one.",
                 "consumes": [
                     "multipart/form-data"
                 ],
@@ -410,7 +407,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/internal_auth.UpdateProfileRequest"
+                            "$ref": "#/definitions/auth.UpdateProfileRequest"
                         }
                     }
                 ],
@@ -459,7 +456,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/internal_auth.RegisterRequest"
+                            "$ref": "#/definitions/auth.RegisterRequest"
                         }
                     }
                 ],
@@ -585,7 +582,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/internal_ipo.ApplyIPORequest"
+                            "$ref": "#/definitions/ipo.ApplyIPORequest"
                         }
                     }
                 ],
@@ -614,105 +611,34 @@ const docTemplate = `{
                 }
             }
         },
-        "/market/companies": {
+        "/market/candlestick": {
             "get": {
-                "description": "Get a list of all trading companies with summary data",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "market"
+                    "Market"
                 ],
-                "summary": "List companies",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    }
-                }
-            }
-        },
-        "/market/companies/{symbol}": {
-            "get": {
-                "description": "Get detailed info for a specific company by symbol",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "market"
-                ],
-                "summary": "Get company details",
+                "summary": "Get candlestick OHLCV data for a company",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Company Symbol",
+                        "description": "Stock symbol",
                         "name": "symbol",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    }
-                }
-            }
-        },
-        "/market/companies/{symbol}/candles": {
-            "get": {
-                "description": "Get OHLCV data for a specific symbol",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "market"
-                ],
-                "summary": "Get candlestick data",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Company Symbol",
-                        "name": "symbol",
-                        "in": "path",
+                        "in": "query",
                         "required": true
                     },
                     {
                         "type": "string",
-                        "description": "Timeframe (default 1D)",
+                        "default": "1D",
+                        "description": "Timeframe (1m, 5m, 15m, 1h, 1D)",
                         "name": "timeframe",
                         "in": "query"
                     },
                     {
                         "type": "integer",
-                        "description": "Number of days (default 30)",
+                        "default": 90,
+                        "description": "Number of days",
                         "name": "days",
                         "in": "query"
                     }
@@ -721,12 +647,297 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.CandlestickData"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/market/companies": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Market"
+                ],
+                "summary": "List all companies",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 50,
+                        "description": "Limit",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 0,
+                        "description": "Offset",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/market/companies/new": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Market"
+                ],
+                "summary": "Get recently listed companies",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Limit",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.LiveTradingData"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/market/companies/old": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Market"
+                ],
+                "summary": "Get oldest listed companies",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Limit",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.LiveTradingData"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/market/companies/{company_id}/events": {
+            "get": {
+                "description": "Get list of corporate events (AGM, dividend, etc.) for a specific company",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "events"
+                ],
+                "summary": "Get events for a company",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Company ID",
+                        "name": "company_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Limit (default 50)",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
                             "type": "object",
                             "additionalProperties": true
                         }
                     },
-                    "400": {
-                        "description": "Bad Request",
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/market/companies/{id}": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Market"
+                ],
+                "summary": "Get company detail",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Company ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.Company"
+                        }
+                    }
+                }
+            }
+        },
+        "/market/events": {
+            "get": {
+                "description": "Get list of all corporate events with pagination",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "events"
+                ],
+                "summary": "Get all events",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Limit (default 50)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Offset (default 0)",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/market/events/type/{type}": {
+            "get": {
+                "description": "Get events filtered by event type (agm, dividend, bonus_share, etc.)",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "events"
+                ],
+                "summary": "Get events by type",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Event type",
+                        "name": "type",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Limit (default 50)",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/market/events/upcoming": {
+            "get": {
+                "description": "Get list of all upcoming corporate events across all companies",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "events"
+                ],
+                "summary": "Get upcoming events",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Limit (default 50)",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -737,27 +948,18 @@ const docTemplate = `{
         },
         "/market/index": {
             "get": {
-                "description": "Get overall market indicators (advances, declines, market cap)",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "market"
+                    "Market"
                 ],
-                "summary": "Get market index",
+                "summary": "Get market index summary",
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/models.MarketIndex"
                         }
                     }
                 }
@@ -765,27 +967,105 @@ const docTemplate = `{
         },
         "/market/live": {
             "get": {
-                "description": "Get live price and volume data for all companies",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "market"
+                    "Market"
                 ],
-                "summary": "Get live trading data",
+                "summary": "Get live trading data for all companies",
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.LiveTradingData"
+                            }
                         }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
+                    }
+                }
+            }
+        },
+        "/market/most-active": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Market"
+                ],
+                "summary": "Get most actively traded stocks",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Limit",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.LiveTradingData"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/market/sectors": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Market"
+                ],
+                "summary": "Get sector performance summary",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.SectorPerformance"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/market/sectors/{sector}/companies": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Market"
+                ],
+                "summary": "Get companies in a sector",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Sector name",
+                        "name": "sector",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.LiveTradingData"
+                            }
                         }
                     }
                 }
@@ -793,19 +1073,203 @@ const docTemplate = `{
         },
         "/market/stream": {
             "get": {
-                "description": "Real-time price updates via Server-Sent Events",
                 "produces": [
                     "text/event-stream"
                 ],
                 "tags": [
-                    "market"
+                    "Market"
                 ],
-                "summary": "Stream prices (SSE)",
+                "summary": "Stream live price updates (SSE)",
+                "responses": {}
+            }
+        },
+        "/market/top-gainers": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Market"
+                ],
+                "summary": "Get top gaining stocks",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Limit",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
-                        "description": "SSE stream",
+                        "description": "OK",
                         "schema": {
-                            "type": "string"
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.LiveTradingData"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/market/top-losers": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Market"
+                ],
+                "summary": "Get top losing stocks",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Limit",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.LiveTradingData"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/market/top-turnover": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Market"
+                ],
+                "summary": "Get stocks with highest turnover",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Limit",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.LiveTradingData"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/market/triggers": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Triggers"
+                ],
+                "summary": "Get user's price triggers",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.PriceTrigger"
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Triggers"
+                ],
+                "summary": "Create a price trigger",
+                "parameters": [
+                    {
+                        "description": "Trigger request",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.CreateTriggerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/models.PriceTrigger"
+                        }
+                    }
+                }
+            }
+        },
+        "/market/triggers/{id}/cancel": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Triggers"
+                ],
+                "summary": "Cancel a price trigger",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Trigger ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
                         }
                     }
                 }
@@ -834,7 +1298,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/internal_orderbook.OrderBookView"
+                            "$ref": "#/definitions/orderbook.OrderBookView"
                         }
                     },
                     "400": {
@@ -879,7 +1343,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/internal_orderbook.PlaceBuyOrderRequest"
+                            "$ref": "#/definitions/orderbook.PlaceBuyOrderRequest"
                         }
                     }
                 ],
@@ -973,7 +1437,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/internal_orderbook.PlaceSellOrderRequest"
+                            "$ref": "#/definitions/orderbook.PlaceSellOrderRequest"
                         }
                     }
                 ],
@@ -1131,147 +1595,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/triggers": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Get a list of active price triggers for the current user",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "trading"
-                ],
-                "summary": "Get user's triggers",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    }
-                }
-            },
-            "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Create an auto-sell trigger based on price target",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "trading"
-                ],
-                "summary": "Create price trigger",
-                "parameters": [
-                    {
-                        "description": "Trigger details",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/api.CreateTriggerRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "Created",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    }
-                }
-            }
-        },
-        "/triggers/{id}": {
-            "delete": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Cancel an active price trigger",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "trading"
-                ],
-                "summary": "Cancel price trigger",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Trigger ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    }
-                }
-            }
-        },
         "/wallet": {
             "get": {
                 "security": [
@@ -1377,7 +1700,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/internal_wallet.TopUpRequest"
+                            "$ref": "#/definitions/wallet.TopUpRequest"
                         }
                     }
                 ],
@@ -1471,7 +1794,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/internal_wallet.TransferRequest"
+                            "$ref": "#/definitions/wallet.TransferRequest"
                         }
                     }
                 ],
@@ -1569,11 +1892,11 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "trigger_price": {
-                    "type": "string"
+                    "type": "number"
                 }
             }
         },
-        "internal_auth.LoginRequest": {
+        "auth.LoginRequest": {
             "type": "object",
             "required": [
                 "email",
@@ -1588,7 +1911,7 @@ const docTemplate = `{
                 }
             }
         },
-        "internal_auth.LoginResponse": {
+        "auth.LoginResponse": {
             "type": "object",
             "properties": {
                 "message": {
@@ -1598,11 +1921,11 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "user": {
-                    "$ref": "#/definitions/internal_auth.UserResponse"
+                    "$ref": "#/definitions/auth.UserResponse"
                 }
             }
         },
-        "internal_auth.RegisterRequest": {
+        "auth.RegisterRequest": {
             "type": "object",
             "required": [
                 "email",
@@ -1636,7 +1959,7 @@ const docTemplate = `{
                 }
             }
         },
-        "internal_auth.UpdateKYCAdmin": {
+        "auth.UpdateKYCAdmin": {
             "type": "object",
             "required": [
                 "kyc_status",
@@ -1661,7 +1984,7 @@ const docTemplate = `{
                 }
             }
         },
-        "internal_auth.UpdateProfileRequest": {
+        "auth.UpdateProfileRequest": {
             "type": "object",
             "properties": {
                 "full_name": {
@@ -1676,7 +1999,7 @@ const docTemplate = `{
                 }
             }
         },
-        "internal_auth.UserResponse": {
+        "auth.UserResponse": {
             "type": "object",
             "properties": {
                 "created_at": {
@@ -1697,7 +2020,7 @@ const docTemplate = `{
                 "phone": {
                     "type": "string"
                 },
-                "profile_image_id": {
+                "profile_image_url": {
                     "type": "string"
                 },
                 "role": {
@@ -1708,7 +2031,7 @@ const docTemplate = `{
                 }
             }
         },
-        "internal_ipo.ApplyIPORequest": {
+        "ipo.ApplyIPORequest": {
             "type": "object",
             "required": [
                 "shares_requested"
@@ -1719,7 +2042,7 @@ const docTemplate = `{
                 }
             }
         },
-        "internal_ipo.CreateCompanyRequest": {
+        "ipo.CreateCompanyRequest": {
             "type": "object",
             "required": [
                 "name",
@@ -1741,7 +2064,7 @@ const docTemplate = `{
                 }
             }
         },
-        "internal_ipo.LaunchIPORequest": {
+        "ipo.LaunchIPORequest": {
             "type": "object",
             "required": [
                 "close_at",
@@ -1772,7 +2095,249 @@ const docTemplate = `{
                 }
             }
         },
-        "internal_orderbook.OrderBookLevel": {
+        "models.CandlestickData": {
+            "type": "object",
+            "properties": {
+                "change_percent": {
+                    "type": "number"
+                },
+                "close": {
+                    "type": "number"
+                },
+                "high": {
+                    "type": "number"
+                },
+                "low": {
+                    "type": "number"
+                },
+                "open": {
+                    "type": "number"
+                },
+                "timestamp": {
+                    "type": "string"
+                },
+                "turnover": {
+                    "type": "number"
+                },
+                "volume": {
+                    "type": "integer"
+                }
+            }
+        },
+        "models.Company": {
+            "type": "object",
+            "properties": {
+                "avg_120_day": {
+                    "type": "number"
+                },
+                "book_value": {
+                    "type": "number"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "current_price": {
+                    "type": "number"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "eps": {
+                    "type": "number"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "is_active": {
+                    "type": "boolean"
+                },
+                "listed_date": {
+                    "type": "string"
+                },
+                "market_cap": {
+                    "type": "number"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "pbv": {
+                    "type": "number"
+                },
+                "pe_ratio": {
+                    "type": "number"
+                },
+                "sector": {
+                    "type": "string"
+                },
+                "shares_outstanding": {
+                    "type": "number"
+                },
+                "symbol": {
+                    "type": "string"
+                },
+                "total_supply": {
+                    "type": "integer"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "week_52_high": {
+                    "type": "number"
+                },
+                "week_52_low": {
+                    "type": "number"
+                },
+                "yield_1_year": {
+                    "type": "number"
+                }
+            }
+        },
+        "models.LiveTradingData": {
+            "type": "object",
+            "properties": {
+                "change_percent": {
+                    "type": "number"
+                },
+                "company_id": {
+                    "type": "string"
+                },
+                "company_name": {
+                    "type": "string"
+                },
+                "difference": {
+                    "type": "number"
+                },
+                "high": {
+                    "type": "number"
+                },
+                "last_updated": {
+                    "type": "string"
+                },
+                "low": {
+                    "type": "number"
+                },
+                "ltp": {
+                    "type": "number"
+                },
+                "open": {
+                    "type": "number"
+                },
+                "previous_close": {
+                    "type": "number"
+                },
+                "sector": {
+                    "type": "string"
+                },
+                "symbol": {
+                    "type": "string"
+                },
+                "turnover": {
+                    "type": "number"
+                },
+                "volume": {
+                    "type": "integer"
+                }
+            }
+        },
+        "models.MarketIndex": {
+            "type": "object",
+            "properties": {
+                "advances": {
+                    "type": "integer"
+                },
+                "change": {
+                    "type": "number"
+                },
+                "change_percent": {
+                    "type": "number"
+                },
+                "declines": {
+                    "type": "integer"
+                },
+                "index_value": {
+                    "type": "number"
+                },
+                "previous_close": {
+                    "type": "number"
+                },
+                "timestamp": {
+                    "type": "string"
+                },
+                "total_companies": {
+                    "type": "integer"
+                },
+                "total_market_cap": {
+                    "type": "number"
+                },
+                "total_turnover": {
+                    "type": "number"
+                },
+                "total_volume": {
+                    "type": "integer"
+                },
+                "unchanged": {
+                    "type": "integer"
+                }
+            }
+        },
+        "models.PriceTrigger": {
+            "type": "object",
+            "properties": {
+                "company_id": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "direction": {
+                    "description": "above, below",
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "shares_qty": {
+                    "type": "integer"
+                },
+                "status": {
+                    "description": "active, triggered, cancelled",
+                    "type": "string"
+                },
+                "trigger_price": {
+                    "type": "number"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.SectorPerformance": {
+            "type": "object",
+            "properties": {
+                "avg_change_percent": {
+                    "type": "number"
+                },
+                "company_count": {
+                    "type": "integer"
+                },
+                "sector": {
+                    "type": "string"
+                },
+                "total_market_cap": {
+                    "type": "number"
+                },
+                "total_turnover": {
+                    "type": "number"
+                },
+                "total_volume": {
+                    "type": "integer"
+                }
+            }
+        },
+        "orderbook.OrderBookLevel": {
             "type": "object",
             "properties": {
                 "orders": {
@@ -1786,19 +2351,19 @@ const docTemplate = `{
                 }
             }
         },
-        "internal_orderbook.OrderBookView": {
+        "orderbook.OrderBookView": {
             "type": "object",
             "properties": {
                 "asks": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/internal_orderbook.OrderBookLevel"
+                        "$ref": "#/definitions/orderbook.OrderBookLevel"
                     }
                 },
                 "bids": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/internal_orderbook.OrderBookLevel"
+                        "$ref": "#/definitions/orderbook.OrderBookLevel"
                     }
                 },
                 "company_id": {
@@ -1806,7 +2371,7 @@ const docTemplate = `{
                 }
             }
         },
-        "internal_orderbook.PlaceBuyOrderRequest": {
+        "orderbook.PlaceBuyOrderRequest": {
             "type": "object",
             "required": [
                 "company_id",
@@ -1829,7 +2394,7 @@ const docTemplate = `{
                 }
             }
         },
-        "internal_orderbook.PlaceSellOrderRequest": {
+        "orderbook.PlaceSellOrderRequest": {
             "type": "object",
             "required": [
                 "company_id",
@@ -1848,7 +2413,7 @@ const docTemplate = `{
                 }
             }
         },
-        "internal_wallet.TopUpRequest": {
+        "wallet.TopUpRequest": {
             "type": "object",
             "required": [
                 "amount"
@@ -1859,7 +2424,7 @@ const docTemplate = `{
                 }
             }
         },
-        "internal_wallet.TransferRequest": {
+        "wallet.TransferRequest": {
             "type": "object",
             "required": [
                 "amount",

@@ -74,15 +74,13 @@ func (r *repository) ExistsByEmail(email string) (bool, error) {
 
 func (r *repository) Update(user *models.User) error {
 	query := `UPDATE users SET full_name = $1, phone = $2, kyc_status = $3, role = $4,
-			  profile_image_id = $5 WHERE id = $6 RETURNING *`
+			  profile_image_url = $5 WHERE id = $6 RETURNING *`
 	return r.client.ExecuteUpdate(query, user,
-		user.FullName, user.Phone, user.KYCStatus, user.Role, user.ProfileImageID, user.ID)
+		user.FullName, user.Phone, user.KYCStatus, user.Role, user.ProfileImageURL, user.ID)
 }
 
 func (r *repository) UploadProfileImage(f multipart.File, filename string) (string, error) {
-
 	path := fmt.Sprintf("profiles/%s/%s", uuid.New().String(), filename)
-
 	uploadURL := fmt.Sprintf("%s/object/%s/%s", r.client.StorageURL(), BucketUserProfiles, path)
 
 	req, err := http.NewRequest("POST", uploadURL, io.Reader(f))
@@ -116,7 +114,6 @@ func (r *repository) DeleteProfileImage(imageURL string) error {
 	}
 
 	filePath := imageURL[idx+len(searchStr):]
-	fmt.Println("Deleting profile image at path:", filePath)
 
 	deleteURL := fmt.Sprintf("%s/object/%s", r.client.StorageURL(), BucketUserProfiles)
 

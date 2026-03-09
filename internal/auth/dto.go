@@ -7,15 +7,15 @@ import (
 )
 
 type UserResponse struct {
-	ID             string    `json:"id"`
-	FullName       string    `json:"full_name"`
-	Email          string    `json:"email"`
-	Phone          string    `json:"phone"`
-	KYCStatus      string    `json:"kyc_status"`
-	Role           string    `json:"role"`
-	ProfileImageID string    `json:"profile_image_id,omitempty"`
-	CreatedAt      time.Time `json:"created_at"`
-	UpdatedAt      time.Time `json:"updated_at"`
+	ID              string    `json:"id"`
+	FullName        string    `json:"full_name"`
+	Email           string    `json:"email"`
+	Phone           string    `json:"phone"`
+	KYCStatus       string    `json:"kyc_status"`
+	Role            string    `json:"role"`
+	ProfileImageURL string    `json:"profile_image_url,omitempty"`
+	CreatedAt       time.Time `json:"created_at"`
+	UpdatedAt       time.Time `json:"updated_at"`
 }
 
 type LoginResponse struct {
@@ -26,14 +26,14 @@ type LoginResponse struct {
 
 func ToUserResponse(u *models.User) UserResponse {
 	return UserResponse{
-		ID:             u.ID,
-		FullName:       u.FullName,
-		Email:          u.Email,
-		Phone:          u.Phone,
-		KYCStatus:      u.KYCStatus,
-		Role:           u.Role,
-		ProfileImageID: u.ProfileImageID,
-		CreatedAt:      u.CreatedAt,
-		UpdatedAt:      u.UpdatedAt,
+		ID:              u.ID,
+		FullName:        u.FullName,
+		Email:           u.Email,
+		Phone:           u.Phone,
+		KYCStatus:       u.KYCStatus,
+		Role:            u.Role,
+		ProfileImageURL: u.ProfileImageURL,
+		CreatedAt:       u.CreatedAt,
+		UpdatedAt:       u.UpdatedAt,
 	}
 }

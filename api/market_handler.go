@@ -1,41 +1,79 @@
 package api
 
 import (
-	"fmt"
 	"io"
 	"net/http"
 	"strconv"
 
 	"github.com/919Umesh/stock_market_sim/internal/market"
+	"github.com/919Umesh/stock_market_sim/internal/stock"
 	"github.com/919Umesh/stock_market_sim/models"
 	"github.com/gin-gonic/gin"
 	"github.com/shopspring/decimal"
 )
 
-// MarketHandler handles market data / SSE / price trigger endpoints
 type MarketHandler struct {
 	priceEngine   *market.PriceEngine
+	stockService  stock.Service
 	eventHub      *market.EventHub
 	triggerWorker *market.TriggerWorker
 }
 
-func NewMarketHandler(pe *market.PriceEngine, eh *market.EventHub, tw *market.TriggerWorker) *MarketHandler {
+func NewMarketHandler(pe *market.PriceEngine, ss stock.Service, eh *market.EventHub, tw *market.TriggerWorker) *MarketHandler {
 	return &MarketHandler{
 		priceEngine:   pe,
+		stockService:  ss,
 		eventHub:      eh,
 		triggerWorker: tw,
 	}
 }
 
+// ──────────────────── Companies ────────────────────
+
+// ListCompanies godoc
+// @Summary List all companies
+// @Tags Market
+// @Produce json
+// @Param limit query int false "Limit" default(50)
+// @Param offset query int false "Offset" default(0)
+// @Success 200 {object} map[string]interface{}
+// @Router /market/companies [get]
+func (h *MarketHandler) ListCompanies(c *gin.Context) {
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "50"))
+	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
+
+	companies, err := h.stockService.ListCompanies(limit, offset)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"data": companies, "count": len(companies)})
+}
+
+// GetCompanyDetail godoc
+// @Summary Get company detail
+// @Tags Market
+// @Produce json
+// @Param id path string true "Company ID"
+// @Success 200 {object} models.Company
+// @Router /market/companies/{id} [get]
+func (h *MarketHandler) GetCompanyDetail(c *gin.Context) {
+	id := c.Param("id")
+	company, err := h.stockService.GetCompanyByID(id)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Company not found"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"data": company})
+}
+
 // ──────────────────── Market Data ────────────────────
 
 // GetLiveTradingData godoc
-// @Summary Get live trading data
-// @Description Get live price and volume data for all companies
-// @Tags market
+// @Summary Get live trading data for all companies
+// @Tags Market
 // @Produce json
-// @Success 200 {object} map[string]interface{}
-// @Failure 500 {object} map[string]interface{}
+// @Success 200 {array} models.LiveTradingData
 // @Router /market/live [get]
 func (h *MarketHandler) GetLiveTradingData(c *gin.Context) {
 	data, err := h.priceEngine.GetLiveTradingData()
@@ -43,79 +81,215 @@ func (h *MarketHandler) GetLiveTradingData(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"data": data})
+	c.JSON(http.StatusOK, gin.H{"data": data, "count": len(data)})
 }
 
 // GetMarketIndex godoc
-// @Summary Get market index
-// @Description Get overall market indicators (advances, declines, market cap)
-// @Tags market
+// @Summary Get market index summary
+// @Tags Market
 // @Produce json
-// @Success 200 {object} map[string]interface{}
-// @Failure 500 {object} map[string]interface{}
+// @Success 200 {object} models.MarketIndex
 // @Router /market/index [get]
 func (h *MarketHandler) GetMarketIndex(c *gin.Context) {
-	idx, err := h.priceEngine.GetMarketIndex()
+	index, err := h.priceEngine.GetMarketIndex()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"index": idx})
+	c.JSON(http.StatusOK, gin.H{"data": index})
 }
 
 // GetCandlestickData godoc
-// @Summary Get candlestick data
-// @Description Get OHLCV data for a specific symbol
-// @Tags market
+// @Summary Get candlestick OHLCV data for a company
+// @Tags Market
 // @Produce json
-// @Param symbol path string true "Company Symbol"
-// @Param timeframe query string false "Timeframe (default 1D)"
-// @Param days query int false "Number of days (default 30)"
-// @Success 200 {object} map[string]interface{}
-// @Failure 400 {object} map[string]interface{}
-// @Router /market/companies/{symbol}/candles [get]
+// @Param symbol query string true "Stock symbol"
+// @Param timeframe query string false "Timeframe (1m, 5m, 15m, 1h, 1D)" default(1D)
+// @Param days query int false "Number of days" default(90)
+// @Success 200 {array} models.CandlestickData
+// @Router /market/candlestick [get]
 func (h *MarketHandler) GetCandlestickData(c *gin.Context) {
-	symbol := c.Param("symbol")
+	symbol := c.Query("symbol")
+	if symbol == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "symbol is required"})
+		return
+	}
 	timeframe := c.DefaultQuery("timeframe", "1D")
-	daysStr := c.DefaultQuery("days", "30")
-	days, _ := strconv.Atoi(daysStr)
+	days, _ := strconv.Atoi(c.DefaultQuery("days", "90"))
 	if days <= 0 {
-		days = 30
+		days = 90
 	}
 
 	candles, err := h.priceEngine.GetCandlestickData(symbol, timeframe, days)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-
-	c.JSON(http.StatusOK, gin.H{"candles": candles})
+	c.JSON(http.StatusOK, gin.H{"data": candles, "symbol": symbol, "timeframe": timeframe, "count": len(candles)})
 }
 
-// ──────────────────── SSE Stream ────────────────────
+// ──────────────────── Top Gainers / Losers / Active ────────────────────
+
+// GetTopGainers godoc
+// @Summary Get top gaining stocks
+// @Tags Market
+// @Produce json
+// @Param limit query int false "Limit" default(10)
+// @Success 200 {array} models.LiveTradingData
+// @Router /market/top-gainers [get]
+func (h *MarketHandler) GetTopGainers(c *gin.Context) {
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+	data, err := h.priceEngine.GetTopGainers(limit)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"data": data, "count": len(data)})
+}
+
+// GetTopLosers godoc
+// @Summary Get top losing stocks
+// @Tags Market
+// @Produce json
+// @Param limit query int false "Limit" default(10)
+// @Success 200 {array} models.LiveTradingData
+// @Router /market/top-losers [get]
+func (h *MarketHandler) GetTopLosers(c *gin.Context) {
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+	data, err := h.priceEngine.GetTopLosers(limit)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"data": data, "count": len(data)})
+}
+
+// GetMostActive godoc
+// @Summary Get most actively traded stocks
+// @Tags Market
+// @Produce json
+// @Param limit query int false "Limit" default(10)
+// @Success 200 {array} models.LiveTradingData
+// @Router /market/most-active [get]
+func (h *MarketHandler) GetMostActive(c *gin.Context) {
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+	data, err := h.priceEngine.GetMostActive(limit)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"data": data, "count": len(data)})
+}
+
+// GetTopTurnover godoc
+// @Summary Get stocks with highest turnover
+// @Tags Market
+// @Produce json
+// @Param limit query int false "Limit" default(10)
+// @Success 200 {array} models.LiveTradingData
+// @Router /market/top-turnover [get]
+func (h *MarketHandler) GetTopTurnover(c *gin.Context) {
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+	data, err := h.priceEngine.GetTopTurnover(limit)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"data": data, "count": len(data)})
+}
+
+// ──────────────────── Sectors ────────────────────
+
+// GetTopSectors godoc
+// @Summary Get sector performance summary
+// @Tags Market
+// @Produce json
+// @Success 200 {array} models.SectorPerformance
+// @Router /market/sectors [get]
+func (h *MarketHandler) GetTopSectors(c *gin.Context) {
+	sectors, err := h.priceEngine.GetTopSectors()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"data": sectors, "count": len(sectors)})
+}
+
+// GetCompaniesBySector godoc
+// @Summary Get companies in a sector
+// @Tags Market
+// @Produce json
+// @Param sector path string true "Sector name"
+// @Success 200 {array} models.LiveTradingData
+// @Router /market/sectors/{sector}/companies [get]
+func (h *MarketHandler) GetCompaniesBySector(c *gin.Context) {
+	sector := c.Param("sector")
+	data, err := h.priceEngine.GetCompaniesBySector(sector)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"data": data, "sector": sector, "count": len(data)})
+}
+
+// ──────────────────── New / Old Companies ────────────────────
+
+// GetNewCompanies godoc
+// @Summary Get recently listed companies
+// @Tags Market
+// @Produce json
+// @Param limit query int false "Limit" default(10)
+// @Success 200 {array} models.LiveTradingData
+// @Router /market/companies/new [get]
+func (h *MarketHandler) GetNewCompanies(c *gin.Context) {
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+	data, err := h.priceEngine.GetNewCompanies(limit)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"data": data, "count": len(data)})
+}
+
+// GetOldCompanies godoc
+// @Summary Get oldest listed companies
+// @Tags Market
+// @Produce json
+// @Param limit query int false "Limit" default(10)
+// @Success 200 {array} models.LiveTradingData
+// @Router /market/companies/old [get]
+func (h *MarketHandler) GetOldCompanies(c *gin.Context) {
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+	data, err := h.priceEngine.GetOldCompanies(limit)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"data": data, "count": len(data)})
+}
+
+// ──────────────────── SSE Streaming ────────────────────
 
 // StreamPrices godoc
-// @Summary Stream prices (SSE)
-// @Description Real-time price updates via Server-Sent Events
-// @Tags market
+// @Summary Stream live price updates (SSE)
+// @Tags Market
 // @Produce text/event-stream
-// @Success 200 {string} string "SSE stream"
 // @Router /market/stream [get]
 func (h *MarketHandler) StreamPrices(c *gin.Context) {
 	c.Header("Content-Type", "text/event-stream")
 	c.Header("Cache-Control", "no-cache")
 	c.Header("Connection", "keep-alive")
 
-	ch := h.eventHub.Subscribe()
-	defer h.eventHub.Unsubscribe(ch)
+	clientChan := h.eventHub.Subscribe()
+	defer h.eventHub.Unsubscribe(clientChan)
 
 	c.Stream(func(w io.Writer) bool {
 		select {
-		case msg, ok := <-ch:
+		case msg, ok := <-clientChan:
 			if !ok {
 				return false
 			}
-			c.SSEvent("message", msg)
+			c.SSEvent("price_update", msg)
 			return true
 		case <-c.Request.Context().Done():
 			return false
@@ -126,27 +300,24 @@ func (h *MarketHandler) StreamPrices(c *gin.Context) {
 // ──────────────────── Price Triggers ────────────────────
 
 type CreateTriggerRequest struct {
-	CompanyID    string `json:"company_id" binding:"required"`
-	TriggerPrice string `json:"trigger_price" binding:"required"`
-	SharesQty    int64  `json:"shares_qty" binding:"required,gt=0"`
-	Direction    string `json:"direction" binding:"required"` // above, below
+	CompanyID    string          `json:"company_id" binding:"required"`
+	TriggerPrice decimal.Decimal `json:"trigger_price" binding:"required"`
+	SharesQty    int64           `json:"shares_qty" binding:"required"`
+	Direction    string          `json:"direction" binding:"required"` // above, below
 }
 
 // CreateTrigger godoc
-// @Summary Create price trigger
-// @Description Create an auto-sell trigger based on price target
-// @Tags trading
+// @Summary Create a price trigger
+// @Tags Triggers
 // @Accept json
 // @Produce json
-// @Param request body CreateTriggerRequest true "Trigger details"
-// @Success 201 {object} map[string]interface{}
-// @Failure 400 {object} map[string]interface{}
-// @Failure 401 {object} map[string]interface{}
+// @Param body body CreateTriggerRequest true "Trigger request"
 // @Security BearerAuth
-// @Router /triggers [post]
+// @Success 201 {object} models.PriceTrigger
+// @Router /market/triggers [post]
 func (h *MarketHandler) CreateTrigger(c *gin.Context) {
-	userID := c.GetString("user_id")
-	if userID == "" {
+	userID, exists := c.Get("user_id")
+	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
 	}
@@ -157,162 +328,62 @@ func (h *MarketHandler) CreateTrigger(c *gin.Context) {
 		return
 	}
 
-	price, err := decimal.NewFromString(req.TriggerPrice)
-	if err != nil || !price.IsPositive() {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid trigger_price"})
-		return
-	}
-
-	if req.Direction != models.TriggerDirectionAbove && req.Direction != models.TriggerDirectionBelow {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "direction must be 'above' or 'below'"})
-		return
-	}
-
 	trigger := &models.PriceTrigger{
-		UserID:       userID,
+		UserID:       userID.(string),
 		CompanyID:    req.CompanyID,
-		TriggerPrice: price,
+		TriggerPrice: req.TriggerPrice,
 		SharesQty:    req.SharesQty,
 		Direction:    req.Direction,
 		Status:       models.TriggerStatusActive,
 	}
 
 	if err := h.triggerWorker.CreateTrigger(trigger); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-
-	c.JSON(http.StatusCreated, gin.H{
-		"message": "price trigger created",
-		"trigger": trigger,
-	})
+	c.JSON(http.StatusCreated, gin.H{"data": trigger})
 }
 
 // CancelTrigger godoc
-// @Summary Cancel price trigger
-// @Description Cancel an active price trigger
-// @Tags trading
+// @Summary Cancel a price trigger
+// @Tags Triggers
 // @Produce json
 // @Param id path string true "Trigger ID"
-// @Success 200 {object} map[string]interface{}
-// @Failure 400 {object} map[string]interface{}
-// @Failure 401 {object} map[string]interface{}
 // @Security BearerAuth
-// @Router /triggers/{id} [delete]
+// @Success 200 {object} map[string]string
+// @Router /market/triggers/{id}/cancel [put]
 func (h *MarketHandler) CancelTrigger(c *gin.Context) {
-	userID := c.GetString("user_id")
-	if userID == "" {
+	userID, exists := c.Get("user_id")
+	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
 	}
-
 	triggerID := c.Param("id")
-	if err := h.triggerWorker.CancelTrigger(triggerID, userID); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	if err := h.triggerWorker.CancelTrigger(triggerID, userID.(string)); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-
 	c.JSON(http.StatusOK, gin.H{"message": "trigger cancelled"})
 }
 
 // GetUserTriggers godoc
-// @Summary Get user's triggers
-// @Description Get a list of active price triggers for the current user
-// @Tags trading
+// @Summary Get user's price triggers
+// @Tags Triggers
 // @Produce json
-// @Success 200 {object} map[string]interface{}
-// @Failure 401 {object} map[string]interface{}
-// @Failure 500 {object} map[string]interface{}
 // @Security BearerAuth
-// @Router /triggers [get]
+// @Success 200 {array} models.PriceTrigger
+// @Router /market/triggers [get]
 func (h *MarketHandler) GetUserTriggers(c *gin.Context) {
-	userID := c.GetString("user_id")
-	if userID == "" {
+	userID, exists := c.Get("user_id")
+	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
 	}
 
-	triggers, err := h.triggerWorker.GetUserTriggers(userID)
+	triggers, err := h.triggerWorker.GetUserTriggers(userID.(string))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-
-	c.JSON(http.StatusOK, gin.H{"triggers": triggers})
-}
-
-// ──────────────────── Companies List ────────────────────
-
-// ListCompanies godoc
-// @Summary List companies
-// @Description Get a list of all trading companies with summary data
-// @Tags market
-// @Produce json
-// @Success 200 {object} map[string]interface{}
-// @Failure 500 {object} map[string]interface{}
-// @Router /market/companies [get]
-func (h *MarketHandler) ListCompanies(c *gin.Context) {
-	data, err := h.priceEngine.GetLiveTradingData()
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	type companyInfo struct {
-		Symbol   string          `json:"symbol"`
-		Name     string          `json:"company_name"`
-		Sector   string          `json:"sector"`
-		Price    decimal.Decimal `json:"current_price"`
-		Change   decimal.Decimal `json:"change_percent"`
-		Volume   int64           `json:"volume"`
-		Turnover decimal.Decimal `json:"turnover"`
-	}
-
-	companies := make([]companyInfo, 0, len(data))
-	for _, d := range data {
-		companies = append(companies, companyInfo{
-			Symbol:   d.Symbol,
-			Name:     d.CompanyName,
-			Sector:   d.Sector,
-			Price:    d.LTP,
-			Change:   d.ChangePercent,
-			Volume:   d.Volume,
-			Turnover: d.Turnover,
-		})
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"companies": companies,
-		"count":     len(companies),
-	})
-}
-
-// GetCompanyDetail godoc
-// @Summary Get company details
-// @Description Get detailed info for a specific company by symbol
-// @Tags market
-// @Produce json
-// @Param symbol path string true "Company Symbol"
-// @Success 200 {object} map[string]interface{}
-// @Failure 404 {object} map[string]interface{}
-// @Failure 500 {object} map[string]interface{}
-// @Router /market/companies/{symbol} [get]
-func (h *MarketHandler) GetCompanyDetail(c *gin.Context) {
-	symbol := c.Param("symbol")
-	_ = symbol
-	// All live data
-	data, err := h.priceEngine.GetLiveTradingData()
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	for _, d := range data {
-		if d.Symbol == symbol {
-			c.JSON(http.StatusOK, gin.H{"company": d})
-			return
-		}
-	}
-
-	c.JSON(http.StatusNotFound, gin.H{"error": fmt.Sprintf("company %s not found", symbol)})
+	c.JSON(http.StatusOK, gin.H{"data": triggers, "count": len(triggers)})
 }

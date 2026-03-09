@@ -108,9 +108,8 @@ func (h *Handler) Login(c *gin.Context) {
 
 // GetProfile godoc
 // @Summary Get user profile
-// @Description Get current authenticated user profile
+// @Description Get current authenticated user profile (includes profile_image_url)
 // @Tags auth
-// @Accept json
 // @Produce json
 // @Success 200 {object} map[string]interface{}
 // @Failure 401 {object} map[string]interface{}
@@ -152,12 +151,10 @@ func (h *Handler) GetProfile(c *gin.Context) {
 // @Router /auth/profile/update [put]
 func (h *Handler) UpdateProfile(c *gin.Context) {
 	userID, exists := c.Get("user_id")
-
 	if !exists {
 		apperr.RespondWithMessage(c, http.StatusUnauthorized, "user not authenticated")
 		return
 	}
-
 	uid, ok := userID.(string)
 	if !ok {
 		apperr.RespondWithMessage(c, http.StatusInternalServerError, "invalid user id type")
@@ -171,22 +168,18 @@ func (h *Handler) UpdateProfile(c *gin.Context) {
 	}
 
 	updates := make(map[string]interface{})
-
 	if req.Fullname != "" {
 		updates["full_name"] = req.Fullname
 	}
-
 	if req.Phone != "" {
 		updates["phone"] = req.Phone
 	}
-
 	if len(updates) == 0 {
 		apperr.RespondWithMessage(c, http.StatusBadRequest, "no fields to update")
 		return
 	}
 
 	user, err := h.service.UpdateProfile(uid, updates)
-
 	if err != nil {
 		apperr.RespondWithMessage(c, http.StatusInternalServerError, "profile update failed")
 		return
@@ -234,7 +227,7 @@ func (h *Handler) UpdateKYC(c *gin.Context) {
 
 // UploadProfileImage godoc
 // @Summary Upload profile image
-// @Description Upload profile image for current user (max 5MB)
+// @Description Upload profile image (max 5MB). Deletes old image from Supabase bucket and replaces with new one.
 // @Tags auth
 // @Accept multipart/form-data
 // @Produce json

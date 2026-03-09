@@ -7,27 +7,31 @@ import (
 )
 
 type StockPrice struct {
-	ID         string          `json:"id,omitempty"`
-	CompanyID  string          `json:"company_id"`
-	OpenPrice  decimal.Decimal `json:"open_price"`
-	HighPrice  decimal.Decimal `json:"high_price"`
-	LowPrice   decimal.Decimal `json:"low_price"`
-	ClosePrice decimal.Decimal `json:"close_price"`
-	Volume     int64           `json:"volume"`
-	Timestamp  time.Time       `json:"timestamp"`
-	Timeframe  string          `json:"timeframe"`
-	CreatedAt  time.Time       `json:"created_at,omitempty"`
-	UpdatedAt  time.Time       `json:"updated_at,omitempty"`
+	ID            string          `json:"id,omitempty"`
+	CompanyID     string          `json:"company_id"`
+	OpenPrice     decimal.Decimal `json:"open_price"`
+	HighPrice     decimal.Decimal `json:"high_price"`
+	LowPrice      decimal.Decimal `json:"low_price"`
+	ClosePrice    decimal.Decimal `json:"close_price"`
+	Volume        int64           `json:"volume"`
+	Turnover      decimal.Decimal `json:"turnover"`
+	ChangePercent decimal.Decimal `json:"change_percent"`
+	Timestamp     time.Time       `json:"timestamp"`
+	Timeframe     string          `json:"timeframe"`
+	CreatedAt     time.Time       `json:"created_at,omitempty"`
+	UpdatedAt     time.Time       `json:"updated_at,omitempty"`
 }
 
-// CandlestickData is the frontend-friendly representation of OHLCV
+// CandlestickData is the frontend-friendly OHLCV representation
 type CandlestickData struct {
-	Timestamp time.Time       `json:"timestamp"`
-	Open      decimal.Decimal `json:"open"`
-	High      decimal.Decimal `json:"high"`
-	Low       decimal.Decimal `json:"low"`
-	Close     decimal.Decimal `json:"close"`
-	Volume    int64           `json:"volume"`
+	Timestamp     time.Time       `json:"timestamp"`
+	Open          decimal.Decimal `json:"open"`
+	High          decimal.Decimal `json:"high"`
+	Low           decimal.Decimal `json:"low"`
+	Close         decimal.Decimal `json:"close"`
+	Volume        int64           `json:"volume"`
+	Turnover      decimal.Decimal `json:"turnover"`
+	ChangePercent decimal.Decimal `json:"change_percent"`
 }
 
 // LiveTradingData represents real-time trading info for a company
@@ -84,4 +88,14 @@ type MarketSummary struct {
 	TopLosers  []LiveTradingData `json:"top_losers"`
 	MostActive []LiveTradingData `json:"most_active"`
 	AsOf       time.Time         `json:"as_of"`
+}
+
+// SectorPerformance represents sector-level aggregation
+type SectorPerformance struct {
+	Sector         string          `json:"sector"`
+	CompanyCount   int             `json:"company_count"`
+	AvgChange      decimal.Decimal `json:"avg_change_percent"`
+	TotalTurnover  decimal.Decimal `json:"total_turnover"`
+	TotalVolume    int64           `json:"total_volume"`
+	TotalMarketCap decimal.Decimal `json:"total_market_cap"`
 }

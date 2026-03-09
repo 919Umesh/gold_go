@@ -14,6 +14,7 @@ type Repository interface {
 	GetCompanyByID(id string) (*models.Company, error)
 	GetCompanyBySymbol(symbol string) (*models.Company, error)
 	ListCompanies(limit, offset int) ([]models.Company, error)
+	ListCompaniesBySector(sector string, limit, offset int) ([]models.Company, error)
 	UpdateCompanyPrice(companyID string, price string, marketCap string) error
 
 	// Stock Prices (OHLCV)
@@ -34,11 +35,19 @@ func NewRepository(client *supabase.Client) Repository {
 // ──────────────────── Companies ────────────────────
 
 func (r *repository) CreateCompany(company *models.Company) error {
-	query := `INSERT INTO companies (symbol, name, sector, total_supply, current_price, market_cap, is_active)
-			  VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`
+	query := `INSERT INTO companies (symbol, name, sector, description, total_supply, shares_outstanding,
+			  current_price, market_cap, eps, pe_ratio, book_value, pbv,
+			  week_52_high, week_52_low, avg_120_day, yield_1_year, listed_date, is_active)
+			  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18) RETURNING *`
 	return r.client.ExecuteInsert(query, company,
-		company.Symbol, company.Name, company.Sector, company.TotalSupply,
-		company.CurrentPrice.String(), company.MarketCap.String(), company.IsActive)
+		company.Symbol, company.Name, company.Sector, company.Description,
+		company.TotalSupply, company.SharesOutstanding.String(),
+		company.CurrentPrice.String(), company.MarketCap.String(),
+		company.EPS.String(), company.PERatio.String(),
+		company.BookValue.String(), company.PBV.String(),
+		company.Week52High.String(), company.Week52Low.String(),
+		company.Avg120Day.String(), company.Yield1Year.String(),
+		company.ListedDate, company.IsActive)
 }
 
 func (r *repository) GetCompanyByID(id string) (*models.Company, error) {
@@ -72,6 +81,19 @@ func (r *repository) ListCompanies(limit, offset int) ([]models.Company, error) 
 	return companies, nil
 }
 
+func (r *repository) ListCompaniesBySector(sector string, limit, offset int) ([]models.Company, error) {
+	var companies []models.Company
+	query := "SELECT * FROM companies WHERE sector = $1 AND is_active = $2 ORDER BY symbol LIMIT $3 OFFSET $4"
+	err := r.client.ExecuteQuery(query, &companies, sector, true, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+	if companies == nil {
+		companies = []models.Company{}
+	}
+	return companies, nil
+}
+
 func (r *repository) UpdateCompanyPrice(companyID string, price string, marketCap string) error {
 	query := `UPDATE companies SET current_price = $1, market_cap = $2 WHERE id = $3 RETURNING *`
 	var c models.Company
@@ -81,11 +103,12 @@ func (r *repository) UpdateCompanyPrice(companyID string, price string, marketCa
 // ──────────────────── Stock Prices ────────────────────
 
 func (r *repository) CreateStockPrice(price *models.StockPrice) error {
-	query := `INSERT INTO stock_prices (company_id, open_price, high_price, low_price, close_price, volume, timestamp, timeframe)
-			  VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`
+	query := `INSERT INTO stock_prices (company_id, open_price, high_price, low_price, close_price, volume, turnover, change_percent, timestamp, timeframe)
+			  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`
 	return r.client.ExecuteInsert(query, price,
 		price.CompanyID, price.OpenPrice.String(), price.HighPrice.String(),
 		price.LowPrice.String(), price.ClosePrice.String(), price.Volume,
+		price.Turnover.String(), price.ChangePercent.String(),
 		price.Timestamp.Format(time.RFC3339), price.Timeframe)
 }
 
@@ -116,19 +139,17 @@ func (r *repository) GetPriceHistory(companyID, timeframe string, from, to time.
 }
 
 func (r *repository) UpsertDailyPrice(price *models.StockPrice) error {
-	// Try to find existing daily price for today
 	existing, err := r.getDailyPrice(price.CompanyID, price.Timestamp)
 	if err != nil {
-		// Create new
 		return r.CreateStockPrice(price)
 	}
 
-	// Update existing
-	query := `UPDATE stock_prices SET high_price = $1, low_price = $2, close_price = $3, volume = $4 
-			  WHERE id = $5 RETURNING *`
+	query := `UPDATE stock_prices SET high_price = $1, low_price = $2, close_price = $3, volume = $4, turnover = $5, change_percent = $6
+			  WHERE id = $7 RETURNING *`
 	return r.client.ExecuteUpdate(query, existing,
 		price.HighPrice.String(), price.LowPrice.String(),
-		price.ClosePrice.String(), price.Volume, existing.ID)
+		price.ClosePrice.String(), price.Volume,
+		price.Turnover.String(), price.ChangePercent.String(), existing.ID)
 }
 
 func (r *repository) getDailyPrice(companyID string, day time.Time) (*models.StockPrice, error) {

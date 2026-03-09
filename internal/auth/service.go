@@ -157,19 +157,22 @@ func (s *service) UploadProfileImage(userID string, file multipart.File, filenam
 		return nil, fmt.Errorf("user not found: %w", err)
 	}
 
-	if user.ProfileImageID != "" {
-		err := s.repo.DeleteProfileImage(user.ProfileImageID)
-		if err != nil {
-			return nil, fmt.Errorf("failed to delete old profile image: %w", err)
+	// Delete old profile image from Supabase bucket if it exists
+	if user.ProfileImageURL != "" {
+		if delErr := s.repo.DeleteProfileImage(user.ProfileImageURL); delErr != nil {
+			slog.Warn("failed to delete old profile image", "error", delErr)
+			// Continue anyway — don't block upload
 		}
 	}
 
-	fileID, err := s.repo.UploadProfileImage(file, filename)
+	// Upload new image
+	imageURL, err := s.repo.UploadProfileImage(file, filename)
 	if err != nil {
 		return nil, fmt.Errorf("failed to upload image: %w", err)
 	}
 
-	user.ProfileImageID = fileID
+	// Save new URL
+	user.ProfileImageURL = imageURL
 	if err := s.repo.Update(user); err != nil {
 		return nil, fmt.Errorf("failed to update user profile with image: %w", err)
 	}

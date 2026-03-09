@@ -13,25 +13,17 @@ import (
 )
 
 const (
-	// SensitivityFactor controls price impact magnitude.
-	// For small-volume markets: higher = more sensitive to each trade.
-	SensitivityFactor = 2.0
-
-	// MaxDailyChangePercent is the circuit breaker limit (±10%)
+	SensitivityFactor     = 2.0
 	MaxDailyChangePercent = 10.0
-
-	// MinPrice floor
-	MinPrice = 0.01
+	MinPrice              = 0.01
 )
 
-// TradeImpact is the result of processing a trade
 type TradeImpact struct {
 	NewPrice       decimal.Decimal `json:"new_price"`
 	PriceChange    decimal.Decimal `json:"price_change"`
 	PriceChangePct decimal.Decimal `json:"price_change_pct"`
 }
 
-// PriceEngine handles order-driven price discovery with high sensitivity
 type PriceEngine struct {
 	stockRepo stock.Repository
 	eventHub  *EventHub
@@ -44,7 +36,6 @@ type PriceEngine struct {
 	dailyLows      map[string]decimal.Decimal
 	lastTradeDay   time.Time
 
-	// Trigger callback (set by trigger worker)
 	onPriceUpdate func(companyID string, newPrice decimal.Decimal)
 }
 
@@ -63,7 +54,6 @@ func NewPriceEngine(stockRepo stock.Repository, eventHub *EventHub) *PriceEngine
 	return pe
 }
 
-// SetOnPriceUpdate registers a callback called after each price update
 func (pe *PriceEngine) SetOnPriceUpdate(fn func(companyID string, newPrice decimal.Decimal)) {
 	pe.mu.Lock()
 	defer pe.mu.Unlock()
@@ -103,8 +93,6 @@ func (pe *PriceEngine) checkDayReset() {
 	}
 }
 
-// ProcessMatchedTrade is called after each order match to update the price
-// Uses high-sensitivity formula: impact = (tradeVolume / totalSupply) * SensitivityFactor
 func (pe *PriceEngine) ProcessMatchedTrade(companyID string, tradePrice decimal.Decimal, tradeQty int64) {
 	pe.mu.Lock()
 	defer pe.mu.Unlock()
@@ -122,8 +110,6 @@ func (pe *PriceEngine) ProcessMatchedTrade(companyID string, tradePrice decimal.
 		currentPrice = tradePrice
 	}
 
-	// High-sensitivity price impact formula
-	// impact = (tradeVolume / totalSupply) * SensitivityFactor
 	totalSupply := company.TotalSupply
 	if totalSupply <= 0 {
 		totalSupply = 10000
@@ -132,33 +118,25 @@ func (pe *PriceEngine) ProcessMatchedTrade(companyID string, tradePrice decimal.
 	volumeRatio := float64(tradeQty) / float64(totalSupply)
 	impact := volumeRatio * SensitivityFactor
 
-	// Determine direction: if trade price > current, push up; if below, push down
 	direction := 1.0
 	if tradePrice.LessThan(currentPrice) {
 		direction = -1.0
 	}
 
-	// Add small noise for realism
 	noise := (rand.Float64() - 0.5) * 0.002
 	impact = impact*direction + noise
 
-	// Calculate new price
 	impactDecimal := decimal.NewFromFloat(impact)
 	newPrice := currentPrice.Mul(decimal.NewFromInt(1).Add(impactDecimal))
 
-	// Enforce minimum price
 	minP := decimal.NewFromFloat(MinPrice)
 	if newPrice.LessThan(minP) {
 		newPrice = minP
 	}
 
-	// Apply circuit breaker
 	newPrice = pe.applyCircuitBreaker(companyID, newPrice)
-
-	// Round to 2 decimal places
 	newPrice = newPrice.Round(2)
 
-	// Track intraday data
 	pe.dailyVolumes[companyID] += tradeQty
 	if pe.dayOpenPrices[companyID].IsZero() {
 		pe.dayOpenPrices[companyID] = currentPrice
@@ -171,39 +149,37 @@ func (pe *PriceEngine) ProcessMatchedTrade(companyID string, tradePrice decimal.
 	}
 
 	now := time.Now()
+	turnover := newPrice.Mul(decimal.NewFromInt(tradeQty))
 
-	// Create 1-minute candle
-	stockPrice := &models.StockPrice{
-		CompanyID:  companyID,
-		OpenPrice:  currentPrice,
-		HighPrice:  decimal.Max(currentPrice, newPrice),
-		LowPrice:   decimal.Min(currentPrice, newPrice),
-		ClosePrice: newPrice,
-		Volume:     tradeQty,
-		Timestamp:  now,
-		Timeframe:  "1m",
-	}
-	if err := pe.stockRepo.CreateStockPrice(stockPrice); err != nil {
-		slog.Error("PriceEngine: failed to create stock price", "error", err)
-	}
-
-	// Update daily candle
-	pe.updateDailyCandle(companyID, newPrice, now)
-
-	// Update company price and market cap
-	newMarketCap := newPrice.Mul(decimal.NewFromInt(company.TotalSupply))
-	if err := pe.stockRepo.UpdateCompanyPrice(companyID, newPrice.String(), newMarketCap.String()); err != nil {
-		slog.Warn("PriceEngine: failed to update company price", "error", err)
-	}
-
-	// Calculate change metrics
 	priceChange := newPrice.Sub(currentPrice)
 	priceChangePct := decimal.Zero
 	if !currentPrice.IsZero() {
 		priceChangePct = priceChange.Div(currentPrice).Mul(decimal.NewFromInt(100))
 	}
 
-	// Broadcast SSE events
+	stockPrice := &models.StockPrice{
+		CompanyID:     companyID,
+		OpenPrice:     currentPrice,
+		HighPrice:     decimal.Max(currentPrice, newPrice),
+		LowPrice:      decimal.Min(currentPrice, newPrice),
+		ClosePrice:    newPrice,
+		Volume:        tradeQty,
+		Turnover:      turnover,
+		ChangePercent: priceChangePct.Round(4),
+		Timestamp:     now,
+		Timeframe:     "1m",
+	}
+	if err := pe.stockRepo.CreateStockPrice(stockPrice); err != nil {
+		slog.Error("PriceEngine: failed to create stock price", "error", err)
+	}
+
+	pe.updateDailyCandle(companyID, newPrice, now)
+
+	newMarketCap := newPrice.Mul(decimal.NewFromInt(company.TotalSupply))
+	if err := pe.stockRepo.UpdateCompanyPrice(companyID, newPrice.String(), newMarketCap.String()); err != nil {
+		slog.Warn("PriceEngine: failed to update company price", "error", err)
+	}
+
 	if pe.eventHub != nil {
 		pe.eventHub.Broadcast(Event{
 			Type: "price_update",
@@ -233,7 +209,6 @@ func (pe *PriceEngine) ProcessMatchedTrade(companyID string, tradePrice decimal.
 		"impact", priceChangePct.StringFixed(2)+"%",
 	)
 
-	// Fire price update callback (for trigger worker)
 	if pe.onPriceUpdate != nil {
 		pe.onPriceUpdate(companyID, newPrice)
 	}
@@ -268,22 +243,32 @@ func (pe *PriceEngine) updateDailyCandle(companyID string, newPrice decimal.Deci
 	dayLow := pe.dailyLows[companyID]
 	dayVolume := pe.dailyVolumes[companyID]
 
+	changePct := decimal.Zero
+	prevClose := pe.previousCloses[companyID]
+	if !prevClose.IsZero() {
+		changePct = newPrice.Sub(prevClose).Div(prevClose).Mul(decimal.NewFromInt(100))
+	}
+
+	dailyTurnover := newPrice.Mul(decimal.NewFromInt(dayVolume))
+
 	dailyPrice := &models.StockPrice{
-		CompanyID:  companyID,
-		OpenPrice:  dayOpen,
-		HighPrice:  dayHigh,
-		LowPrice:   dayLow,
-		ClosePrice: newPrice,
-		Volume:     dayVolume,
-		Timestamp:  dayStart,
-		Timeframe:  "1D",
+		CompanyID:     companyID,
+		OpenPrice:     dayOpen,
+		HighPrice:     dayHigh,
+		LowPrice:      dayLow,
+		ClosePrice:    newPrice,
+		Volume:        dayVolume,
+		Turnover:      dailyTurnover,
+		ChangePercent: changePct.Round(4),
+		Timestamp:     dayStart,
+		Timeframe:     "1D",
 	}
 	if err := pe.stockRepo.UpsertDailyPrice(dailyPrice); err != nil {
 		slog.Warn("PriceEngine: failed to upsert daily price", "error", err)
 	}
 }
 
-// ──────────────────── Market Data Endpoints ────────────────────
+// ──────────────────── Market Data Methods ────────────────────
 
 func (pe *PriceEngine) GetLiveTradingData() ([]models.LiveTradingData, error) {
 	pe.mu.RLock()
@@ -296,48 +281,214 @@ func (pe *PriceEngine) GetLiveTradingData() ([]models.LiveTradingData, error) {
 
 	result := make([]models.LiveTradingData, 0, len(companies))
 	for _, c := range companies {
-		ltp := c.CurrentPrice
+		result = append(result, pe.buildLiveTradingData(c))
+	}
 
-		prevClose := pe.previousCloses[c.ID]
-		if prevClose.IsZero() {
-			prevClose = ltp
-		}
+	return result, nil
+}
 
-		diff := ltp.Sub(prevClose)
-		changePct := decimal.Zero
-		if !prevClose.IsZero() {
-			changePct = diff.Div(prevClose).Mul(decimal.NewFromInt(100))
-		}
+func (pe *PriceEngine) buildLiveTradingData(c models.Company) models.LiveTradingData {
+	ltp := c.CurrentPrice
 
-		dayOpen := pe.dayOpenPrices[c.ID]
-		if dayOpen.IsZero() {
-			dayOpen = ltp
-		}
-		dayHigh := pe.dailyHighs[c.ID]
-		if dayHigh.IsZero() {
-			dayHigh = ltp
-		}
-		dayLow := pe.dailyLows[c.ID]
-		if dayLow.IsZero() {
-			dayLow = ltp
-		}
+	prevClose := pe.previousCloses[c.ID]
+	if prevClose.IsZero() {
+		prevClose = ltp
+	}
 
-		result = append(result, models.LiveTradingData{
-			Symbol:        c.Symbol,
-			CompanyID:     c.ID,
-			CompanyName:   c.Name,
-			Sector:        c.Sector,
-			LTP:           ltp,
-			ChangePercent: changePct.Round(2),
-			Open:          dayOpen,
-			High:          dayHigh,
-			Low:           dayLow,
-			Volume:        pe.dailyVolumes[c.ID],
-			PreviousClose: prevClose,
-			Difference:    diff.Round(2),
-			Turnover:      ltp.Mul(decimal.NewFromInt(pe.dailyVolumes[c.ID])),
-			LastUpdated:   time.Now(),
-		})
+	diff := ltp.Sub(prevClose)
+	changePct := decimal.Zero
+	if !prevClose.IsZero() {
+		changePct = diff.Div(prevClose).Mul(decimal.NewFromInt(100))
+	}
+
+	dayOpen := pe.dayOpenPrices[c.ID]
+	if dayOpen.IsZero() {
+		dayOpen = ltp
+	}
+	dayHigh := pe.dailyHighs[c.ID]
+	if dayHigh.IsZero() {
+		dayHigh = ltp
+	}
+	dayLow := pe.dailyLows[c.ID]
+	if dayLow.IsZero() {
+		dayLow = ltp
+	}
+
+	return models.LiveTradingData{
+		Symbol:        c.Symbol,
+		CompanyID:     c.ID,
+		CompanyName:   c.Name,
+		Sector:        c.Sector,
+		LTP:           ltp,
+		ChangePercent: changePct.Round(2),
+		Open:          dayOpen,
+		High:          dayHigh,
+		Low:           dayLow,
+		Volume:        pe.dailyVolumes[c.ID],
+		PreviousClose: prevClose,
+		Difference:    diff.Round(2),
+		Turnover:      ltp.Mul(decimal.NewFromInt(pe.dailyVolumes[c.ID])),
+		LastUpdated:   time.Now(),
+	}
+}
+
+func (pe *PriceEngine) GetTopGainers(limit int) ([]models.LiveTradingData, error) {
+	data, err := pe.GetLiveTradingData()
+	if err != nil {
+		return nil, err
+	}
+	sort.Slice(data, func(i, j int) bool {
+		return data[i].ChangePercent.GreaterThan(data[j].ChangePercent)
+	})
+	if len(data) > limit {
+		data = data[:limit]
+	}
+	return data, nil
+}
+
+func (pe *PriceEngine) GetTopLosers(limit int) ([]models.LiveTradingData, error) {
+	data, err := pe.GetLiveTradingData()
+	if err != nil {
+		return nil, err
+	}
+	sort.Slice(data, func(i, j int) bool {
+		return data[i].ChangePercent.LessThan(data[j].ChangePercent)
+	})
+	if len(data) > limit {
+		data = data[:limit]
+	}
+	return data, nil
+}
+
+func (pe *PriceEngine) GetMostActive(limit int) ([]models.LiveTradingData, error) {
+	data, err := pe.GetLiveTradingData()
+	if err != nil {
+		return nil, err
+	}
+	sort.Slice(data, func(i, j int) bool {
+		return data[i].Volume > data[j].Volume
+	})
+	if len(data) > limit {
+		data = data[:limit]
+	}
+	return data, nil
+}
+
+func (pe *PriceEngine) GetTopTurnover(limit int) ([]models.LiveTradingData, error) {
+	data, err := pe.GetLiveTradingData()
+	if err != nil {
+		return nil, err
+	}
+	sort.Slice(data, func(i, j int) bool {
+		return data[i].Turnover.GreaterThan(data[j].Turnover)
+	})
+	if len(data) > limit {
+		data = data[:limit]
+	}
+	return data, nil
+}
+
+func (pe *PriceEngine) GetTopSectors() ([]models.SectorPerformance, error) {
+	data, err := pe.GetLiveTradingData()
+	if err != nil {
+		return nil, err
+	}
+
+	sectorMap := make(map[string]*models.SectorPerformance)
+
+	for _, d := range data {
+		sp, ok := sectorMap[d.Sector]
+		if !ok {
+			sp = &models.SectorPerformance{
+				Sector: d.Sector,
+			}
+			sectorMap[d.Sector] = sp
+		}
+		sp.CompanyCount++
+		sp.AvgChange = sp.AvgChange.Add(d.ChangePercent)
+		sp.TotalTurnover = sp.TotalTurnover.Add(d.Turnover)
+		sp.TotalVolume += d.Volume
+		mc := d.LTP.Mul(decimal.NewFromInt(d.Volume)) // approximate
+		sp.TotalMarketCap = sp.TotalMarketCap.Add(mc)
+	}
+
+	result := make([]models.SectorPerformance, 0, len(sectorMap))
+	for _, sp := range sectorMap {
+		if sp.CompanyCount > 0 {
+			sp.AvgChange = sp.AvgChange.Div(decimal.NewFromInt(int64(sp.CompanyCount))).Round(2)
+		}
+		result = append(result, *sp)
+	}
+
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].AvgChange.GreaterThan(result[j].AvgChange)
+	})
+
+	return result, nil
+}
+
+func (pe *PriceEngine) GetCompaniesBySector(sector string) ([]models.LiveTradingData, error) {
+	pe.mu.RLock()
+	defer pe.mu.RUnlock()
+
+	companies, err := pe.stockRepo.ListCompaniesBySector(sector, 100, 0)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]models.LiveTradingData, 0, len(companies))
+	for _, c := range companies {
+		result = append(result, pe.buildLiveTradingData(c))
+	}
+
+	return result, nil
+}
+
+func (pe *PriceEngine) GetNewCompanies(limit int) ([]models.LiveTradingData, error) {
+	pe.mu.RLock()
+	defer pe.mu.RUnlock()
+
+	companies, err := pe.stockRepo.ListCompanies(200, 0)
+	if err != nil {
+		return nil, err
+	}
+
+	sort.Slice(companies, func(i, j int) bool {
+		return companies[i].CreatedAt.After(companies[j].CreatedAt)
+	})
+
+	if len(companies) > limit {
+		companies = companies[:limit]
+	}
+
+	result := make([]models.LiveTradingData, 0, len(companies))
+	for _, c := range companies {
+		result = append(result, pe.buildLiveTradingData(c))
+	}
+
+	return result, nil
+}
+
+func (pe *PriceEngine) GetOldCompanies(limit int) ([]models.LiveTradingData, error) {
+	pe.mu.RLock()
+	defer pe.mu.RUnlock()
+
+	companies, err := pe.stockRepo.ListCompanies(200, 0)
+	if err != nil {
+		return nil, err
+	}
+
+	sort.Slice(companies, func(i, j int) bool {
+		return companies[i].CreatedAt.Before(companies[j].CreatedAt)
+	})
+
+	if len(companies) > limit {
+		companies = companies[:limit]
+	}
+
+	result := make([]models.LiveTradingData, 0, len(companies))
+	for _, c := range companies {
+		result = append(result, pe.buildLiveTradingData(c))
 	}
 
 	return result, nil
@@ -437,12 +588,14 @@ func (pe *PriceEngine) GetCandlestickData(symbol string, timeframe string, days 
 	candles := make([]models.CandlestickData, 0, len(prices))
 	for _, p := range prices {
 		candles = append(candles, models.CandlestickData{
-			Timestamp: p.Timestamp,
-			Open:      p.OpenPrice,
-			High:      p.HighPrice,
-			Low:       p.LowPrice,
-			Close:     p.ClosePrice,
-			Volume:    p.Volume,
+			Timestamp:     p.Timestamp,
+			Open:          p.OpenPrice,
+			High:          p.HighPrice,
+			Low:           p.LowPrice,
+			Close:         p.ClosePrice,
+			Volume:        p.Volume,
+			Turnover:      p.Turnover,
+			ChangePercent: p.ChangePercent,
 		})
 	}
 

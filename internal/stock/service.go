@@ -6,6 +6,7 @@ type Service interface {
 	ListCompanies(limit, offset int) ([]models.Company, error)
 	GetCompany(symbol string) (*models.Company, error)
 	GetCompanyByID(id string) (*models.Company, error)
+	ListCompaniesBySector(sector string, limit, offset int) ([]models.Company, error)
 }
 
 type service struct {
@@ -29,4 +30,11 @@ func (s *service) GetCompany(symbol string) (*models.Company, error) {
 
 func (s *service) GetCompanyByID(id string) (*models.Company, error) {
 	return s.repo.GetCompanyByID(id)
+}
+
+func (s *service) ListCompaniesBySector(sector string, limit, offset int) ([]models.Company, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+	return s.repo.ListCompaniesBySector(sector, limit, offset)
 }

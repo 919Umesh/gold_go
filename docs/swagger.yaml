@@ -10,14 +10,14 @@ definitions:
       shares_qty:
         type: integer
       trigger_price:
-        type: string
+        type: number
     required:
     - company_id
     - direction
     - shares_qty
     - trigger_price
     type: object
-  internal_auth.LoginRequest:
+  auth.LoginRequest:
     properties:
       email:
         type: string
@@ -27,16 +27,16 @@ definitions:
     - email
     - password
     type: object
-  internal_auth.LoginResponse:
+  auth.LoginResponse:
     properties:
       message:
         type: string
       token:
         type: string
       user:
-        $ref: '#/definitions/internal_auth.UserResponse'
+        $ref: '#/definitions/auth.UserResponse'
     type: object
-  internal_auth.RegisterRequest:
+  auth.RegisterRequest:
     properties:
       email:
         type: string
@@ -62,7 +62,7 @@ definitions:
     - phone
     - role
     type: object
-  internal_auth.UpdateKYCAdmin:
+  auth.UpdateKYCAdmin:
     properties:
       kyc_status:
         enum:
@@ -80,7 +80,7 @@ definitions:
     - kyc_status
     - role
     type: object
-  internal_auth.UpdateProfileRequest:
+  auth.UpdateProfileRequest:
     properties:
       full_name:
         maxLength: 100
@@ -91,7 +91,7 @@ definitions:
         minLength: 10
         type: string
     type: object
-  internal_auth.UserResponse:
+  auth.UserResponse:
     properties:
       created_at:
         type: string
@@ -105,21 +105,21 @@ definitions:
         type: string
       phone:
         type: string
-      profile_image_id:
+      profile_image_url:
         type: string
       role:
         type: string
       updated_at:
         type: string
     type: object
-  internal_ipo.ApplyIPORequest:
+  ipo.ApplyIPORequest:
     properties:
       shares_requested:
         type: integer
     required:
     - shares_requested
     type: object
-  internal_ipo.CreateCompanyRequest:
+  ipo.CreateCompanyRequest:
     properties:
       name:
         type: string
@@ -134,7 +134,7 @@ definitions:
     - symbol
     - total_supply
     type: object
-  internal_ipo.LaunchIPORequest:
+  ipo.LaunchIPORequest:
     properties:
       close_at:
         type: string
@@ -156,7 +156,167 @@ definitions:
     - price_per_share
     - total_shares
     type: object
-  internal_orderbook.OrderBookLevel:
+  models.CandlestickData:
+    properties:
+      change_percent:
+        type: number
+      close:
+        type: number
+      high:
+        type: number
+      low:
+        type: number
+      open:
+        type: number
+      timestamp:
+        type: string
+      turnover:
+        type: number
+      volume:
+        type: integer
+    type: object
+  models.Company:
+    properties:
+      avg_120_day:
+        type: number
+      book_value:
+        type: number
+      created_at:
+        type: string
+      current_price:
+        type: number
+      description:
+        type: string
+      eps:
+        type: number
+      id:
+        type: string
+      is_active:
+        type: boolean
+      listed_date:
+        type: string
+      market_cap:
+        type: number
+      name:
+        type: string
+      pbv:
+        type: number
+      pe_ratio:
+        type: number
+      sector:
+        type: string
+      shares_outstanding:
+        type: number
+      symbol:
+        type: string
+      total_supply:
+        type: integer
+      updated_at:
+        type: string
+      week_52_high:
+        type: number
+      week_52_low:
+        type: number
+      yield_1_year:
+        type: number
+    type: object
+  models.LiveTradingData:
+    properties:
+      change_percent:
+        type: number
+      company_id:
+        type: string
+      company_name:
+        type: string
+      difference:
+        type: number
+      high:
+        type: number
+      last_updated:
+        type: string
+      low:
+        type: number
+      ltp:
+        type: number
+      open:
+        type: number
+      previous_close:
+        type: number
+      sector:
+        type: string
+      symbol:
+        type: string
+      turnover:
+        type: number
+      volume:
+        type: integer
+    type: object
+  models.MarketIndex:
+    properties:
+      advances:
+        type: integer
+      change:
+        type: number
+      change_percent:
+        type: number
+      declines:
+        type: integer
+      index_value:
+        type: number
+      previous_close:
+        type: number
+      timestamp:
+        type: string
+      total_companies:
+        type: integer
+      total_market_cap:
+        type: number
+      total_turnover:
+        type: number
+      total_volume:
+        type: integer
+      unchanged:
+        type: integer
+    type: object
+  models.PriceTrigger:
+    properties:
+      company_id:
+        type: string
+      created_at:
+        type: string
+      direction:
+        description: above, below
+        type: string
+      id:
+        type: string
+      shares_qty:
+        type: integer
+      status:
+        description: active, triggered, cancelled
+        type: string
+      trigger_price:
+        type: number
+      updated_at:
+        type: string
+      user_id:
+        type: string
+    type: object
+  models.SectorPerformance:
+    properties:
+      avg_change_percent:
+        type: number
+      company_count:
+        type: integer
+      sector:
+        type: string
+      total_market_cap:
+        type: number
+      total_turnover:
+        type: number
+      total_volume:
+        type: integer
+    type: object
+  orderbook.OrderBookLevel:
     properties:
       orders:
         type: integer
@@ -165,20 +325,20 @@ definitions:
       quantity:
         type: integer
     type: object
-  internal_orderbook.OrderBookView:
+  orderbook.OrderBookView:
     properties:
       asks:
         items:
-          $ref: '#/definitions/internal_orderbook.OrderBookLevel'
+          $ref: '#/definitions/orderbook.OrderBookLevel'
         type: array
       bids:
         items:
-          $ref: '#/definitions/internal_orderbook.OrderBookLevel'
+          $ref: '#/definitions/orderbook.OrderBookLevel'
         type: array
       company_id:
         type: string
     type: object
-  internal_orderbook.PlaceBuyOrderRequest:
+  orderbook.PlaceBuyOrderRequest:
     properties:
       company_id:
         type: string
@@ -194,7 +354,7 @@ definitions:
     - price
     - quantity
     type: object
-  internal_orderbook.PlaceSellOrderRequest:
+  orderbook.PlaceSellOrderRequest:
     properties:
       company_id:
         type: string
@@ -207,14 +367,14 @@ definitions:
     - price
     - quantity
     type: object
-  internal_wallet.TopUpRequest:
+  wallet.TopUpRequest:
     properties:
       amount:
         type: string
     required:
     - amount
     type: object
-  internal_wallet.TransferRequest:
+  wallet.TransferRequest:
     properties:
       amount:
         type: string
@@ -251,7 +411,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/internal_ipo.CreateCompanyRequest'
+          $ref: '#/definitions/ipo.CreateCompanyRequest'
       produces:
       - application/json
       responses:
@@ -286,7 +446,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/internal_ipo.LaunchIPORequest'
+          $ref: '#/definitions/ipo.LaunchIPORequest'
       produces:
       - application/json
       responses:
@@ -358,7 +518,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/internal_auth.UpdateKYCAdmin'
+          $ref: '#/definitions/auth.UpdateKYCAdmin'
       produces:
       - application/json
       responses:
@@ -393,14 +553,14 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/internal_auth.LoginRequest'
+          $ref: '#/definitions/auth.LoginRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_auth.LoginResponse'
+            $ref: '#/definitions/auth.LoginResponse'
         "400":
           description: Bad Request
           schema:
@@ -416,9 +576,7 @@ paths:
       - auth
   /auth/profile:
     get:
-      consumes:
-      - application/json
-      description: Get current authenticated user profile
+      description: Get current authenticated user profile (includes profile_image_url)
       produces:
       - application/json
       responses:
@@ -446,7 +604,8 @@ paths:
     post:
       consumes:
       - multipart/form-data
-      description: Upload profile image for current user (max 5MB)
+      description: Upload profile image (max 5MB). Deletes old image from Supabase
+        bucket and replaces with new one.
       parameters:
       - description: Profile image
         in: formData
@@ -487,7 +646,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/internal_auth.UpdateProfileRequest'
+          $ref: '#/definitions/auth.UpdateProfileRequest'
       produces:
       - application/json
       responses:
@@ -522,7 +681,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/internal_auth.RegisterRequest'
+          $ref: '#/definitions/auth.RegisterRequest'
       produces:
       - application/json
       responses:
@@ -604,7 +763,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/internal_ipo.ApplyIPORequest'
+          $ref: '#/definitions/ipo.ApplyIPORequest'
       produces:
       - application/json
       responses:
@@ -628,69 +787,21 @@ paths:
       summary: Apply for IPO
       tags:
       - ipo
-  /market/companies:
+  /market/candlestick:
     get:
-      description: Get a list of all trading companies with summary data
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            additionalProperties: true
-            type: object
-        "500":
-          description: Internal Server Error
-          schema:
-            additionalProperties: true
-            type: object
-      summary: List companies
-      tags:
-      - market
-  /market/companies/{symbol}:
-    get:
-      description: Get detailed info for a specific company by symbol
       parameters:
-      - description: Company Symbol
-        in: path
+      - description: Stock symbol
+        in: query
         name: symbol
         required: true
         type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            additionalProperties: true
-            type: object
-        "404":
-          description: Not Found
-          schema:
-            additionalProperties: true
-            type: object
-        "500":
-          description: Internal Server Error
-          schema:
-            additionalProperties: true
-            type: object
-      summary: Get company details
-      tags:
-      - market
-  /market/companies/{symbol}/candles:
-    get:
-      description: Get OHLCV data for a specific symbol
-      parameters:
-      - description: Company Symbol
-        in: path
-        name: symbol
-        required: true
-        type: string
-      - description: Timeframe (default 1D)
+      - default: 1D
+        description: Timeframe (1m, 5m, 15m, 1h, 1D)
         in: query
         name: timeframe
         type: string
-      - description: Number of days (default 30)
+      - default: 90
+        description: Number of days
         in: query
         name: days
         type: integer
@@ -700,67 +811,414 @@ paths:
         "200":
           description: OK
           schema:
-            additionalProperties: true
-            type: object
-        "400":
-          description: Bad Request
+            items:
+              $ref: '#/definitions/models.CandlestickData'
+            type: array
+      summary: Get candlestick OHLCV data for a company
+      tags:
+      - Market
+  /market/companies:
+    get:
+      parameters:
+      - default: 50
+        description: Limit
+        in: query
+        name: limit
+        type: integer
+      - default: 0
+        description: Offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
           schema:
             additionalProperties: true
             type: object
-      summary: Get candlestick data
+      summary: List all companies
       tags:
-      - market
+      - Market
+  /market/companies/{company_id}/events:
+    get:
+      description: Get list of corporate events (AGM, dividend, etc.) for a specific
+        company
+      parameters:
+      - description: Company ID
+        in: path
+        name: company_id
+        required: true
+        type: string
+      - description: Limit (default 50)
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get events for a company
+      tags:
+      - events
+  /market/companies/{id}:
+    get:
+      parameters:
+      - description: Company ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Company'
+      summary: Get company detail
+      tags:
+      - Market
+  /market/companies/new:
+    get:
+      parameters:
+      - default: 10
+        description: Limit
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.LiveTradingData'
+            type: array
+      summary: Get recently listed companies
+      tags:
+      - Market
+  /market/companies/old:
+    get:
+      parameters:
+      - default: 10
+        description: Limit
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.LiveTradingData'
+            type: array
+      summary: Get oldest listed companies
+      tags:
+      - Market
+  /market/events:
+    get:
+      description: Get list of all corporate events with pagination
+      parameters:
+      - description: Limit (default 50)
+        in: query
+        name: limit
+        type: integer
+      - description: Offset (default 0)
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get all events
+      tags:
+      - events
+  /market/events/type/{type}:
+    get:
+      description: Get events filtered by event type (agm, dividend, bonus_share,
+        etc.)
+      parameters:
+      - description: Event type
+        in: path
+        name: type
+        required: true
+        type: string
+      - description: Limit (default 50)
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get events by type
+      tags:
+      - events
+  /market/events/upcoming:
+    get:
+      description: Get list of all upcoming corporate events across all companies
+      parameters:
+      - description: Limit (default 50)
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get upcoming events
+      tags:
+      - events
   /market/index:
     get:
-      description: Get overall market indicators (advances, declines, market cap)
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            additionalProperties: true
-            type: object
-        "500":
-          description: Internal Server Error
-          schema:
-            additionalProperties: true
-            type: object
-      summary: Get market index
+            $ref: '#/definitions/models.MarketIndex'
+      summary: Get market index summary
       tags:
-      - market
+      - Market
   /market/live:
     get:
-      description: Get live price and volume data for all companies
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            additionalProperties: true
-            type: object
-        "500":
-          description: Internal Server Error
-          schema:
-            additionalProperties: true
-            type: object
-      summary: Get live trading data
+            items:
+              $ref: '#/definitions/models.LiveTradingData'
+            type: array
+      summary: Get live trading data for all companies
       tags:
-      - market
-  /market/stream:
+      - Market
+  /market/most-active:
     get:
-      description: Real-time price updates via Server-Sent Events
+      parameters:
+      - default: 10
+        description: Limit
+        in: query
+        name: limit
+        type: integer
       produces:
-      - text/event-stream
+      - application/json
       responses:
         "200":
-          description: SSE stream
+          description: OK
           schema:
-            type: string
-      summary: Stream prices (SSE)
+            items:
+              $ref: '#/definitions/models.LiveTradingData'
+            type: array
+      summary: Get most actively traded stocks
       tags:
-      - market
+      - Market
+  /market/sectors:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.SectorPerformance'
+            type: array
+      summary: Get sector performance summary
+      tags:
+      - Market
+  /market/sectors/{sector}/companies:
+    get:
+      parameters:
+      - description: Sector name
+        in: path
+        name: sector
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.LiveTradingData'
+            type: array
+      summary: Get companies in a sector
+      tags:
+      - Market
+  /market/stream:
+    get:
+      produces:
+      - text/event-stream
+      responses: {}
+      summary: Stream live price updates (SSE)
+      tags:
+      - Market
+  /market/top-gainers:
+    get:
+      parameters:
+      - default: 10
+        description: Limit
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.LiveTradingData'
+            type: array
+      summary: Get top gaining stocks
+      tags:
+      - Market
+  /market/top-losers:
+    get:
+      parameters:
+      - default: 10
+        description: Limit
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.LiveTradingData'
+            type: array
+      summary: Get top losing stocks
+      tags:
+      - Market
+  /market/top-turnover:
+    get:
+      parameters:
+      - default: 10
+        description: Limit
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.LiveTradingData'
+            type: array
+      summary: Get stocks with highest turnover
+      tags:
+      - Market
+  /market/triggers:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.PriceTrigger'
+            type: array
+      security:
+      - BearerAuth: []
+      summary: Get user's price triggers
+      tags:
+      - Triggers
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Trigger request
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/api.CreateTriggerRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/models.PriceTrigger'
+      security:
+      - BearerAuth: []
+      summary: Create a price trigger
+      tags:
+      - Triggers
+  /market/triggers/{id}/cancel:
+    put:
+      parameters:
+      - description: Trigger ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Cancel a price trigger
+      tags:
+      - Triggers
   /orderbook/{company_id}:
     get:
       description: Get current buy and sell orders for a specific company
@@ -776,7 +1234,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_orderbook.OrderBookView'
+            $ref: '#/definitions/orderbook.OrderBookView'
         "400":
           description: Bad Request
           schema:
@@ -833,7 +1291,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/internal_orderbook.PlaceBuyOrderRequest'
+          $ref: '#/definitions/orderbook.PlaceBuyOrderRequest'
       produces:
       - application/json
       responses:
@@ -894,7 +1352,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/internal_orderbook.PlaceSellOrderRequest'
+          $ref: '#/definitions/orderbook.PlaceSellOrderRequest'
       produces:
       - application/json
       responses:
@@ -970,98 +1428,6 @@ paths:
       summary: Get user's trades
       tags:
       - trading
-  /triggers:
-    get:
-      description: Get a list of active price triggers for the current user
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            additionalProperties: true
-            type: object
-        "401":
-          description: Unauthorized
-          schema:
-            additionalProperties: true
-            type: object
-        "500":
-          description: Internal Server Error
-          schema:
-            additionalProperties: true
-            type: object
-      security:
-      - BearerAuth: []
-      summary: Get user's triggers
-      tags:
-      - trading
-    post:
-      consumes:
-      - application/json
-      description: Create an auto-sell trigger based on price target
-      parameters:
-      - description: Trigger details
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/api.CreateTriggerRequest'
-      produces:
-      - application/json
-      responses:
-        "201":
-          description: Created
-          schema:
-            additionalProperties: true
-            type: object
-        "400":
-          description: Bad Request
-          schema:
-            additionalProperties: true
-            type: object
-        "401":
-          description: Unauthorized
-          schema:
-            additionalProperties: true
-            type: object
-      security:
-      - BearerAuth: []
-      summary: Create price trigger
-      tags:
-      - trading
-  /triggers/{id}:
-    delete:
-      description: Cancel an active price trigger
-      parameters:
-      - description: Trigger ID
-        in: path
-        name: id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            additionalProperties: true
-            type: object
-        "400":
-          description: Bad Request
-          schema:
-            additionalProperties: true
-            type: object
-        "401":
-          description: Unauthorized
-          schema:
-            additionalProperties: true
-            type: object
-      security:
-      - BearerAuth: []
-      summary: Cancel price trigger
-      tags:
-      - trading
   /wallet:
     get:
       description: Get current user's main and trading wallets
@@ -1125,7 +1491,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/internal_wallet.TopUpRequest'
+          $ref: '#/definitions/wallet.TopUpRequest'
       produces:
       - application/json
       responses:
@@ -1186,7 +1552,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/internal_wallet.TransferRequest'
+          $ref: '#/definitions/wallet.TransferRequest'
       produces:
       - application/json
       responses:
