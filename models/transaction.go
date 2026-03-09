@@ -7,20 +7,18 @@ import (
 )
 
 type TransactionType string
+type TransactionStatus string
 
 const (
 	TransactionTypeTopUp  TransactionType = "topup"
 	TransactionTypeRefund TransactionType = "refund"
-)
 
-type TransactionStatus string
-
-const (
 	TransactionStatusPending TransactionStatus = "pending"
 	TransactionStatusSuccess TransactionStatus = "success"
 	TransactionStatusFailed  TransactionStatus = "failed"
 )
 
+// Transaction represents wallet top-up / refund transactions
 type Transaction struct {
 	ID          string            `json:"id,omitempty"`
 	UserID      string            `json:"user_id"`
@@ -30,6 +28,4 @@ type Transaction struct {
 	ReferenceID string            `json:"reference_id"`
 	CreatedAt   time.Time         `json:"created_at,omitempty"`
 	UpdatedAt   time.Time         `json:"updated_at,omitempty"`
-
-	User *User `json:"user,omitempty"`
 }

@@ -9,12 +9,11 @@ type User struct {
 	FullName       string    `json:"full_name"`
 	Email          string    `json:"email"`
 	Phone          string    `json:"phone"`
-	PasswordHash   string    `json:"password_hash"`
+	PasswordHash   string    `json:"password_hash,omitempty"`
 	KYCStatus      string    `json:"kyc_status"`
 	Role           string    `json:"role"`
+	IsAdmin        bool      `json:"is_admin"`
 	ProfileImageID string    `json:"profile_image_id,omitempty"`
 	CreatedAt      time.Time `json:"created_at,omitempty"`
 	UpdatedAt      time.Time `json:"updated_at,omitempty"`
-
-	Wallet *Wallet `json:"-"`
 }

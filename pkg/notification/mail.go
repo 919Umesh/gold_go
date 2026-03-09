@@ -9,8 +9,6 @@ import (
 	"log/slog"
 	"net/http"
 	"time"
-
-	"github.com/919Umesh/stock_market_sim/models"
 )
 
 const (
@@ -20,6 +18,20 @@ const (
 
 var templateIDs = map[string]string{
 	"Top-Up": "5189dd66-5a29-4d31-a16d-03cc27ff5881",
+}
+
+// OneSignalEmailRequest is the request body for OneSignal email API
+type OneSignalEmailRequest struct {
+	AppID                     string      `json:"app_id"`
+	TemplateID                string      `json:"template_id"`
+	EmailFromName             string      `json:"email_from_name,omitempty"`
+	EmailFromAddress          string      `json:"email_from_address,omitempty"`
+	EmailSenderDomain         string      `json:"email_sender_domain,omitempty"`
+	IncludeUnsubscribed       bool        `json:"include_unsubscribed,omitempty"`
+	DisableEmailClickTracking bool        `json:"disable_email_click_tracking,omitempty"`
+	Name                      string      `json:"name,omitempty"`
+	EmailTo                   []string    `json:"include_email_tokens,omitempty"`
+	CustomData                interface{} `json:"custom_data,omitempty"`
 }
 
 func SendEmail(email, emailType string, topUpData interface{}) error {
@@ -32,7 +44,7 @@ func SendEmail(email, emailType string, topUpData interface{}) error {
 		return fmt.Errorf("unknown template id for emailType: %s", emailType)
 	}
 
-	reqBody := &models.OneSignalEmailRequest{
+	reqBody := &OneSignalEmailRequest{
 		AppID:                     OneSignalAppID,
 		TemplateID:                templateID,
 		EmailFromName:             "LaganiPlus",

@@ -12,12 +12,30 @@ import (
 	"github.com/919Umesh/stock_market_sim/config"
 	"github.com/919Umesh/stock_market_sim/internal/supabase"
 	"github.com/919Umesh/stock_market_sim/pkg/logger"
-	"github.com/919Umesh/stock_market_sim/pkg/queue"
 	"github.com/joho/godotenv"
 )
 
-func main() {
+// @title Share Market Simulator API
+// @version 2.0
+// @description Backend API for the Share Market Simulator with high-sensitivity price engine and order matching.
+// @termsOfService http://swagger.io/terms/
 
+// @contact.name API Support
+// @contact.url http://www.swagger.io/support
+// @contact.email support@swagger.io
+
+// @license.name Apache 2.0
+// @license.url http://www.apache.org/licenses/LICENSE-2.0.html
+
+// @host localhost:8080
+// @BasePath /api/v1
+
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
+// @description Type "Bearer" followed by a space and then your token.
+
+func main() {
 	logger.InitLogger()
 
 	if err := godotenv.Load(); err != nil {
@@ -32,11 +50,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	workerPool := queue.NewWorkerPool(cfg.WorkerCount, cfg.QueueSize)
-	workerPool.Start()
-	slog.Info("Worker pool started", "workers", cfg.WorkerCount)
-
-	router := api.NewRouter(supabaseClient, cfg, workerPool)
+	router := api.NewRouter(supabaseClient, cfg)
 
 	serverAddr := ":" + cfg.ServerPort
 	go func() {
@@ -53,21 +67,8 @@ func main() {
 
 	slog.Info("Shutting down server...")
 
-	ctxShutdown, cancelShutdown := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancelShutdown()
-
-	done := make(chan struct{})
-	go func() {
-		workerPool.Stop()
-		close(done)
-	}()
-
-	select {
-	case <-done:
-		slog.Info("Worker pool stopped")
-	case <-ctxShutdown.Done():
-		slog.Warn("Shutdown timed out")
-	}
+	_, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
 	slog.Info("Server exited")
 }

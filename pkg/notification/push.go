@@ -8,8 +8,6 @@ import (
 	"io"
 	"net/http"
 	"time"
-
-	"github.com/919Umesh/stock_market_sim/models"
 )
 
 var (
@@ -20,7 +18,53 @@ var (
 
 const oneSignalPushEndpoint = "https://api.onesignal.com/notifications?c=push"
 
-func SendOneSignalPush(in models.PushInput) ([]byte, error) {
+// PushInput contains the input for sending a push notification
+type PushInput struct {
+	CustomerID       string
+	Title            string
+	Message          string
+	LaunchURL        string
+	AppURL           string
+	WebURL           string
+	AndroidChannel   string
+	SmallIcon        string
+	IOSSound         string
+	AndroidSound     string
+	TTL              int
+	IsAndroid        bool
+	IsIos            bool
+	IsAnyWeb         bool
+	ImageURL         string
+	NotificationType string
+	LinkedID         string
+	Data             map[string]interface{}
+}
+
+// OneSignalPush is the request body for OneSignal push API
+type OneSignalPush struct {
+	AppID                    string                 `json:"app_id"`
+	IncludeAliases           map[string][]string    `json:"include_aliases,omitempty"`
+	TargetChannel            string                 `json:"target_channel"`
+	Headings                 map[string]string      `json:"headings,omitempty"`
+	Contents                 map[string]string      `json:"contents,omitempty"`
+	URL                      string                 `json:"url,omitempty"`
+	AppURL                   string                 `json:"app_url,omitempty"`
+	WebURL                   string                 `json:"web_url,omitempty"`
+	ExistingAndroidChannelID string                 `json:"existing_android_channel_id,omitempty"`
+	SmallIcon                string                 `json:"small_icon,omitempty"`
+	IOSSound                 string                 `json:"ios_sound,omitempty"`
+	AndroidSound             string                 `json:"android_sound,omitempty"`
+	TTL                      int                    `json:"ttl,omitempty"`
+	IsAndroid                bool                   `json:"isAndroid,omitempty"`
+	IsIos                    bool                   `json:"isIos,omitempty"`
+	IsAnyWeb                 bool                   `json:"isAnyWeb,omitempty"`
+	BigPicture               string                 `json:"big_picture,omitempty"`
+	ChromeWebImage           string                 `json:"chrome_web_image,omitempty"`
+	IOSAttachments           map[string]string      `json:"ios_attachments,omitempty"`
+	Data                     map[string]interface{} `json:"data,omitempty"`
+}
+
+func SendOneSignalPush(in PushInput) ([]byte, error) {
 	if oneSignalAppID == "" || oneSignalRestAPIKey == "" {
 		return nil, errors.New("missing ONE_SIGNAL_APP_ID or ONE_SIGNAL_REST_API_KEY")
 	}
@@ -33,7 +77,7 @@ func SendOneSignalPush(in models.PushInput) ([]byte, error) {
 		return nil, errors.New("at least one of title or message required")
 	}
 
-	reqBody := &models.OneSignalPush{
+	reqBody := &OneSignalPush{
 		AppID: oneSignalAppID,
 		IncludeAliases: map[string][]string{
 			"external_id": {in.CustomerID},
@@ -101,6 +145,7 @@ func SendOneSignalPush(in models.PushInput) ([]byte, error) {
 
 	return respBody, nil
 }
+
 func nonEmpty(value string, fallback string) string {
 	if value != "" {
 		return value
