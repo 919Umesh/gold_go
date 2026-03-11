@@ -2,6 +2,7 @@ package orderbook
 
 import (
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/shopspring/decimal"
@@ -201,4 +202,30 @@ func (h *Handler) GetUserTrades(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"trades": trades})
+}
+
+// ──────────────────── Company Trades ────────────────────
+
+// GetCompanyTrades godoc
+func (h *Handler) GetCompanyTrades(c *gin.Context) {
+	companyID := c.Param("id")
+	if companyID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "company ID required"})
+		return
+	}
+
+	limitStr := c.DefaultQuery("limit", "50")
+	limit, _ := strconv.Atoi(limitStr)
+
+	transactions, err := h.service.GetCompanyTransactions(companyID, limit)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"company_id":   companyID,
+		"transactions": transactions,
+		"count":        len(transactions),
+	})
 }

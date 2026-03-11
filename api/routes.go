@@ -143,6 +143,7 @@ func NewRouter(supabaseClient *supabase.Client, cfg *config.Config) *gin.Engine 
 		marketGroup.GET("/companies/old", marketHandler.GetOldCompanies)
 		marketGroup.GET("/companies/:id", marketHandler.GetCompanyDetail)
 		marketGroup.GET("/companies/:id/prediction", marketHandler.GetPricePrediction)
+		marketGroup.GET("/companies/:id/trades", orderHandler.GetCompanyTrades)
 
 		marketGroup.GET("/live", marketHandler.GetLiveTradingData)
 		marketGroup.GET("/index", marketHandler.GetMarketIndex)

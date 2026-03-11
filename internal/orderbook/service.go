@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/919Umesh/stock_market_sim/internal/market"
 	"github.com/919Umesh/stock_market_sim/internal/stock"
@@ -39,6 +40,16 @@ type Service interface {
 	GetUserOrders(userID string, limit int) ([]models.Order, error)
 	GetPortfolio(userID string) ([]models.Portfolio, error)
 	GetUserTrades(userID string, limit int) ([]models.Trade, error)
+	GetCompanyTrades(companyID string, limit int) ([]models.Trade, error)
+	GetCompanyTransactions(companyID string, limit int) ([]PublicTransaction, error)
+}
+
+type PublicTransaction struct {
+	ID        string          `json:"id"`
+	Type      string          `json:"type"` // buy, sell
+	Price     decimal.Decimal `json:"price"`
+	Quantity  int64           `json:"quantity"`
+	CreatedAt time.Time       `json:"created_at"`
 }
 
 type service struct {
@@ -331,4 +342,44 @@ func (s *service) GetUserTrades(userID string, limit int) ([]models.Trade, error
 		limit = 50
 	}
 	return s.repo.GetUserTrades(userID, limit)
+}
+
+func (s *service) GetCompanyTrades(companyID string, limit int) ([]models.Trade, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+	return s.repo.GetTradesByCompany(companyID, limit)
+}
+
+func (s *service) GetCompanyTransactions(companyID string, limit int) ([]PublicTransaction, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+
+	trades, err := s.repo.GetTradesByCompany(companyID, limit)
+	if err != nil {
+		return nil, err
+	}
+
+	transactions := make([]PublicTransaction, 0, len(trades)*2)
+	for _, t := range trades {
+		// Buyer's side (Buy transaction)
+		transactions = append(transactions, PublicTransaction{
+			ID:        t.ID + "-buy",
+			Type:      "buy",
+			Price:     t.Price,
+			Quantity:  t.Quantity,
+			CreatedAt: t.CreatedAt,
+		})
+		// Seller's side (Sell transaction)
+		transactions = append(transactions, PublicTransaction{
+			ID:        t.ID + "-sell",
+			Type:      "sell",
+			Price:     t.Price,
+			Quantity:  t.Quantity,
+			CreatedAt: t.CreatedAt,
+		})
+	}
+
+	return transactions, nil
 }

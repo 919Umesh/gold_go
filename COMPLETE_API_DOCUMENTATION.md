@@ -881,6 +881,49 @@
 
 ---
 
+### Get Company Trade History
+**Endpoint:** `GET /market/companies/{id}/trades`
+
+**Authentication:** Not required
+
+**URL Parameters:**
+- `id` (string, required) - The company ID
+
+**Query Parameters:**
+- `limit` (integer, optional, default: 50) - Number of matched trades to process
+
+**Description:** Returns the public transaction history for a specific company. Each trade is represented as two records (a buy and a sell) to show both sides of the transaction clearly.
+
+**Response (Status 200):**
+```json
+{
+  "company_id": "string",
+  "count": 20,
+  "transactions": [
+    {
+      "id": "trade-uuid-buy",
+      "type": "buy",
+      "price": "decimal",
+      "quantity": 100,
+      "created_at": "ISO8601 timestamp"
+    },
+    {
+      "id": "trade-uuid-sell",
+      "type": "sell",
+      "price": "decimal",
+      "quantity": 100,
+      "created_at": "ISO8601 timestamp"
+    }
+  ]
+}
+```
+
+**Status Codes:**
+- `200` - Success
+- `500` - Server error
+
+---
+
 ## IPO Management
 
 ### List All IPOs
