@@ -85,14 +85,8 @@ func (s *service) PlaceSellOrder(userID, companyID string, qty int64, price deci
 
 	// Deduct shares from portfolio (lock them for the sell order)
 	portfolio.Quantity -= qty
-	if portfolio.Quantity == 0 {
-		if err := s.repo.DeletePortfolioItem(portfolio.ID); err != nil {
-			return nil, nil, fmt.Errorf("failed to update portfolio: %w", err)
-		}
-	} else {
-		if err := s.repo.UpdatePortfolioItem(portfolio); err != nil {
-			return nil, nil, fmt.Errorf("failed to update portfolio: %w", err)
-		}
+	if err := s.repo.UpdatePortfolioItem(portfolio); err != nil {
+		return nil, nil, fmt.Errorf("failed to update portfolio: %w", err)
 	}
 
 	// Create sell order
@@ -110,12 +104,7 @@ func (s *service) PlaceSellOrder(userID, companyID string, qty int64, price deci
 	if err := s.repo.CreateOrder(order); err != nil {
 		// Rollback portfolio
 		portfolio.Quantity += qty
-		if portfolio.ID != "" {
-			_ = s.repo.UpdatePortfolioItem(portfolio)
-		} else {
-			portfolio.Quantity = qty
-			_ = s.repo.CreatePortfolioItem(portfolio)
-		}
+		_ = s.repo.UpdatePortfolioItem(portfolio)
 		return nil, nil, fmt.Errorf("failed to create order: %w", err)
 	}
 
@@ -263,12 +252,26 @@ func (s *service) CancelOrder(userID, orderID string) error {
 	remainingQty := order.RemainingQty()
 
 	if order.Side == models.OrderSideBuy {
-		// Release locked funds
+		// Release locked funds for unfilled portion
 		refund := order.Price.Mul(decimal.NewFromInt(remainingQty))
 		_ = s.walletSvc.ReleaseFunds(userID, refund)
 	} else {
-		// Return shares to portfolio
-		s.creditBuyerPortfolio(userID, order.CompanyID, remainingQty, order.Price)
+		// Return shares to portfolio preserving original avg_buy_price
+		existing, pErr := s.repo.GetPortfolioItem(userID, order.CompanyID)
+		if pErr != nil {
+			// Portfolio row was deleted; recreate with order price as best estimate
+			item := &models.Portfolio{
+				UserID:      userID,
+				CompanyID:   order.CompanyID,
+				Quantity:    remainingQty,
+				AvgBuyPrice: order.Price,
+			}
+			_ = s.repo.CreatePortfolioItem(item)
+		} else {
+			// Just add quantity back without changing avg_buy_price
+			existing.Quantity += remainingQty
+			_ = s.repo.UpdatePortfolioItem(existing)
+		}
 	}
 
 	return s.repo.CancelOrder(orderID)

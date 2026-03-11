@@ -2,6 +2,7 @@ package market
 
 import (
 	"log/slog"
+	"math"
 	"math/rand"
 	"sort"
 	"sync"
@@ -13,8 +14,8 @@ import (
 )
 
 const (
-	SensitivityFactor     = 2.0
-	MaxDailyChangePercent = 10.0
+	SensitivityFactor     = 1.0  // sqrt-based multiplier — amplifies small trades for visible impact
+	MaxDailyChangePercent = 20.0 // circuit breaker: max daily price swing (wider for demo)
 	MinPrice              = 0.01
 )
 
@@ -122,14 +123,16 @@ func (pe *PriceEngine) ProcessMatchedTrade(companyID string, tradePrice decimal.
 	}
 
 	volumeRatio := float64(tradeQty) / float64(totalSupply)
-	impact := volumeRatio * SensitivityFactor
+	// Square-root formula: amplifies small trades so even a few transactions
+	// produce clearly visible price movement on the chart
+	impact := math.Sqrt(volumeRatio) * SensitivityFactor
 
 	direction := 1.0
 	if tradePrice.LessThan(currentPrice) {
 		direction = -1.0
 	}
 
-	noise := (rand.Float64() - 0.5) * 0.002
+	noise := (rand.Float64() - 0.5) * 0.001
 	impact = impact*direction + noise
 
 	impactDecimal := decimal.NewFromFloat(impact)
