@@ -25,17 +25,6 @@ type PlaceBuyOrderRequest struct {
 }
 
 // PlaceBuyOrder godoc
-// @Summary Place a buy order
-// @Description Place a new buy limit or market order
-// @Tags trading
-// @Accept json
-// @Produce json
-// @Param request body PlaceBuyOrderRequest true "Buy order details"
-// @Success 201 {object} map[string]interface{}
-// @Failure 400 {object} map[string]interface{}
-// @Failure 401 {object} map[string]interface{}
-// @Security BearerAuth
-// @Router /orders/buy [post]
 func (h *Handler) PlaceBuyOrder(c *gin.Context) {
 	userID := c.GetString("user_id")
 	if userID == "" {
@@ -82,17 +71,6 @@ type PlaceSellOrderRequest struct {
 }
 
 // PlaceSellOrder godoc
-// @Summary Place a sell order
-// @Description Place a new sell limit order
-// @Tags trading
-// @Accept json
-// @Produce json
-// @Param request body PlaceSellOrderRequest true "Sell order details"
-// @Success 201 {object} map[string]interface{}
-// @Failure 400 {object} map[string]interface{}
-// @Failure 401 {object} map[string]interface{}
-// @Security BearerAuth
-// @Router /orders/sell [post]
 func (h *Handler) PlaceSellOrder(c *gin.Context) {
 	userID := c.GetString("user_id")
 	if userID == "" {
@@ -128,16 +106,6 @@ func (h *Handler) PlaceSellOrder(c *gin.Context) {
 // ──────────────────── Cancel Order ────────────────────
 
 // CancelOrder godoc
-// @Summary Cancel an order
-// @Description Cancel an open buy or sell order
-// @Tags trading
-// @Produce json
-// @Param id path string true "Order ID"
-// @Success 200 {object} map[string]interface{}
-// @Failure 400 {object} map[string]interface{}
-// @Failure 401 {object} map[string]interface{}
-// @Security BearerAuth
-// @Router /orders/{id} [delete]
 func (h *Handler) CancelOrder(c *gin.Context) {
 	userID := c.GetString("user_id")
 	if userID == "" {
@@ -162,15 +130,6 @@ func (h *Handler) CancelOrder(c *gin.Context) {
 // ──────────────────── Order Book ────────────────────
 
 // GetOrderBook godoc
-// @Summary Get company order book
-// @Description Get current buy and sell orders for a specific company
-// @Tags market
-// @Produce json
-// @Param company_id path string true "Company ID"
-// @Success 200 {object} OrderBookView
-// @Failure 400 {object} map[string]interface{}
-// @Failure 500 {object} map[string]interface{}
-// @Router /orderbook/{company_id} [get]
 func (h *Handler) GetOrderBook(c *gin.Context) {
 	companyID := c.Param("company_id")
 	if companyID == "" {
@@ -190,15 +149,6 @@ func (h *Handler) GetOrderBook(c *gin.Context) {
 // ──────────────────── User Orders ────────────────────
 
 // GetUserOrders godoc
-// @Summary Get user's orders
-// @Description Get a list of open and historical orders for the current user
-// @Tags trading
-// @Produce json
-// @Success 200 {object} map[string]interface{}
-// @Failure 401 {object} map[string]interface{}
-// @Failure 500 {object} map[string]interface{}
-// @Security BearerAuth
-// @Router /orders/my [get]
 func (h *Handler) GetUserOrders(c *gin.Context) {
 	userID := c.GetString("user_id")
 	if userID == "" {
@@ -218,15 +168,6 @@ func (h *Handler) GetUserOrders(c *gin.Context) {
 // ──────────────────── Portfolio ────────────────────
 
 // GetPortfolio godoc
-// @Summary Get user portfolio
-// @Description Get a list of all stock holdings for the current user
-// @Tags trading
-// @Produce json
-// @Success 200 {object} map[string]interface{}
-// @Failure 401 {object} map[string]interface{}
-// @Failure 500 {object} map[string]interface{}
-// @Security BearerAuth
-// @Router /portfolio [get]
 func (h *Handler) GetPortfolio(c *gin.Context) {
 	userID := c.GetString("user_id")
 	if userID == "" {
@@ -246,15 +187,6 @@ func (h *Handler) GetPortfolio(c *gin.Context) {
 // ──────────────────── User Trades ────────────────────
 
 // GetUserTrades godoc
-// @Summary Get user's trades
-// @Description Get a list of all executed trades for the current user
-// @Tags trading
-// @Produce json
-// @Success 200 {object} map[string]interface{}
-// @Failure 401 {object} map[string]interface{}
-// @Failure 500 {object} map[string]interface{}
-// @Security BearerAuth
-// @Router /trades [get]
 func (h *Handler) GetUserTrades(c *gin.Context) {
 	userID := c.GetString("user_id")
 	if userID == "" {

@@ -2,7 +2,6 @@ package api
 
 import (
 	"github.com/919Umesh/stock_market_sim/config"
-	_ "github.com/919Umesh/stock_market_sim/docs"
 	"github.com/919Umesh/stock_market_sim/internal/auth"
 	"github.com/919Umesh/stock_market_sim/internal/event"
 	"github.com/919Umesh/stock_market_sim/internal/ipo"
@@ -15,8 +14,6 @@ import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/shopspring/decimal"
-	swaggerFiles "github.com/swaggo/files"
-	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
 func NewRouter(supabaseClient *supabase.Client, cfg *config.Config) *gin.Engine {
@@ -29,9 +26,6 @@ func NewRouter(supabaseClient *supabase.Client, cfg *config.Config) *gin.Engine 
 		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization"},
 		AllowCredentials: true,
 	}))
-
-	// Swagger
-	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	// ─── Repositories ───
 	authRepo := auth.NewRepository(supabaseClient)
@@ -50,7 +44,7 @@ func NewRouter(supabaseClient *supabase.Client, cfg *config.Config) *gin.Engine 
 	// ─── Market Infrastructure ───
 	eventHub := market.NewEventHub()
 
-	priceEngine := market.NewPriceEngine(stockRepo, eventHub)
+	priceEngine := market.NewPriceEngine(stockRepo, eventHub, orderRepo)
 	triggerWorker := market.NewTriggerWorker(supabaseClient)
 
 	// ─── Order Book ───
@@ -93,9 +87,21 @@ func NewRouter(supabaseClient *supabase.Client, cfg *config.Config) *gin.Engine 
 		authGroup.POST("/register", authHandler.Register)
 		authGroup.POST("/login", authHandler.Login)
 		authGroup.GET("/profile", authMiddleware, authHandler.GetProfile)
-		authGroup.PUT("/profile", authMiddleware, authHandler.UpdateProfile)
-		authGroup.PUT("/kyc", authMiddleware, authHandler.UpdateKYC)
+		authGroup.PUT("/profile/update", authMiddleware, authHandler.UpdateProfile)
 		authGroup.POST("/profile/image", authMiddleware, authHandler.UploadProfileImage)
+	}
+
+	// Admin
+	adminGroup := v1.Group("/admin", authMiddleware, adminMiddleware)
+	{
+		// User Management
+		adminGroup.PUT("/users/:user_id/kyc", authHandler.UpdateKYC)
+
+		// IPO/Company Management
+		adminGroup.POST("/companies", ipoHandler.CreateCompany)
+		adminGroup.POST("/ipos", ipoHandler.LaunchIPO)
+		adminGroup.POST("/ipos/:id/allocate", ipoHandler.AllocateIPO)
+		adminGroup.GET("/ipos/:id/applications", ipoHandler.GetIPOApplications)
 	}
 
 	// Wallet
@@ -106,7 +112,7 @@ func NewRouter(supabaseClient *supabase.Client, cfg *config.Config) *gin.Engine 
 		walletGroup.GET("/trading", walletHandler.GetTradingWallet)
 		walletGroup.POST("/topup", walletHandler.TopUp)
 		walletGroup.POST("/transfer", walletHandler.Transfer)
-		walletGroup.GET("/transfer-history", walletHandler.GetTransferHistory)
+		walletGroup.GET("/transfers", walletHandler.GetTransferHistory)
 	}
 
 	// Orders / Trading
@@ -126,10 +132,7 @@ func NewRouter(supabaseClient *supabase.Client, cfg *config.Config) *gin.Engine 
 	{
 		ipoGroup.GET("/", ipoHandler.ListIPOs)
 		ipoGroup.GET("/:id", ipoHandler.GetIPO)
-		ipoGroup.POST("/apply", authMiddleware, ipoHandler.ApplyForIPO)
-		ipoGroup.POST("/create", authMiddleware, adminMiddleware, ipoHandler.CreateCompany)
-		ipoGroup.POST("/launch", authMiddleware, adminMiddleware, ipoHandler.LaunchIPO)
-		ipoGroup.POST("/allocate", authMiddleware, adminMiddleware, ipoHandler.AllocateIPO)
+		ipoGroup.POST("/:id/apply", authMiddleware, ipoHandler.ApplyForIPO)
 	}
 
 	// Market Data (public)
@@ -139,6 +142,7 @@ func NewRouter(supabaseClient *supabase.Client, cfg *config.Config) *gin.Engine 
 		marketGroup.GET("/companies/new", marketHandler.GetNewCompanies)
 		marketGroup.GET("/companies/old", marketHandler.GetOldCompanies)
 		marketGroup.GET("/companies/:id", marketHandler.GetCompanyDetail)
+		marketGroup.GET("/companies/:id/prediction", marketHandler.GetPricePrediction)
 
 		marketGroup.GET("/live", marketHandler.GetLiveTradingData)
 		marketGroup.GET("/index", marketHandler.GetMarketIndex)
@@ -161,12 +165,12 @@ func NewRouter(supabaseClient *supabase.Client, cfg *config.Config) *gin.Engine 
 	}
 
 	// Company Events (public)
-	eventGroup := v1.Group("/events")
+	eventGroup := v1.Group("/market")
 	{
-		eventGroup.GET("/", eventHandler.GetAllEvents)
-		eventGroup.GET("/company/:company_id", eventHandler.GetCompanyEvents)
-		eventGroup.GET("/upcoming", eventHandler.GetUpcomingEvents)
-		eventGroup.GET("/type/:event_type", eventHandler.GetEventsByType)
+		eventGroup.GET("/events", eventHandler.GetAllEvents)
+		eventGroup.GET("/events/company/:company_id", eventHandler.GetCompanyEvents)
+		eventGroup.GET("/events/upcoming", eventHandler.GetUpcomingEvents)
+		eventGroup.GET("/events/type/:event_type", eventHandler.GetEventsByType)
 	}
 
 	return r

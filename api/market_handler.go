@@ -31,13 +31,6 @@ func NewMarketHandler(pe *market.PriceEngine, ss stock.Service, eh *market.Event
 // ──────────────────── Companies ────────────────────
 
 // ListCompanies godoc
-// @Summary List all companies
-// @Tags Market
-// @Produce json
-// @Param limit query int false "Limit" default(50)
-// @Param offset query int false "Offset" default(0)
-// @Success 200 {object} map[string]interface{}
-// @Router /market/companies [get]
 func (h *MarketHandler) ListCompanies(c *gin.Context) {
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "50"))
 	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
@@ -51,12 +44,6 @@ func (h *MarketHandler) ListCompanies(c *gin.Context) {
 }
 
 // GetCompanyDetail godoc
-// @Summary Get company detail
-// @Tags Market
-// @Produce json
-// @Param id path string true "Company ID"
-// @Success 200 {object} models.Company
-// @Router /market/companies/{id} [get]
 func (h *MarketHandler) GetCompanyDetail(c *gin.Context) {
 	id := c.Param("id")
 	company, err := h.stockService.GetCompanyByID(id)
@@ -70,11 +57,6 @@ func (h *MarketHandler) GetCompanyDetail(c *gin.Context) {
 // ──────────────────── Market Data ────────────────────
 
 // GetLiveTradingData godoc
-// @Summary Get live trading data for all companies
-// @Tags Market
-// @Produce json
-// @Success 200 {array} models.LiveTradingData
-// @Router /market/live [get]
 func (h *MarketHandler) GetLiveTradingData(c *gin.Context) {
 	data, err := h.priceEngine.GetLiveTradingData()
 	if err != nil {
@@ -85,11 +67,6 @@ func (h *MarketHandler) GetLiveTradingData(c *gin.Context) {
 }
 
 // GetMarketIndex godoc
-// @Summary Get market index summary
-// @Tags Market
-// @Produce json
-// @Success 200 {object} models.MarketIndex
-// @Router /market/index [get]
 func (h *MarketHandler) GetMarketIndex(c *gin.Context) {
 	index, err := h.priceEngine.GetMarketIndex()
 	if err != nil {
@@ -100,14 +77,6 @@ func (h *MarketHandler) GetMarketIndex(c *gin.Context) {
 }
 
 // GetCandlestickData godoc
-// @Summary Get candlestick OHLCV data for a company
-// @Tags Market
-// @Produce json
-// @Param symbol query string true "Stock symbol"
-// @Param timeframe query string false "Timeframe (1m, 5m, 15m, 1h, 1D)" default(1D)
-// @Param days query int false "Number of days" default(90)
-// @Success 200 {array} models.CandlestickData
-// @Router /market/candlestick [get]
 func (h *MarketHandler) GetCandlestickData(c *gin.Context) {
 	symbol := c.Query("symbol")
 	if symbol == "" {
@@ -131,12 +100,6 @@ func (h *MarketHandler) GetCandlestickData(c *gin.Context) {
 // ──────────────────── Top Gainers / Losers / Active ────────────────────
 
 // GetTopGainers godoc
-// @Summary Get top gaining stocks
-// @Tags Market
-// @Produce json
-// @Param limit query int false "Limit" default(10)
-// @Success 200 {array} models.LiveTradingData
-// @Router /market/top-gainers [get]
 func (h *MarketHandler) GetTopGainers(c *gin.Context) {
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
 	data, err := h.priceEngine.GetTopGainers(limit)
@@ -148,12 +111,6 @@ func (h *MarketHandler) GetTopGainers(c *gin.Context) {
 }
 
 // GetTopLosers godoc
-// @Summary Get top losing stocks
-// @Tags Market
-// @Produce json
-// @Param limit query int false "Limit" default(10)
-// @Success 200 {array} models.LiveTradingData
-// @Router /market/top-losers [get]
 func (h *MarketHandler) GetTopLosers(c *gin.Context) {
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
 	data, err := h.priceEngine.GetTopLosers(limit)
@@ -165,12 +122,6 @@ func (h *MarketHandler) GetTopLosers(c *gin.Context) {
 }
 
 // GetMostActive godoc
-// @Summary Get most actively traded stocks
-// @Tags Market
-// @Produce json
-// @Param limit query int false "Limit" default(10)
-// @Success 200 {array} models.LiveTradingData
-// @Router /market/most-active [get]
 func (h *MarketHandler) GetMostActive(c *gin.Context) {
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
 	data, err := h.priceEngine.GetMostActive(limit)
@@ -182,12 +133,6 @@ func (h *MarketHandler) GetMostActive(c *gin.Context) {
 }
 
 // GetTopTurnover godoc
-// @Summary Get stocks with highest turnover
-// @Tags Market
-// @Produce json
-// @Param limit query int false "Limit" default(10)
-// @Success 200 {array} models.LiveTradingData
-// @Router /market/top-turnover [get]
 func (h *MarketHandler) GetTopTurnover(c *gin.Context) {
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
 	data, err := h.priceEngine.GetTopTurnover(limit)
@@ -201,11 +146,6 @@ func (h *MarketHandler) GetTopTurnover(c *gin.Context) {
 // ──────────────────── Sectors ────────────────────
 
 // GetTopSectors godoc
-// @Summary Get sector performance summary
-// @Tags Market
-// @Produce json
-// @Success 200 {array} models.SectorPerformance
-// @Router /market/sectors [get]
 func (h *MarketHandler) GetTopSectors(c *gin.Context) {
 	sectors, err := h.priceEngine.GetTopSectors()
 	if err != nil {
@@ -216,12 +156,6 @@ func (h *MarketHandler) GetTopSectors(c *gin.Context) {
 }
 
 // GetCompaniesBySector godoc
-// @Summary Get companies in a sector
-// @Tags Market
-// @Produce json
-// @Param sector path string true "Sector name"
-// @Success 200 {array} models.LiveTradingData
-// @Router /market/sectors/{sector}/companies [get]
 func (h *MarketHandler) GetCompaniesBySector(c *gin.Context) {
 	sector := c.Param("sector")
 	data, err := h.priceEngine.GetCompaniesBySector(sector)
@@ -235,12 +169,6 @@ func (h *MarketHandler) GetCompaniesBySector(c *gin.Context) {
 // ──────────────────── New / Old Companies ────────────────────
 
 // GetNewCompanies godoc
-// @Summary Get recently listed companies
-// @Tags Market
-// @Produce json
-// @Param limit query int false "Limit" default(10)
-// @Success 200 {array} models.LiveTradingData
-// @Router /market/companies/new [get]
 func (h *MarketHandler) GetNewCompanies(c *gin.Context) {
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
 	data, err := h.priceEngine.GetNewCompanies(limit)
@@ -252,12 +180,6 @@ func (h *MarketHandler) GetNewCompanies(c *gin.Context) {
 }
 
 // GetOldCompanies godoc
-// @Summary Get oldest listed companies
-// @Tags Market
-// @Produce json
-// @Param limit query int false "Limit" default(10)
-// @Success 200 {array} models.LiveTradingData
-// @Router /market/companies/old [get]
 func (h *MarketHandler) GetOldCompanies(c *gin.Context) {
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
 	data, err := h.priceEngine.GetOldCompanies(limit)
@@ -271,10 +193,6 @@ func (h *MarketHandler) GetOldCompanies(c *gin.Context) {
 // ──────────────────── SSE Streaming ────────────────────
 
 // StreamPrices godoc
-// @Summary Stream live price updates (SSE)
-// @Tags Market
-// @Produce text/event-stream
-// @Router /market/stream [get]
 func (h *MarketHandler) StreamPrices(c *gin.Context) {
 	c.Header("Content-Type", "text/event-stream")
 	c.Header("Cache-Control", "no-cache")
@@ -307,14 +225,6 @@ type CreateTriggerRequest struct {
 }
 
 // CreateTrigger godoc
-// @Summary Create a price trigger
-// @Tags Triggers
-// @Accept json
-// @Produce json
-// @Param body body CreateTriggerRequest true "Trigger request"
-// @Security BearerAuth
-// @Success 201 {object} models.PriceTrigger
-// @Router /market/triggers [post]
 func (h *MarketHandler) CreateTrigger(c *gin.Context) {
 	userID, exists := c.Get("user_id")
 	if !exists {
@@ -345,13 +255,6 @@ func (h *MarketHandler) CreateTrigger(c *gin.Context) {
 }
 
 // CancelTrigger godoc
-// @Summary Cancel a price trigger
-// @Tags Triggers
-// @Produce json
-// @Param id path string true "Trigger ID"
-// @Security BearerAuth
-// @Success 200 {object} map[string]string
-// @Router /market/triggers/{id}/cancel [put]
 func (h *MarketHandler) CancelTrigger(c *gin.Context) {
 	userID, exists := c.Get("user_id")
 	if !exists {
@@ -367,12 +270,6 @@ func (h *MarketHandler) CancelTrigger(c *gin.Context) {
 }
 
 // GetUserTriggers godoc
-// @Summary Get user's price triggers
-// @Tags Triggers
-// @Produce json
-// @Security BearerAuth
-// @Success 200 {array} models.PriceTrigger
-// @Router /market/triggers [get]
 func (h *MarketHandler) GetUserTriggers(c *gin.Context) {
 	userID, exists := c.Get("user_id")
 	if !exists {
@@ -386,4 +283,15 @@ func (h *MarketHandler) GetUserTriggers(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"data": triggers, "count": len(triggers)})
+}
+
+// GetPricePrediction godoc
+func (h *MarketHandler) GetPricePrediction(c *gin.Context) {
+	id := c.Param("id")
+	prediction, err := h.priceEngine.GetPricePrediction(id)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Company not found or prediction failed"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"data": prediction})
 }

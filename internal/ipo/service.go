@@ -33,6 +33,7 @@ type Service interface {
 	ApplyForIPO(userID, ipoID string, sharesRequested int64) (*models.IPOApplication, error)
 	ListIPOs(limit int) ([]models.IPO, error)
 	GetIPO(ipoID string) (*models.IPO, error)
+	GetIPOApplications(ipoID string) ([]models.IPOApplication, error)
 }
 
 type AllocationResult struct {
@@ -390,4 +391,14 @@ func (s *service) ListIPOs(limit int) ([]models.IPO, error) {
 
 func (s *service) GetIPO(ipoID string) (*models.IPO, error) {
 	return s.repo.GetIPOByID(ipoID)
+}
+
+func (s *service) GetIPOApplications(ipoID string) ([]models.IPOApplication, error) {
+	// Verify IPO exists
+	_, err := s.repo.GetIPOByID(ipoID)
+	if err != nil {
+		return nil, err
+	}
+
+	return s.repo.GetApplicationsByIPO(ipoID)
 }

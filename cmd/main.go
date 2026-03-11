@@ -15,26 +15,6 @@ import (
 	"github.com/joho/godotenv"
 )
 
-// @title Share Market Simulator API
-// @version 2.0
-// @description Backend API for the Share Market Simulator with high-sensitivity price engine and order matching.
-// @termsOfService http://swagger.io/terms/
-
-// @contact.name API Support
-// @contact.url http://www.swagger.io/support
-// @contact.email support@swagger.io
-
-// @license.name Apache 2.0
-// @license.url http://www.apache.org/licenses/LICENSE-2.0.html
-
-// @host localhost:8080
-// @BasePath /api/v1
-
-// @securityDefinitions.apikey BearerAuth
-// @in header
-// @name Authorization
-// @description Type "Bearer" followed by a space and then your token.
-
 func main() {
 	logger.InitLogger()
 

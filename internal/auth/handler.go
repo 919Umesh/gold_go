@@ -41,16 +41,6 @@ type LoginRequest struct {
 }
 
 // Register godoc
-// @Summary Register a new user
-// @Description Create a new user account
-// @Tags auth
-// @Accept json
-// @Produce json
-// @Param request body RegisterRequest true "Registration details"
-// @Success 201 {object} map[string]interface{}
-// @Failure 400 {object} map[string]interface{}
-// @Failure 409 {object} map[string]interface{}
-// @Router /auth/register [post]
 func (h *Handler) Register(c *gin.Context) {
 	var req RegisterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -76,16 +66,6 @@ func (h *Handler) Register(c *gin.Context) {
 }
 
 // Login godoc
-// @Summary User login
-// @Description Authenticate user and return JWT token
-// @Tags auth
-// @Accept json
-// @Produce json
-// @Param request body LoginRequest true "Login credentials"
-// @Success 200 {object} LoginResponse
-// @Failure 400 {object} map[string]interface{}
-// @Failure 401 {object} map[string]interface{}
-// @Router /auth/login [post]
 func (h *Handler) Login(c *gin.Context) {
 	var req LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -107,15 +87,6 @@ func (h *Handler) Login(c *gin.Context) {
 }
 
 // GetProfile godoc
-// @Summary Get user profile
-// @Description Get current authenticated user profile (includes profile_image_url)
-// @Tags auth
-// @Produce json
-// @Success 200 {object} map[string]interface{}
-// @Failure 401 {object} map[string]interface{}
-// @Failure 404 {object} map[string]interface{}
-// @Security BearerAuth
-// @Router /auth/profile [get]
 func (h *Handler) GetProfile(c *gin.Context) {
 	userID, exists := c.Get("user_id")
 	if !exists {
@@ -138,17 +109,6 @@ func (h *Handler) GetProfile(c *gin.Context) {
 }
 
 // UpdateProfile godoc
-// @Summary Update user profile
-// @Description Update current user's full name or phone
-// @Tags auth
-// @Accept json
-// @Produce json
-// @Param request body UpdateProfileRequest true "Profile updates"
-// @Success 200 {object} map[string]interface{}
-// @Failure 400 {object} map[string]interface{}
-// @Failure 401 {object} map[string]interface{}
-// @Security BearerAuth
-// @Router /auth/profile/update [put]
 func (h *Handler) UpdateProfile(c *gin.Context) {
 	userID, exists := c.Get("user_id")
 	if !exists {
@@ -192,18 +152,6 @@ func (h *Handler) UpdateProfile(c *gin.Context) {
 }
 
 // UpdateKYC godoc
-// @Summary Update user KYC and Role (Admin only)
-// @Description Update KYC status and Role of a specific user
-// @Tags admin
-// @Accept json
-// @Produce json
-// @Param user_id path string true "User ID"
-// @Param request body UpdateKYCAdmin true "KYC and Role updates"
-// @Success 200 {object} map[string]interface{}
-// @Failure 400 {object} map[string]interface{}
-// @Failure 403 {object} map[string]interface{}
-// @Security BearerAuth
-// @Router /admin/users/{user_id}/kyc [put]
 func (h *Handler) UpdateKYC(c *gin.Context) {
 	userIDStr := c.Param("user_id")
 
@@ -226,17 +174,6 @@ func (h *Handler) UpdateKYC(c *gin.Context) {
 }
 
 // UploadProfileImage godoc
-// @Summary Upload profile image
-// @Description Upload profile image (max 5MB). Deletes old image from Supabase bucket and replaces with new one.
-// @Tags auth
-// @Accept multipart/form-data
-// @Produce json
-// @Param image formData file true "Profile image"
-// @Success 200 {object} map[string]interface{}
-// @Failure 400 {object} map[string]interface{}
-// @Failure 401 {object} map[string]interface{}
-// @Security BearerAuth
-// @Router /auth/profile/image [post]
 func (h *Handler) UploadProfileImage(c *gin.Context) {
 	userID, exists := c.Get("user_id")
 	if !exists {

@@ -37,12 +37,18 @@ type PriceEngine struct {
 	lastTradeDay   time.Time
 
 	onPriceUpdate func(companyID string, newPrice decimal.Decimal)
+	orderRepo     interface {
+		GetTradesByCompany(companyID string, limit int) ([]models.Trade, error)
+	}
 }
 
-func NewPriceEngine(stockRepo stock.Repository, eventHub *EventHub) *PriceEngine {
+func NewPriceEngine(stockRepo stock.Repository, eventHub *EventHub, orderRepo interface {
+	GetTradesByCompany(companyID string, limit int) ([]models.Trade, error)
+}) *PriceEngine {
 	pe := &PriceEngine{
 		stockRepo:      stockRepo,
 		eventHub:       eventHub,
+		orderRepo:      orderRepo,
 		dayOpenPrices:  make(map[string]decimal.Decimal),
 		previousCloses: make(map[string]decimal.Decimal),
 		dailyVolumes:   make(map[string]int64),
@@ -285,6 +291,72 @@ func (pe *PriceEngine) GetLiveTradingData() ([]models.LiveTradingData, error) {
 	}
 
 	return result, nil
+}
+
+type PricePrediction struct {
+	CompanyID      string          `json:"company_id"`
+	CurrentPrice   decimal.Decimal `json:"current_price"`
+	PredictedPrice decimal.Decimal `json:"predicted_price"`
+	ExpectedChange decimal.Decimal `json:"expected_change"`
+	Algorithm      string          `json:"algorithm"`
+	Confidence     float64         `json:"confidence"`
+	SampleCount    int             `json:"sample_count"`
+}
+
+func (pe *PriceEngine) GetPricePrediction(companyID string) (*PricePrediction, error) {
+	company, err := pe.stockRepo.GetCompanyByID(companyID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Fetch last 5 trades for prediction
+	trades, err := pe.orderRepo.GetTradesByCompany(companyID, 5)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(trades) < 2 {
+		return &PricePrediction{
+			CompanyID:      companyID,
+			CurrentPrice:   company.CurrentPrice,
+			PredictedPrice: company.CurrentPrice,
+			ExpectedChange: decimal.Zero,
+			Algorithm:      "Weighted Moving Average (WMA)",
+			Confidence:     0,
+			SampleCount:    len(trades),
+		}, nil
+	}
+
+	// Weighted Moving Average (WMA)
+	var weightedSum decimal.Decimal
+	var totalWeight int64
+	for i, t := range trades {
+		// Newest trades at index 0 get highest weight (e.g. 5, then 4, 3, 2, 1)
+		weight := int64(len(trades) - i)
+		weightedSum = weightedSum.Add(t.Price.Mul(decimal.NewFromInt(weight)))
+		totalWeight += weight
+	}
+
+	predictedPrice := weightedSum.Div(decimal.NewFromInt(totalWeight))
+	expectedChange := predictedPrice.Sub(company.CurrentPrice)
+
+	confidence := 0.65
+	if len(trades) >= 3 {
+		confidence = 0.8
+	}
+	if len(trades) == 5 {
+		confidence = 0.9
+	}
+
+	return &PricePrediction{
+		CompanyID:      companyID,
+		CurrentPrice:   company.CurrentPrice,
+		PredictedPrice: predictedPrice.Round(2),
+		ExpectedChange: expectedChange.Round(2),
+		Algorithm:      "Weighted Moving Average (WMA)",
+		Confidence:     confidence,
+		SampleCount:    len(trades),
+	}, nil
 }
 
 func (pe *PriceEngine) buildLiveTradingData(c models.Company) models.LiveTradingData {

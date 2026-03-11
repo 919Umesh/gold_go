@@ -19,15 +19,6 @@ func NewHandler(service Service) *Handler {
 // ──────────────────── Get Wallets ────────────────────
 
 // GetWallets godoc
-// @Summary Get both wallets
-// @Description Get current user's main and trading wallets
-// @Tags wallet
-// @Produce json
-// @Success 200 {object} map[string]interface{}
-// @Failure 401 {object} map[string]interface{}
-// @Failure 500 {object} map[string]interface{}
-// @Security BearerAuth
-// @Router /wallet [get]
 func (h *Handler) GetWallets(c *gin.Context) {
 	userID := c.GetString("user_id")
 	if userID == "" {
@@ -48,15 +39,6 @@ func (h *Handler) GetWallets(c *gin.Context) {
 }
 
 // GetMainWallet godoc
-// @Summary Get main wallet
-// @Description Get current user's main wallet
-// @Tags wallet
-// @Produce json
-// @Success 200 {object} map[string]interface{}
-// @Failure 401 {object} map[string]interface{}
-// @Failure 500 {object} map[string]interface{}
-// @Security BearerAuth
-// @Router /wallet/main [get]
 func (h *Handler) GetMainWallet(c *gin.Context) {
 	userID := c.GetString("user_id")
 	if userID == "" {
@@ -74,15 +56,6 @@ func (h *Handler) GetMainWallet(c *gin.Context) {
 }
 
 // GetTradingWallet godoc
-// @Summary Get trading wallet
-// @Description Get current user's trading wallet
-// @Tags wallet
-// @Produce json
-// @Success 200 {object} map[string]interface{}
-// @Failure 401 {object} map[string]interface{}
-// @Failure 500 {object} map[string]interface{}
-// @Security BearerAuth
-// @Router /wallet/trading [get]
 func (h *Handler) GetTradingWallet(c *gin.Context) {
 	userID := c.GetString("user_id")
 	if userID == "" {
@@ -106,17 +79,6 @@ type TopUpRequest struct {
 }
 
 // TopUp godoc
-// @Summary Top up main wallet
-// @Description Add funds to the user's main wallet
-// @Tags wallet
-// @Accept json
-// @Produce json
-// @Param request body TopUpRequest true "Top up details"
-// @Success 200 {object} map[string]interface{}
-// @Failure 400 {object} map[string]interface{}
-// @Failure 401 {object} map[string]interface{}
-// @Security BearerAuth
-// @Router /wallet/topup [post]
 func (h *Handler) TopUp(c *gin.Context) {
 	userID := c.GetString("user_id")
 	if userID == "" {
@@ -156,18 +118,6 @@ type TransferRequest struct {
 }
 
 // Transfer godoc
-// @Summary Transfer funds between wallets
-// @Description Transfer funds between main wallet and trading wallet
-// @Tags wallet
-// @Accept json
-// @Produce json
-// @Param request body TransferRequest true "Transfer details"
-// @Success 200 {object} map[string]interface{}
-// @Failure 400 {object} map[string]interface{}
-// @Failure 401 {object} map[string]interface{}
-// @Failure 422 {object} map[string]interface{}
-// @Security BearerAuth
-// @Router /wallet/transfer [post]
 func (h *Handler) Transfer(c *gin.Context) {
 	userID := c.GetString("user_id")
 	if userID == "" {
@@ -219,15 +169,6 @@ func (h *Handler) Transfer(c *gin.Context) {
 // ──────────────────── Transfer History ────────────────────
 
 // GetTransferHistory godoc
-// @Summary Get transfer history
-// @Description Get history of transfers between wallets for the current user
-// @Tags wallet
-// @Produce json
-// @Success 200 {object} map[string]interface{}
-// @Failure 401 {object} map[string]interface{}
-// @Failure 500 {object} map[string]interface{}
-// @Security BearerAuth
-// @Router /wallet/transfers [get]
 func (h *Handler) GetTransferHistory(c *gin.Context) {
 	userID := c.GetString("user_id")
 	if userID == "" {
