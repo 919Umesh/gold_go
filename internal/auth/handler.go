@@ -173,6 +173,34 @@ func (h *Handler) UpdateKYC(c *gin.Context) {
 	})
 }
 
+// GetAllUsers godoc
+func (h *Handler) GetAllUsers(c *gin.Context) {
+	var query struct {
+		Limit  int `form:"limit,default=50"`
+		Offset int `form:"offset,default=0"`
+	}
+
+	if err := c.ShouldBindQuery(&query); err != nil {
+		apperr.Respond(c, http.StatusBadRequest, err)
+		return
+	}
+
+	users, err := h.service.GetAllUsers(query.Limit, query.Offset)
+	if err != nil {
+		apperr.RespondWithMessage(c, http.StatusInternalServerError, "failed to fetch users")
+		return
+	}
+
+	var response []UserResponse
+	for _, u := range users {
+		response = append(response, ToUserResponse(&u))
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"users": response,
+	})
+}
+
 // UploadProfileImage godoc
 func (h *Handler) UploadProfileImage(c *gin.Context) {
 	userID, exists := c.Get("user_id")

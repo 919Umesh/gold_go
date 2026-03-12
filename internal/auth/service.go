@@ -26,6 +26,7 @@ type Service interface {
 	UpdateProfile(userID string, updates map[string]interface{}) (*models.User, error)
 	UpdateUserKYCStatus(userID string, kycStatus, role string) (*models.User, error)
 	UploadProfileImage(userID string, file multipart.File, filename string) (*models.User, error)
+	GetAllUsers(limit, offset int) ([]models.User, error)
 }
 
 type service struct {
@@ -149,6 +150,10 @@ func (s *service) UpdateUserKYCStatus(userID string, kycStatus, role string) (*m
 
 func (s *service) GetProfile(userID string) (*models.User, error) {
 	return s.repo.FindByID(userID)
+}
+
+func (s *service) GetAllUsers(limit, offset int) ([]models.User, error) {
+	return s.repo.GetAllUsers(limit, offset)
 }
 
 func (s *service) UploadProfileImage(userID string, file multipart.File, filename string) (*models.User, error) {

@@ -27,6 +27,7 @@ type Repository interface {
 	Update(user *models.User) error
 	UploadProfileImage(file multipart.File, filename string) (string, error)
 	DeleteProfileImage(imageURL string) error
+	GetAllUsers(limit, offset int) ([]models.User, error)
 }
 
 type repository struct {
@@ -145,4 +146,17 @@ func (r *repository) DeleteProfileImage(imageURL string) error {
 	}
 
 	return nil
+}
+
+func (r *repository) GetAllUsers(limit, offset int) ([]models.User, error) {
+	var users []models.User
+	query := "SELECT * FROM users ORDER BY created_at DESC LIMIT $1 OFFSET $2"
+	err := r.client.ExecuteQuery(query, &users, limit, offset)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get users: %w", err)
+	}
+	if users == nil {
+		users = []models.User{}
+	}
+	return users, nil
 }

@@ -39,6 +39,13 @@ func (r *repository) CreateCompany(company *models.Company) error {
 			  current_price, market_cap, eps, pe_ratio, book_value, pbv,
 			  week_52_high, week_52_low, avg_120_day, yield_1_year, listed_date, is_active)
 			  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18) RETURNING *`
+	var listedDate interface{}
+	if company.ListedDate == "" {
+		listedDate = nil
+	} else {
+		listedDate = company.ListedDate
+	}
+
 	return r.client.ExecuteInsert(query, company,
 		company.Symbol, company.Name, company.Sector, company.Description,
 		company.TotalSupply, company.SharesOutstanding.String(),
@@ -47,7 +54,7 @@ func (r *repository) CreateCompany(company *models.Company) error {
 		company.BookValue.String(), company.PBV.String(),
 		company.Week52High.String(), company.Week52Low.String(),
 		company.Avg120Day.String(), company.Yield1Year.String(),
-		company.ListedDate, company.IsActive)
+		listedDate, company.IsActive)
 }
 
 func (r *repository) GetCompanyByID(id string) (*models.Company, error) {

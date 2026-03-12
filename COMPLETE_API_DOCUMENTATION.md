@@ -226,6 +226,41 @@
 
 ## Admin Management
 
+### Get All Users
+**Endpoint:** `GET /admin/users`
+
+**Authentication:** Required (Bearer Token, Admin Only)
+
+**Query Parameters:**
+- `limit` (int, optional, default: 50) - Number of users to return
+- `offset` (int, optional, default: 0) - Number of users to skip
+
+**Response (Status 200):**
+```json
+{
+  "users": [
+    {
+      "id": "string",
+      "full_name": "string",
+      "email": "string",
+      "phone": "string",
+      "kyc_status": "pending|verified|rejected|under_review",
+      "role": "string",
+      "profile_image_url": "string",
+      "created_at": "ISO8601 timestamp",
+      "updated_at": "ISO8601 timestamp"
+    }
+  ]
+}
+```
+
+**Status Codes:**
+- `200` - Success
+- `401` - Unauthorized
+- `403` - Admin access required
+
+---
+
 ### Update User KYC & Role
 **Endpoint:** `PUT /admin/users/{user_id}/kyc`
 

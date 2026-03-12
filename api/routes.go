@@ -74,6 +74,11 @@ func NewRouter(supabaseClient *supabase.Client, cfg *config.Config) *gin.Engine 
 	adminMiddleware := middleware.AdminAuth(authRepo)
 
 	// ─── Routes ───
+	// Base level health check for Render
+	r.GET("/health", func(c *gin.Context) {
+		c.JSON(200, gin.H{"status": "ok", "service": "stock-market-simulator"})
+	})
+
 	v1 := r.Group("/api/v1")
 
 	// Health
@@ -95,6 +100,7 @@ func NewRouter(supabaseClient *supabase.Client, cfg *config.Config) *gin.Engine 
 	adminGroup := v1.Group("/admin", authMiddleware, adminMiddleware)
 	{
 		// User Management
+		adminGroup.GET("/users", authHandler.GetAllUsers)
 		adminGroup.PUT("/users/:user_id/kyc", authHandler.UpdateKYC)
 
 		// IPO/Company Management
