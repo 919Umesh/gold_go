@@ -154,6 +154,8 @@ func NewRouter(supabaseClient *supabase.Client, cfg *config.Config) *gin.Engine 
 		marketGroup.GET("/live", marketHandler.GetLiveTradingData)
 		marketGroup.GET("/index", marketHandler.GetMarketIndex)
 		marketGroup.GET("/candlestick", marketHandler.GetCandlestickData)
+		marketGroup.GET("/candlestick/1d", marketHandler.GetCandlestickData)
+		marketGroup.GET("/chart/1d", marketHandler.GetCandlestickData) // Professional Charting Endpoint
 
 		marketGroup.GET("/top-gainers", marketHandler.GetTopGainers)
 		marketGroup.GET("/top-losers", marketHandler.GetTopLosers)

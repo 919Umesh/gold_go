@@ -1281,6 +1281,8 @@
 
 **Parameters:** None
 
+**Behavior:** Returns the latest persisted snapshot from `market_index_history` (source of truth for index widgets). If no snapshot exists yet, it falls back to live-session in-memory aggregation.
+
 **Response (Status 200):**
 ```json
 {
@@ -1307,15 +1309,16 @@
 
 ---
 
-### Get Candlestick Data
-**Endpoint:** `GET /market/candlestick`
+### Get Standard 1D Chart Data
+**Endpoint:** `GET /market/chart/1d` or `GET /market/candlestick`
 
 **Authentication:** Not required
 
 **Query Parameters:**
-- `symbol` (string, required) - Stock symbol
-- `timeframe` (string, optional, default: "1D") - 1m|5m|15m|1h|1D
-- `days` (integer, optional, default: 90) - Number of days of data
+- `symbol` (string, required) - Stock symbol (e.g., "NABIL")
+- `days` (integer, optional, default: 365) - Number of historical days to return
+
+**Description:** Returns professional-grade 1-Day (1D) candlestick data compatible with standard charting libraries. This endpoint automatically injects the **Live Day Candle** (Today's trades) at the end of the historical array to ensure the chart is always up-to-date with real-time transactions.
 
 **Response (Status 200):**
 ```json
@@ -1323,18 +1326,21 @@
   "data": [
     {
       "timestamp": "ISO8601 timestamp",
-      "open": "decimal",
-      "high": "decimal",
-      "low": "decimal",
-      "close": "decimal",
-      "volume": 1000000,
-      "turnover": "decimal",
-      "change_percent": "decimal"
+      "time": 1773446400,
+      "open": "374.00",
+      "high": "375.00",
+      "low": "368.00",
+      "close": "370.00",
+      "volume": 37568,
+      "turnover": "13900160",
+      "change": "2.00",
+      "change_percent": "0.54"
     }
   ],
-  "symbol": "string",
-  "timeframe": "string",
-  "count": 90
+  "symbol": "NABIL",
+  "company_name": "Nabil Bank Limited",
+  "timeframe": "1D",
+  "count": 365
 }
 ```
 

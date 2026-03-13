@@ -22,6 +22,7 @@ type Repository interface {
 	GetLatestPrice(companyID string) (*models.StockPrice, error)
 	GetPriceHistory(companyID, timeframe string, from, to time.Time, limit int) ([]models.StockPrice, error)
 	UpsertDailyPrice(price *models.StockPrice) error
+	GetLatestMarketIndexSnapshot() (*models.MarketIndex, error)
 }
 
 type repository struct {
@@ -173,4 +174,21 @@ func (r *repository) getDailyPrice(companyID string, day time.Time) (*models.Sto
 		return nil, err
 	}
 	return &price, nil
+}
+
+func (r *repository) GetLatestMarketIndexSnapshot() (*models.MarketIndex, error) {
+	var rows []models.MarketIndex
+	query := `SELECT index_value, change, change_percent, total_turnover, total_volume, total_market_cap, advances, declines, unchanged, total_companies, timestamp FROM market_index_history ORDER BY timestamp DESC LIMIT $1`
+	err := r.client.ExecuteQuery(query, &rows, 1)
+	if err != nil {
+		return nil, fmt.Errorf("latest market index snapshot not found: %w", err)
+	}
+	if len(rows) == 0 {
+		return nil, fmt.Errorf("latest market index snapshot not found")
+	}
+
+	idx := rows[0]
+
+	idx.PreviousClose = idx.IndexValue.Sub(idx.Change).Round(2)
+	return &idx, nil
 }

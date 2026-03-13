@@ -22,16 +22,18 @@ type StockPrice struct {
 	UpdatedAt     time.Time       `json:"updated_at,omitempty"`
 }
 
-// CandlestickData is the frontend-friendly OHLCV representation
+// CandlestickData is the frontend-friendly OHLCV representation formatted for standard charting libraries
 type CandlestickData struct {
-	Timestamp     time.Time       `json:"timestamp"`
-	Open          decimal.Decimal `json:"open"`
-	High          decimal.Decimal `json:"high"`
-	Low           decimal.Decimal `json:"low"`
-	Close         decimal.Decimal `json:"close"`
-	Volume        int64           `json:"volume"`
-	Turnover      decimal.Decimal `json:"turnover"`
-	ChangePercent decimal.Decimal `json:"change_percent"`
+	Timestamp     time.Time       `json:"timestamp"`      // Full date/time
+	Time          int64           `json:"time"`           // Unix timestamp (standard for TradingView/Lightweight Charts)
+	Open          decimal.Decimal `json:"open"`           // Opening price
+	High          decimal.Decimal `json:"high"`           // Highest price
+	Low           decimal.Decimal `json:"low"`            // Lowest price
+	Close         decimal.Decimal `json:"close"`          // Closing price
+	Volume        int64           `json:"volume"`         // Total volume traded
+	Turnover      decimal.Decimal `json:"turnover"`       // Total value traded
+	Change        decimal.Decimal `json:"change"`         // Absolute change (e.g., +2.00)
+	ChangePercent decimal.Decimal `json:"change_percent"` // Percentage change (e.g., +0.54%)
 }
 
 // LiveTradingData represents real-time trading info for a company

@@ -265,22 +265,24 @@ func (s *service) AllocateIPO(ipoID string) (*AllocationResult, error) {
 	return result, nil
 }
 
-// lotteryAllocation implements skip-value / lottery-based allocation
+// lotteryAllocation implements a "winner-takes-all" lottery system.
+// Applicants are randomly chosen and given their full requested amount until shares run out.
 // Returns a map of application index -> shares allocated
 func (s *service) lotteryAllocation(apps []models.IPOApplication, availableShares, maxPerApplicant int64) map[int]int64 {
 	allocated := make(map[int]int64)
+	n := len(apps)
 
-	if len(apps) == 0 || availableShares <= 0 {
+	if n == 0 || availableShares <= 0 {
 		return allocated
 	}
 
-	// Calculate total requested
+	// 1. Calculate total requested shares
 	var totalRequested int64
 	for _, app := range apps {
 		totalRequested += app.SharesRequested
 	}
 
-	// If under-subscribed, give everyone what they asked
+	// 2. Handle under-subscription: Give everyone what they asked for.
 	if totalRequested <= availableShares {
 		for i, app := range apps {
 			allocated[i] = app.SharesRequested
@@ -288,63 +290,36 @@ func (s *service) lotteryAllocation(apps []models.IPOApplication, availableShare
 		return allocated
 	}
 
-	// Oversubscribed — use skip-value lottery
-	// Each applicant gets a "lot" (shares they requested, capped by max)
-	n := len(apps)
-	sharesPerLot := maxPerApplicant
-	availableLots := availableShares / sharesPerLot
-	if availableLots <= 0 {
-		availableLots = 1
-	}
+	// 3. Handle over-subscription with a winner-takes-all lottery.
+	// Create a shuffled list of applicant indices to process them in a random order.
+	rand.Seed(time.Now().UnixNano())
+	applicantIndices := rand.Perm(n)
 
-	if int64(n) <= availableLots {
-		// Enough lots for everyone, just cap at available
-		remaining := availableShares
-		for i, app := range apps {
-			give := app.SharesRequested
-			if give > remaining {
-				give = remaining
-			}
-			if give > 0 {
-				allocated[i] = give
-				remaining -= give
-			}
-			if remaining <= 0 {
-				break
-			}
-		}
-		return allocated
-	}
+	remainingShares := availableShares
 
-	// Skip-value selection
-	// skipInterval = totalApplicants / availableLots
-	skipInterval := float64(n) / float64(availableLots)
-
-	// Random starting index
-	startIndex := rand.Intn(n)
-
-	remaining := availableShares
-	selected := int64(0)
-
-	for lot := int64(0); lot < availableLots && remaining > 0; lot++ {
-		idx := (startIndex + int(float64(lot)*skipInterval)) % n
-
-		if _, alreadySelected := allocated[idx]; alreadySelected {
-			// Skip if already allocated (handle wraparound collisions)
-			continue
+	for _, idx := range applicantIndices {
+		if remainingShares <= 0 {
+			break // Stop allocating when no shares are left.
 		}
 
-		give := apps[idx].SharesRequested
-		if give > sharesPerLot {
-			give = sharesPerLot
-		}
-		if give > remaining {
-			give = remaining
+		app := apps[idx]
+		requested := app.SharesRequested
+
+		// Ensure the request doesn't exceed the per-applicant limit.
+		if requested > maxPerApplicant {
+			requested = maxPerApplicant
 		}
 
-		allocated[idx] = give
-		remaining -= give
-		selected += give
+		// If there are enough shares to fulfill the entire request, do it.
+		if remainingShares >= requested {
+			allocated[idx] = requested
+			remainingShares -= requested
+		} else {
+			// If there are some shares left, but not enough to fulfill the whole request,
+			// the current lottery model gives them the remainder.
+			allocated[idx] = remainingShares
+			remainingShares = 0
+		}
 	}
 
 	return allocated

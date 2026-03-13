@@ -33,6 +33,7 @@ type PriceEngine struct {
 	dayOpenPrices  map[string]decimal.Decimal
 	previousCloses map[string]decimal.Decimal
 	dailyVolumes   map[string]int64
+	dailyTurnovers map[string]decimal.Decimal
 	dailyHighs     map[string]decimal.Decimal
 	dailyLows      map[string]decimal.Decimal
 	lastTradeDay   time.Time
@@ -53,6 +54,7 @@ func NewPriceEngine(stockRepo stock.Repository, eventHub *EventHub, orderRepo in
 		dayOpenPrices:  make(map[string]decimal.Decimal),
 		previousCloses: make(map[string]decimal.Decimal),
 		dailyVolumes:   make(map[string]int64),
+		dailyTurnovers: make(map[string]decimal.Decimal),
 		dailyHighs:     make(map[string]decimal.Decimal),
 		dailyLows:      make(map[string]decimal.Decimal),
 		lastTradeDay:   time.Now().Truncate(24 * time.Hour),
@@ -79,6 +81,7 @@ func (pe *PriceEngine) initializeDayData() {
 		pe.dayOpenPrices[c.ID] = c.CurrentPrice
 		pe.dailyHighs[c.ID] = c.CurrentPrice
 		pe.dailyLows[c.ID] = c.CurrentPrice
+		pe.dailyVolumes[c.ID] = 0 // Ensure volume starts at 0 for new day initialization
 	}
 
 	slog.Info("PriceEngine initialized", "companies_loaded", len(pe.previousCloses))
@@ -94,6 +97,7 @@ func (pe *PriceEngine) checkDayReset() {
 		}
 		pe.dayOpenPrices = make(map[string]decimal.Decimal)
 		pe.dailyVolumes = make(map[string]int64)
+		pe.dailyTurnovers = make(map[string]decimal.Decimal)
 		pe.dailyHighs = make(map[string]decimal.Decimal)
 		pe.dailyLows = make(map[string]decimal.Decimal)
 		pe.lastTradeDay = today
@@ -146,7 +150,10 @@ func (pe *PriceEngine) ProcessMatchedTrade(companyID string, tradePrice decimal.
 	newPrice = pe.applyCircuitBreaker(companyID, newPrice)
 	newPrice = newPrice.Round(2)
 
+	tradeTurnover := tradePrice.Mul(decimal.NewFromInt(tradeQty))
 	pe.dailyVolumes[companyID] += tradeQty
+	pe.dailyTurnovers[companyID] = pe.dailyTurnovers[companyID].Add(tradeTurnover)
+
 	if pe.dayOpenPrices[companyID].IsZero() {
 		pe.dayOpenPrices[companyID] = currentPrice
 	}
@@ -158,7 +165,8 @@ func (pe *PriceEngine) ProcessMatchedTrade(companyID string, tradePrice decimal.
 	}
 
 	now := time.Now()
-	turnover := newPrice.Mul(decimal.NewFromInt(tradeQty))
+	// Individual record turnover for the 1m candle
+	candleTurnover := newPrice.Mul(decimal.NewFromInt(tradeQty))
 
 	priceChange := newPrice.Sub(currentPrice)
 	priceChangePct := decimal.Zero
@@ -173,7 +181,7 @@ func (pe *PriceEngine) ProcessMatchedTrade(companyID string, tradePrice decimal.
 		LowPrice:      decimal.Min(currentPrice, newPrice),
 		ClosePrice:    newPrice,
 		Volume:        tradeQty,
-		Turnover:      turnover,
+		Turnover:      candleTurnover,
 		ChangePercent: priceChangePct.Round(4),
 		Timestamp:     now,
 		Timeframe:     "1m",
@@ -204,7 +212,7 @@ func (pe *PriceEngine) ProcessMatchedTrade(companyID string, tradePrice decimal.
 				Volume:        pe.dailyVolumes[companyID],
 				PreviousClose: pe.previousCloses[companyID],
 				Difference:    priceChange.Round(2),
-				Turnover:      newPrice.Mul(decimal.NewFromInt(pe.dailyVolumes[companyID])),
+				Turnover:      pe.dailyTurnovers[companyID],
 				LastUpdated:   now,
 			},
 		})
@@ -256,6 +264,8 @@ func (pe *PriceEngine) updateDailyCandle(companyID string, newPrice decimal.Deci
 	prevClose := pe.previousCloses[companyID]
 	if !prevClose.IsZero() {
 		changePct = newPrice.Sub(prevClose).Div(prevClose).Mul(decimal.NewFromInt(100))
+	} else if !dayOpen.IsZero() {
+		changePct = newPrice.Sub(dayOpen).Div(dayOpen).Mul(decimal.NewFromInt(100))
 	}
 
 	dailyTurnover := newPrice.Mul(decimal.NewFromInt(dayVolume))
@@ -402,7 +412,7 @@ func (pe *PriceEngine) buildLiveTradingData(c models.Company) models.LiveTrading
 		Volume:        pe.dailyVolumes[c.ID],
 		PreviousClose: prevClose,
 		Difference:    diff.Round(2),
-		Turnover:      ltp.Mul(decimal.NewFromInt(pe.dailyVolumes[c.ID])),
+		Turnover:      pe.dailyTurnovers[c.ID],
 		LastUpdated:   time.Now(),
 	}
 }
@@ -573,6 +583,10 @@ func (pe *PriceEngine) GetMarketIndex() (*models.MarketIndex, error) {
 	pe.mu.RLock()
 	defer pe.mu.RUnlock()
 
+	if latestSnapshot, err := pe.stockRepo.GetLatestMarketIndexSnapshot(); err == nil {
+		return latestSnapshot, nil
+	}
+
 	companies, err := pe.stockRepo.ListCompanies(200, 0)
 	if err != nil {
 		return nil, err
@@ -608,7 +622,7 @@ func (pe *PriceEngine) GetMarketIndex() (*models.MarketIndex, error) {
 
 		vol := pe.dailyVolumes[c.ID]
 		totalVolume += vol
-		totalTurnover = totalTurnover.Add(c.CurrentPrice.Mul(decimal.NewFromInt(vol)))
+		totalTurnover = totalTurnover.Add(pe.dailyTurnovers[c.ID])
 	}
 
 	baseDivisor := decimal.NewFromFloat(1e9)
@@ -649,29 +663,87 @@ func (pe *PriceEngine) GetCandlestickData(symbol string, timeframe string, days 
 		return nil, err
 	}
 
+	// Default to 1D as per real market behavior shown in image
 	to := time.Now()
 	from := to.AddDate(0, 0, -days)
-	if timeframe == "" {
-		timeframe = "1D"
-	}
 
-	prices, err := pe.stockRepo.GetPriceHistory(company.ID, timeframe, from, to, 1000)
+	// 1. Fetch historical 1D records from DB
+	prices, err := pe.stockRepo.GetPriceHistory(company.ID, "1D", from, to, 1000)
 	if err != nil {
 		return nil, err
 	}
 
-	candles := make([]models.CandlestickData, 0, len(prices))
+	// 2. Format historical data
+	candles := make([]models.CandlestickData, 0, len(prices)+1)
+	todayFound := false
+	todayStart := time.Now().Truncate(24 * time.Hour)
+
 	for _, p := range prices {
+		// Calculate the absolute change (C - O) for standard OHLC charts
+		change := p.ClosePrice.Sub(p.OpenPrice)
+
+		candleTimestamp := p.Timestamp.Truncate(24 * time.Hour)
+		if candleTimestamp.Equal(todayStart) {
+			todayFound = true
+		}
+
 		candles = append(candles, models.CandlestickData{
 			Timestamp:     p.Timestamp,
+			Time:          p.Timestamp.Unix(), // Unix timestamp (Seconds)
 			Open:          p.OpenPrice,
 			High:          p.HighPrice,
 			Low:           p.LowPrice,
 			Close:         p.ClosePrice,
 			Volume:        p.Volume,
 			Turnover:      p.Turnover,
+			Change:        change.Round(2),
 			ChangePercent: p.ChangePercent,
 		})
+	}
+
+	// 3. Inject LIVE (Today's) candle if not already in DB history
+	// In some hosting setups, DB writes for the current day might be delayed or the user's trades
+	// are only in the PriceEngine memory. We ensure today's candle is ALWAYS visible.
+	if !todayFound {
+		pe.mu.RLock()
+		dayOpen := pe.dayOpenPrices[company.ID]
+		dayHigh := pe.dailyHighs[company.ID]
+		dayLow := pe.dailyLows[company.ID]
+		dayVol := pe.dailyVolumes[company.ID]
+		dayTurn := pe.dailyTurnovers[company.ID]
+		pe.mu.RUnlock()
+
+		// Only add if there has actually been trading today
+		if dayVol > 0 || !company.CurrentPrice.IsZero() {
+			if dayOpen.IsZero() {
+				dayOpen = company.CurrentPrice
+			}
+			if dayHigh.IsZero() {
+				dayHigh = company.CurrentPrice
+			}
+			if dayLow.IsZero() {
+				dayLow = company.CurrentPrice
+			}
+
+			priceChange := company.CurrentPrice.Sub(dayOpen)
+			changePct := decimal.Zero
+			if !dayOpen.IsZero() {
+				changePct = priceChange.Div(dayOpen).Mul(decimal.NewFromInt(100))
+			}
+
+			candles = append(candles, models.CandlestickData{
+				Timestamp:     todayStart,
+				Time:          todayStart.Unix(),
+				Open:          dayOpen,
+				High:          dayHigh,
+				Low:           dayLow,
+				Close:         company.CurrentPrice,
+				Volume:        dayVol,
+				Turnover:      dayTurn,
+				Change:        priceChange.Round(2),
+				ChangePercent: changePct.Round(4),
+			})
+		}
 	}
 
 	sort.Slice(candles, func(i, j int) bool {

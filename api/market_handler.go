@@ -78,15 +78,23 @@ func (h *MarketHandler) GetMarketIndex(c *gin.Context) {
 
 // GetCandlestickData godoc
 func (h *MarketHandler) GetCandlestickData(c *gin.Context) {
-	symbol := c.Query("symbol")
+	symbol := h.determineSymbol(c)
 	if symbol == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "symbol is required"})
 		return
 	}
-	timeframe := c.DefaultQuery("timeframe", "1D")
-	days, _ := strconv.Atoi(c.DefaultQuery("days", "90"))
+
+	// Forced to 1D for Nepal Market style
+	timeframe := "1D"
+	days, _ := strconv.Atoi(c.DefaultQuery("days", "365"))
 	if days <= 0 {
-		days = 90
+		days = 365
+	}
+
+	company, err := h.stockService.GetCompany(symbol)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Company not found"})
+		return
 	}
 
 	candles, err := h.priceEngine.GetCandlestickData(symbol, timeframe, days)
@@ -94,7 +102,22 @@ func (h *MarketHandler) GetCandlestickData(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"data": candles, "symbol": symbol, "timeframe": timeframe, "count": len(candles)})
+
+	c.JSON(http.StatusOK, gin.H{
+		"data":         candles,
+		"symbol":       symbol,
+		"company_name": company.Name, // This allows the chart title shown in the photo
+		"timeframe":    timeframe,
+		"count":        len(candles),
+	})
+}
+
+func (h *MarketHandler) determineSymbol(c *gin.Context) string {
+	symbol := c.Query("symbol")
+	if symbol == "" {
+		symbol = c.Param("symbol")
+	}
+	return symbol
 }
 
 // ──────────────────── Top Gainers / Losers / Active ────────────────────
